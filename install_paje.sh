@@ -5,7 +5,7 @@
 
 set -Eeuo pipefail
 
-PAJE_DEFAULT_REPO="https://github.com/lukeboh/PAJE.git"
+PAJE_DEFAULT_REPO="https://github.com/lukeboh/paje.git"
 PAJE_DIR_DEFAULT="PAJE"
 PAJE_BASE_DIR_DEFAULT="${HOME}/git"
 
@@ -209,8 +209,32 @@ summary() {
   local repo_url="$1"
   local dest_dir="$2"
   printf "\nResumo da instalação:\n"
-  printf "- Repositório: %s\n" "$repo_url"
-  printf "- Diretório:   %s\n" "$dest_dir"
+  printf "%s\n" "- Repositório: $repo_url"
+  printf "%s\n" "- Diretório:   $dest_dir"
+}
+
+ask_yes_no() {
+  local prompt="$1"
+  local default_answer="$2"
+  local answer
+  while true; do
+    printf "%s" "$prompt" >&2
+    read -r answer
+    if [[ -z "$answer" ]]; then
+      answer="$default_answer"
+    fi
+    case "$answer" in
+      S|s)
+        return 0
+        ;;
+      N|n)
+        return 1
+        ;;
+      *)
+        log_warn "Resposta inválida. Informe S ou N."
+        ;;
+    esac
+  done
 }
 
 build_auth_url() {
@@ -261,16 +285,14 @@ main() {
 
   local dest_dir="${base_dir}/${PAJE_DIR_DEFAULT}"
   if [[ -d "$dest_dir" ]]; then
-    abort "Diretório '$dest_dir' já existe. Remova ou escolha outro destino."
+    log_warn "Diretório '$dest_dir' já existe. Pulando clonagem."
+  else
+    clone_with_optional_credentials "$repo_url" "$dest_dir"
+    health_check "$dest_dir"
+    summary "$repo_url" "$dest_dir"
   fi
 
-  clone_with_optional_credentials "$repo_url" "$dest_dir"
-  health_check "$dest_dir"
-  summary "$repo_url" "$dest_dir"
-
-  printf "\nDeseja iniciar o PAJÉ agora? (S/N) "
-  read -r start_now
-  if [[ "$start_now" =~ ^[Ss]$ ]]; then
+  if ask_yes_no "Deseja iniciar o PAJÉ agora? (S/N) [padrão: S] " "S"; then
     log_info "Iniciando PAJÉ..."
     if [[ -f "$dest_dir/paje.sh" ]]; then
       bash "$dest_dir/paje.sh" || abort "Falha ao iniciar o PAJÉ."
@@ -278,6 +300,14 @@ main() {
       abort "Arquivo de inicialização não encontrado: $dest_dir/paje.sh"
     fi
   else
+    if ask_yes_no "Deseja excluir o diretório '$dest_dir'? (S/N) [padrão: N] " "N"; then
+      rm -rf "$dest_dir" || abort "Falha ao remover o diretório '$dest_dir'."
+      log_info "Diretório removido com sucesso."
+      if ask_yes_no "Deseja reiniciar o processo de instalação? (S/N) [padrão: N] " "N"; then
+        main "$@"
+        return 0
+      fi
+    fi
     log_info "Instalação finalizada."
   fi
 }
