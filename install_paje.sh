@@ -205,6 +205,111 @@ health_check() {
   log_info "Health check OK."
 }
 
+final_verification() {
+  local dest_dir="$1"
+  local -a binaries=("paje" "paje.sh" "install_paje.sh")
+  local binary
+
+  for binary in "${binaries[@]}"; do
+    local binary_path="$dest_dir/$binary"
+    [[ -f "$binary_path" || -L "$binary_path" ]] || abort "Binário esperado não encontrado: $binary_path"
+    [[ -x "$binary_path" ]] || abort "Permissão de execução ausente para: $binary_path"
+  done
+
+  case ":$PATH:" in
+    *":$dest_dir:"*)
+      ;; 
+    *)
+      abort "Diretório $dest_dir não está no PATH. Adicione com: export PATH=\"$dest_dir:\$PATH\""
+      ;;
+  esac
+
+  for binary in "${binaries[@]}"; do
+    if ! command -v "$binary" >/dev/null 2>&1; then
+      abort "Binário $binary não encontrado no PATH após validação."
+    fi
+  done
+
+  log_info "Verificação final OK. Binários no PATH e permissões corretas."
+}
+
+ensure_cli_symlink() {
+  local dest_dir="$1"
+  local target="$dest_dir/paje.sh"
+  local link="$dest_dir/paje"
+
+  [[ -f "$target" ]] || abort "Arquivo de inicialização não encontrado: $target"
+  chmod +x "$target" || abort "Falha ao aplicar permissão de execução em $target"
+
+  if [[ -L "$link" || -f "$link" ]]; then
+    return 0
+  fi
+
+  ln -s "paje.sh" "$link" || abort "Falha ao criar link simbólico para $link"
+  chmod +x "$link" || abort "Falha ao aplicar permissão de execução em $link"
+}
+
+detect_shell_rc() {
+  local shell_name
+  shell_name="${SHELL##*/}"
+  case "$shell_name" in
+    bash)
+      printf "%s" "$HOME/.bashrc"
+      ;;
+    zsh)
+      printf "%s" "$HOME/.zshrc"
+      ;;
+    *)
+      printf "%s" "$HOME/.profile"
+      ;;
+  esac
+}
+
+ensure_paje_on_path() {
+  local dest_dir="$1"
+
+  case ":$PATH:" in
+    *":$dest_dir:"*)
+      return 0
+      ;;
+  esac
+
+  if ! ask_yes_no "Deseja incluir o PAJÉ no PATH? (S/N) [padrão: S] " "S"; then
+    log_warn "PAJÉ não foi adicionado ao PATH. A validação final pode falhar."
+    return 0
+  fi
+
+  local rc_file
+  rc_file="$(detect_shell_rc)"
+  local export_line
+  export_line="export PATH=\"$dest_dir:\$PATH\""
+
+  if [[ -f "$rc_file" ]] && grep -Fxq "$export_line" "$rc_file"; then
+    log_info "PATH já contém o PAJÉ em $rc_file."
+  else
+    log_info "Adicionando PAJÉ ao PATH em $rc_file"
+    {
+      printf "\n# PAJÉ - PATH\n"
+      printf "%s\n" "$export_line"
+    } >>"$rc_file" || abort "Falha ao atualizar $rc_file"
+  fi
+
+  export PATH="$dest_dir:$PATH"
+  if [[ -f "$rc_file" ]]; then
+    # shellcheck disable=SC1090
+    source "$rc_file" || log_warn "Não foi possível aplicar o source em $rc_file."
+  fi
+
+  if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    if ask_yes_no "Deseja recarregar o shell agora? (S/N) [padrão: N] " "N"; then
+      log_info "Recarregando o shell para aplicar o PATH..."
+      exec "${SHELL:-/bin/bash}" -l
+    fi
+    log_warn "Para aplicar no terminal atual, execute: source $rc_file"
+    log_warn "Alternativa: feche e reabra o terminal para recarregar o PATH."
+  fi
+}
+
 summary() {
   local repo_url="$1"
   local dest_dir="$2"
@@ -292,6 +397,10 @@ main() {
     summary "$repo_url" "$dest_dir"
   fi
 
+  ensure_cli_symlink "$dest_dir"
+  ensure_paje_on_path "$dest_dir"
+  final_verification "$dest_dir"
+
   if ask_yes_no "Deseja iniciar o PAJÉ agora? (S/N) [padrão: S] " "S"; then
     log_info "Iniciando PAJÉ..."
     if [[ -f "$dest_dir/paje.sh" ]]; then
@@ -312,4 +421,6 @@ main() {
   fi
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" && "${PAJE_SKIP_MAIN:-}" != "1" ]]; then
+  main "$@"
+fi
