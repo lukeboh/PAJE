@@ -1,0 +1,33 @@
+{
+  "name": "paje",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/cli.js",
+    "dev": "tsx src/cli.ts",
+    "test": "c8 --reporter=text --reporter=text-summary --reporter=lcov tsx tests/run-all.ts",
+    "test:coverage": "c8 --reporter=text --reporter=text-summary --reporter=lcov --reporter=html tsx tests/run-all.ts"
+  },
+  "dependencies": {
+    "blessed": "^0.1.81",
+    "blessed-contrib": "^4.8.13",
+    "cheerio": "^1.1.2",
+    "commander": "^12.1.0",
+    "inquirer": "^12.4.2",
+    "tough-cookie": "^4.1.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "c8": "^11.0.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "@types/tough-cookie": "^4.0.5"
+  },
+  "overrides": {
+    "marked": "^4.0.12",
+    "xml2js": "^0.5.0"
+  }
+}

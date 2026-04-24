@@ -1,0 +1,48 @@
+# --- Dependências ---
+node_modules/
+.npm/
+.pnpm-store/
+
+# --- Compilação (TypeScript) ---
+# Ignora a pasta onde o 'npm run build' coloca os arquivos .js
+dist/
+out/
+build/
+*.tsbuildinfo
+
+# --- Logs ---
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+# Logs específicos do PAJÉ que combinamos de salvar em ~/.paje, 
+# mas caso algum escape para a pasta do projeto:
+.paje/logs/
+
+# --- Configurações Locais e Segredos ---
+.env
+.env.local
+.env.*.local
+# IMPORTANTE: Nunca subir chaves SSH ou arquivos de credenciais
+*.pem
+*.key
+.ssh/
+env.test
+
+# --- Testes ---
+coverage/
+.nyc_output/
+
+# --- IDEs e Editores ---
+.vscode/*
+!.vscode/extensions.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# --- Ferramentas de Runtime (tsx/ts-node) ---
+.tsx/
+.ts-node/
