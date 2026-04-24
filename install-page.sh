@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install_paje.sh - Instalação e provisionamento inicial do PAJÉ (Linux/Bash)
+# install-page.sh - Instalação e provisionamento inicial do PAJÉ (Linux/Bash)
 # Objetivo: preparar o ambiente para execução do PAJÉ com validações e mensagens claras.
 # Arquitetura cross-platform: script modular, funções reutilizáveis para facilitar futura versão .bat.
 
@@ -207,7 +207,7 @@ health_check() {
 
 final_verification() {
   local dest_dir="$1"
-  local -a binaries=("paje" "paje.sh" "install_paje.sh")
+  local -a binaries=("paje" "paje.sh" "install-page.sh")
   local binary
 
   for binary in "${binaries[@]}"; do
