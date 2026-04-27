@@ -187,11 +187,12 @@ export class GitLabApi {
     const keysHtml = await keysResponse.text();
     const csrfToken = this.extractCsrfTokenFromHtml(keysHtml);
     const webAuthenticityToken = this.extractAuthenticityTokenFromHtml(keysHtml);
-    if (!webAuthenticityToken) {
+    const tokenForForm = webAuthenticityToken ?? csrfToken;
+    if (!tokenForForm) {
       throw new Error("Não foi possível obter o token de autenticidade da página de chaves SSH.");
     }
-    this.csrfToken = csrfToken ?? webAuthenticityToken;
-    this.webAuthenticityToken = webAuthenticityToken;
+    this.csrfToken = csrfToken ?? tokenForForm;
+    this.webAuthenticityToken = tokenForForm;
   }
 
   private async createSshKeyViaWeb(title: string, key: string, usageType = "auth_and_signing"): Promise<{ id: number }> {
@@ -301,19 +302,36 @@ export class GitLabApi {
   }
 
   async listGroups(): Promise<GitLabGroup[]> {
+    if (!this.basicAuth) {
+      return [];
+    }
     return this.request<GitLabGroup[]>("/api/v4/groups?per_page=100&all_available=true");
   }
 
   async listSubgroups(groupId: number): Promise<GitLabGroup[]> {
+    if (!this.basicAuth) {
+      return [];
+    }
     return this.request<GitLabGroup[]>(`/api/v4/groups/${groupId}/subgroups?per_page=100`);
   }
 
   async listGroupProjects(groupId: number): Promise<GitLabProject[]> {
+    if (!this.basicAuth) {
+      return [];
+    }
     return this.request<GitLabProject[]>(`/api/v4/groups/${groupId}/projects?per_page=100`);
   }
 
   async listUserProjects(): Promise<GitLabProject[]> {
     return this.request<GitLabProject[]>("/api/v4/projects?membership=true&per_page=100");
+  }
+
+  async listPublicGroups(): Promise<GitLabGroup[]> {
+    return this.request<GitLabGroup[]>("/api/v4/groups?per_page=100&visibility=public");
+  }
+
+  async listPublicProjects(): Promise<GitLabProject[]> {
+    return this.request<GitLabProject[]>("/api/v4/projects?per_page=100&visibility=public");
   }
 
   async createSshKey(title: string, key: string): Promise<{ id: number }> {

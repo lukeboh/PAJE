@@ -73,6 +73,9 @@ const mockFetch = async (url: string, init?: RequestInit): Promise<Response> => 
   if (url.endsWith("/-/user_settings/ssh_keys") && init?.method === "POST") {
     return new MockResponse("", 302, makeHeaders({ location: "/-/user_settings/ssh_keys/1722" })) as unknown as Response;
   }
+  if (url.endsWith("/-/user_settings/ssh_keys/1722")) {
+    return new MockResponse("<html><body>paje</body></html>", 200, makeHeaders()) as unknown as Response;
+  }
   throw new Error(`URL inesperada: ${url}`);
 };
 
@@ -83,7 +86,7 @@ const api = new GitLabApi({
   basicAuth: { username: "usuario", password: "segredo" },
 });
 
-const result = await api.createSshKey("paje", "ssh-ed25519 AAA" );
+const result = await api.createSshKey("paje", "ssh-ed25519 AAA");
 
 assert.ok(result.id > 0, "Deve retornar id da chave via redirecionamento");
 assert.ok(

@@ -49,6 +49,8 @@ type GitSyncCliOptions = {
   keyLabel?: string;
   passphrase?: string;
   publicKeyPath?: string;
+  gitShowPulicRepos?: boolean;
+  gitShowPublicRepos?: boolean;
 };
 
 type SshKeyStoreCliOptions = {
@@ -214,6 +216,13 @@ const selectGitServer = async (session?: TuiSession, cli?: GitSyncCliOptions): P
     return merge.servers.find((item) => normalizeBaseUrl(item.baseUrl) === normalizeBaseUrl(server.baseUrl)) ?? server;
   }
   const servers = readGitServers<GitServerEntry[]>([]);
+  if (cli?.serverName && servers.length > 0) {
+    const normalizedName = cli.serverName.trim().toLowerCase();
+    const matched = servers.find((server) => server.name.trim().toLowerCase() === normalizedName);
+    if (matched) {
+      return matched;
+    }
+  }
   if (servers.length === 0) {
     const server = await promptGitServer(session, {
       name: cli?.serverName,
@@ -239,7 +248,7 @@ const selectGitServer = async (session?: TuiSession, cli?: GitSyncCliOptions): P
         {
           label: "Adicionar novo servidor",
           value: "__new__",
-          description: "Crie um novo servidor GitLab informando nome, URL e token.",
+          description: "Crie um novo servidor GitLab informando nome, URL e autenticação básica (opcional).",
         },
       ],
     });
@@ -854,6 +863,16 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
     .option("--key-label <label>", "Nome da chave SSH a ser gerada")
     .option("--passphrase <passphrase>", "Passphrase da chave SSH")
     .option("--public-key-path <path>", "Caminho para chave pública existente (.pub)")
+    .option(
+      "--git-show-pulic-repos",
+      "Permitir listagem de repositórios sem autenticação (apenas públicos)",
+      false
+    )
+    .option(
+      "--git-show-public-repos",
+      "Permitir listagem de repositórios sem autenticação (apenas públicos)",
+      false
+    )
     .action(async (options: GitSyncCliOptions) => {
       const logger = new PajeLogger();
       logger.info("Iniciando sincronização GitLab");
@@ -887,21 +906,23 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             }
           : undefined,
       });
-      if (!api.hasAuth()) {
-        const message = "Token inválido ou ausente e autenticação básica não selecionada. Não foi possível registrar a chave no GitLab.";
+      const allowPublic = options.gitShowPulicRepos || options.gitShowPublicRepos;
+      if (!api.hasAuth() && !allowPublic && !hasSshAssociation) {
+        const message =
+          "Não há autenticação configurada. Para consultar repositórios sem autenticação, use --git-show-pulic-repos.";
         if (session) {
           await session.showMessage({ title: "GitLab", message });
         } else {
           console.log(message);
         }
+        return;
       }
 
       await ensureSshKey(api, session, options.verbose ?? false, options);
 
-      const [groups, projects] = await Promise.all([
-        api.listGroups(),
-        api.listUserProjects(),
-      ]);
+      const [groups, projects] = allowPublic && !api.hasAuth() && !hasSshAssociation
+        ? await Promise.all([api.listPublicGroups(), api.listPublicProjects()])
+        : await Promise.all([api.listGroups(), api.listUserProjects()]);
 
       const tree = buildGitLabTree(groups, projects);
       const tuiResult = await renderRepositoryTree(tree, (id) => toggleById(tree, id), session);

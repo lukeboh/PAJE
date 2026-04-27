@@ -1,5 +1,4 @@
 import blessed from "blessed";
-import blessedContrib from "blessed-contrib";
 import { GitLabTreeNode } from "./types.js";
 import { TuiSession } from "./tuiSession.js";
 
@@ -12,6 +11,11 @@ type BlessedTreeNode = {
   name: string;
   extended?: boolean;
   children?: Record<string, BlessedTreeNode>;
+};
+
+type FlatTreeItem = {
+  id: string;
+  label: string;
 };
 
 const buildBlessedTreeNode = (node: GitLabTreeNode): BlessedTreeNode => {
@@ -41,77 +45,103 @@ export const renderRepositoryTree = async (
   session?: TuiSession
 ): Promise<TuiSelectionResult> => {
   return new Promise((resolve) => {
-    const screen = session ? (session as any).screen : blessed.screen({
-      smartCSR: true,
-      fullUnicode: true,
-      title: "PAJÉ - Sincronização Git",
+    const screen = session
+      ? (session as any).screen
+      : blessed.screen({
+          smartCSR: true,
+          fullUnicode: true,
+          title: "PAJÉ - Sincronização Git",
+        });
+
+    const screenRows = Number((screen as any).rows ?? (screen as any).height ?? 24);
+    const footerHeight = Math.max(4, Math.floor(screenRows * 0.2));
+    const listHeight = Math.max(4, screenRows - footerHeight);
+
+    const overlay = blessed.box({
+      parent: screen,
+      top: 0,
+      left: 0,
+      width: "100%",
+      height: "100%",
     });
 
-    const treeFactory = (blessed as any).tree ?? (blessedContrib as any).tree;
-    if (!treeFactory) {
-      throw new Error("Widget tree não disponível. Verifique a dependência blessed-contrib.");
-    }
-    const screenRows = (screen as any).rows ?? 24;
-    const footerHeight = Math.max(4, Math.floor(screenRows * 0.2));
-    const treeHeight = Math.max(4, screenRows - footerHeight);
-
-    const tree = treeFactory({
-      parent: screen,
+    const list = blessed.list({
+      parent: overlay,
       border: "line",
       width: "100%",
-      height: treeHeight,
+      height: listHeight,
       top: 0,
+      left: 0,
+      keys: true,
       vi: true,
-      keys: false,
+      mouse: true,
       scrollable: true,
+      alwaysScroll: true,
+      scrollbar: {
+        ch: " ",
+        track: { bg: "gray" },
+        style: { bg: "blue" },
+      },
+      style: { selected: { bg: "blue" } },
     });
 
     const footer = blessed.box({
-      parent: screen,
+      parent: overlay,
       label: "Orientações",
       height: footerHeight,
       width: "100%",
       bottom: 0,
+      left: 0,
       border: "line",
-      content: "Use ↑/↓ para navegar | Espaço para selecionar | Enter para confirmar | Esc para cancelar",
+      content:
+        "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para confirmar | Esc para cancelar",
     });
 
-    const refreshTree = (): void => {
-      const root: BlessedTreeNode = {
-        name: "root",
-        extended: true,
-        children: {},
-      };
-      nodes.forEach((node: GitLabTreeNode) => {
-        if (root.children) {
-          root.children[node.id] = buildBlessedTreeNode(node);
+    let flatItems: FlatTreeItem[] = [];
+
+    const flattenTree = (items: GitLabTreeNode[], depth = 0): FlatTreeItem[] => {
+      const output: FlatTreeItem[] = [];
+      items.forEach((node) => {
+        const indicator = node.partiallySelected ? "[~]" : node.selected ? "[x]" : "[ ]";
+        const indent = "  ".repeat(depth);
+        output.push({ id: node.id, label: `${indent}${indicator} ${node.label}` });
+        if (node.children && node.children.length > 0) {
+          output.push(...flattenTree(node.children, depth + 1));
         }
       });
-      tree.setData(root);
+      return output;
+    };
+
+    const refreshList = (): void => {
+      flatItems = flattenTree(nodes);
+      const labels = flatItems.map((item) => item.label);
+      list.setItems(labels.length > 0 ? labels : ["(Nenhum repositório encontrado)"]);
+      if (labels.length > 0) {
+        list.select(0);
+      }
       screen.render();
     };
 
-    tree.on("select", (item: any) => {
-      const idMatch = Object.keys(item.parent?.children ?? {}).find(
-        (key) => item.parent.children[key] === item
-      );
-      if (idMatch) {
-        onToggle(idMatch);
-        refreshTree();
+    const toggleSelectedIndex = (index: number | undefined): void => {
+      if (typeof index !== "number") {
+        return;
       }
+      const selected = flatItems[index];
+      if (!selected) {
+        return;
+      }
+      onToggle(selected.id);
+      refreshList();
+      list.select(index);
+    };
+
+    list.on("select", (_item: unknown, index: number) => {
+      toggleSelectedIndex(index);
     });
 
     screen.key(["space"], () => {
-      const selected = tree.getSelected();
-      if (selected) {
-        const idMatch = Object.keys(selected.parent?.children ?? {}).find(
-          (key) => selected.parent.children[key] === selected
-        );
-        if (idMatch) {
-          onToggle(idMatch);
-          refreshTree();
-        }
-      }
+      const index = typeof list.selected === "number" ? list.selected : undefined;
+      toggleSelectedIndex(index);
     });
 
     screen.key(["enter"], () => {
@@ -128,7 +158,8 @@ export const renderRepositoryTree = async (
       resolve({ confirmed: false, nodes });
     });
 
-    refreshTree();
+    refreshList();
+    list.focus();
     screen.render();
   });
 };
