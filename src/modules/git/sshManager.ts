@@ -433,13 +433,16 @@ const ensurePublicKeyFromPrivate = async (privateKeyPath: string, publicKeyPath:
 export const ensurePajeKeyPair = async (options: {
   keyLabel?: string;
   passphrase?: string;
+  overwrite?: boolean;
   logger?: SshManagerLogger;
 } = {}): Promise<SshKeyInfo> => {
   const keyLabel = options.keyLabel ?? DEFAULT_KEY_TITLE;
   const logger = options.logger;
   const { privateKeyPath, publicKeyPath } = getKeyPaths(keyLabel);
+  const overwrite = options.overwrite ?? false;
 
-  if (fs.existsSync(privateKeyPath) && fs.existsSync(publicKeyPath)) {
+  if (!overwrite && fs.existsSync(privateKeyPath) && fs.existsSync(publicKeyPath)) {
+    logger?.(`Chave SSH ${keyLabel} já existe. Reutilizando a chave existente.`);
     return {
       privateKeyPath,
       publicKeyPath,
@@ -447,7 +450,7 @@ export const ensurePajeKeyPair = async (options: {
     };
   }
 
-  if (fs.existsSync(privateKeyPath) && !fs.existsSync(publicKeyPath)) {
+  if (!overwrite && fs.existsSync(privateKeyPath) && !fs.existsSync(publicKeyPath)) {
     logger?.("Chave pública ausente, regenerando a partir da chave privada existente.");
     await ensurePublicKeyFromPrivate(privateKeyPath, publicKeyPath);
     return {
@@ -455,6 +458,16 @@ export const ensurePajeKeyPair = async (options: {
       publicKeyPath,
       publicKey: readPublicKey(publicKeyPath),
     };
+  }
+
+  if (overwrite && (fs.existsSync(privateKeyPath) || fs.existsSync(publicKeyPath))) {
+    if (fs.existsSync(privateKeyPath)) {
+      fs.renameSync(privateKeyPath, `${privateKeyPath}.bak`);
+    }
+    if (fs.existsSync(publicKeyPath)) {
+      fs.renameSync(publicKeyPath, `${publicKeyPath}.pub.bak`);
+    }
+    logger?.(`Chave existente renomeada para ${privateKeyPath}.bak (e .pub.bak).`);
   }
 
   logger?.("Gerando novo par de chaves SSH Ed25519.");

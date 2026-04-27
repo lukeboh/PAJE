@@ -59,6 +59,7 @@ type SshKeyStoreCliOptions = {
   keyLabel?: string;
   passphrase?: string;
   publicKeyPath?: string;
+  keyOverwrite?: boolean;
   retryDelayMs?: number;
   maxAttempts?: number;
   envFile?: string;
@@ -649,6 +650,28 @@ const storeSshKeyOnly = async (
     : console.log;
   const serverHost = new URL(server.baseUrl).hostname;
 
+  let resolvedUsername = cli?.username?.trim();
+  if (!resolvedUsername) {
+    if (session) {
+      const form = await session.promptForm<{ username: string }>({
+        title: "GitLab",
+        fields: [
+          {
+            name: "username",
+            label: "Usuário do GitLab",
+            description: "Informe o usuário para autenticação básica.",
+          },
+        ],
+      });
+      resolvedUsername = form?.username?.trim();
+    } else {
+      const promptUser = (await inquirer.prompt([
+        { name: "username", message: "Usuário do GitLab", type: "input" },
+      ])) as { username?: string };
+      resolvedUsername = promptUser.username?.trim();
+    }
+  }
+
   let keyInfo: SshKeyInfo | undefined;
   if (cli?.publicKeyPath) {
     const selectedKey = cli.publicKeyPath;
@@ -667,7 +690,12 @@ const storeSshKeyOnly = async (
       publicKey: readPublicKey(selectedKey),
     };
   } else {
-    keyInfo = await ensurePajeKeyPair({ keyLabel: cli?.keyLabel, passphrase: cli?.passphrase, logger });
+    keyInfo = await ensurePajeKeyPair({
+      keyLabel: cli?.keyLabel,
+      passphrase: cli?.passphrase,
+      overwrite: cli?.keyOverwrite ?? false,
+      logger,
+    });
   }
 
   upsertSshConfigHost(serverHost, keyInfo.privateKeyPath);
@@ -679,16 +707,48 @@ const storeSshKeyOnly = async (
     return;
   }
 
-  const credentials = loadGitCredentials({
-    envFilePaths: resolveEnvPaths(cli?.envFile),
-    allowProcessEnv: true,
-  });
+  let credentials: { username: string; password: string; source: string };
+  if (cli?.envFile) {
+    credentials = loadGitCredentials({
+      envFilePaths: resolveEnvPaths(cli.envFile),
+      allowProcessEnv: false,
+    });
+  } else {
+    let password = "";
+    if (session) {
+      const form = await session.promptForm<{ password: string }>({
+        title: "GitLab",
+        fields: [
+          {
+            name: "password",
+            label: "Senha do GitLab",
+            secret: true,
+            description: "Informe a senha para autenticação básica.",
+          },
+        ],
+      });
+      password = form?.password ?? "";
+    } else {
+      const promptPass = (await inquirer.prompt([
+        { name: "password", message: "Senha do GitLab", type: "password" },
+      ])) as { password?: string };
+      password = promptPass.password ?? "";
+    }
+    credentials = {
+      username: resolvedUsername ?? "",
+      password,
+      source: "prompt",
+    };
+  }
 
   await ensureGitLabSshKey({
     baseUrl: server.baseUrl,
     title: cli?.keyLabel ?? "paje",
     usageType: "auth_and_signing",
-    credentials,
+    credentials: {
+      ...credentials,
+      username: resolvedUsername ?? credentials.username,
+    },
     keyInfo,
     fetchImpl: globalThis.fetch,
     logger,
@@ -888,6 +948,7 @@ export const configureSshKeyStoreCommand = (program: Command, session?: TuiSessi
     .option("--key-label <label>", "Nome da chave SSH a ser gerada", "paje")
     .option("--passphrase <passphrase>", "Passphrase da chave SSH")
     .option("--public-key-path <path>", "Caminho para chave pública existente (.pub)")
+    .option("--key-overwrite", "Sobrescrever chave existente, salvando .bak", false)
     .option("--retry-delay-ms <ms>", "Intervalo de retry em ms", (value) => Number(value))
     .option("--max-attempts <count>", "Número máximo de tentativas", (value) => Number(value))
     .option("--env-file <path>", "Caminho do arquivo de credenciais (env.test)")
