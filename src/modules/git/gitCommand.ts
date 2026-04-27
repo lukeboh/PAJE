@@ -23,6 +23,10 @@ import {
   sanitizePublicKey,
   registerKeyInGitLab,
   sshKeyExists,
+  ensureGitLabSshKey,
+  loadGitCredentials,
+  ensurePajeKeyPair,
+  type SshKeyInfo,
 } from "./sshManager.js";
 import { readGitServers, writeGitServers } from "./persistence.js";
 
@@ -45,6 +49,19 @@ type GitSyncCliOptions = {
   keyLabel?: string;
   passphrase?: string;
   publicKeyPath?: string;
+};
+
+type SshKeyStoreCliOptions = {
+  verbose?: boolean;
+  serverName?: string;
+  baseUrl?: string;
+  username?: string;
+  keyLabel?: string;
+  passphrase?: string;
+  publicKeyPath?: string;
+  retryDelayMs?: number;
+  maxAttempts?: number;
+  envFile?: string;
 };
 
 const normalizeBaseUrl = (url: string): string => url.trim().replace(/\/+$/, "");
@@ -613,6 +630,73 @@ const reportSshPersistenceStatus = async (server: string, session?: TuiSession):
   }
 };
 
+const resolveEnvPaths = (envFile?: string): string[] | undefined => {
+  if (!envFile) {
+    return undefined;
+  }
+  return [envFile];
+};
+
+const storeSshKeyOnly = async (
+  server: GitServerEntry,
+  session?: TuiSession,
+  cli?: SshKeyStoreCliOptions
+): Promise<void> => {
+  const logger = session
+    ? (message: string) => {
+        session.showMessage({ title: "SSH", message });
+      }
+    : console.log;
+  const serverHost = new URL(server.baseUrl).hostname;
+
+  let keyInfo: SshKeyInfo | undefined;
+  if (cli?.publicKeyPath) {
+    const selectedKey = cli.publicKeyPath;
+    if (!fs.existsSync(selectedKey)) {
+      const message = `Chave pública informada não existe: ${selectedKey}`;
+      if (session) {
+        await session.showMessage({ title: "Chave SSH", message });
+      } else {
+        console.log(message);
+      }
+      return;
+    }
+    keyInfo = {
+      publicKeyPath: selectedKey,
+      privateKeyPath: selectedKey.replace(/\.pub$/, ""),
+      publicKey: readPublicKey(selectedKey),
+    };
+  } else {
+    keyInfo = await ensurePajeKeyPair({ keyLabel: cli?.keyLabel, passphrase: cli?.passphrase, logger });
+  }
+
+  upsertSshConfigHost(serverHost, keyInfo.privateKeyPath);
+  await ensureKnownHost(serverHost, session, cli?.verbose);
+  await reportSshPersistenceStatus(serverHost, session);
+
+  if (process.env.PAJE_SKIP_SSH_STORE === "1") {
+    logger?.("Execução de testes: etapa de armazenamento remoto ignorada.");
+    return;
+  }
+
+  const credentials = loadGitCredentials({
+    envFilePaths: resolveEnvPaths(cli?.envFile),
+    allowProcessEnv: true,
+  });
+
+  await ensureGitLabSshKey({
+    baseUrl: server.baseUrl,
+    title: cli?.keyLabel ?? "paje",
+    usageType: "auth_and_signing",
+    credentials,
+    keyInfo,
+    fetchImpl: globalThis.fetch,
+    logger,
+    maxAttempts: cli?.maxAttempts,
+    retryDelayMs: cli?.retryDelayMs,
+  });
+};
+
 const prepareTargets = (projects: GitLabProject[], baseDir: string): GitRepositoryTarget[] => {
   return projects.map((project) => ({
     id: project.id,
@@ -790,5 +874,33 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
           message: "Processo finalizado. Confira os logs em ~/.paje/logs",
         });
       }
+    });
+};
+
+export const configureSshKeyStoreCommand = (program: Command, session?: TuiSession): void => {
+  program
+    .command("ssh-key-store")
+    .description("Gerar e armazenar chave SSH no GitLab sem sincronizar repositórios")
+    .option("-v, --verbose", "Exibe detalhes das operações executadas", false)
+    .option("--server-name <name>", "Nome do servidor GitLab")
+    .option("--base-url <url>", "URL base do GitLab")
+    .option("--username <username>", "Usuário do GitLab")
+    .option("--key-label <label>", "Nome da chave SSH a ser gerada", "paje")
+    .option("--passphrase <passphrase>", "Passphrase da chave SSH")
+    .option("--public-key-path <path>", "Caminho para chave pública existente (.pub)")
+    .option("--retry-delay-ms <ms>", "Intervalo de retry em ms", (value) => Number(value))
+    .option("--max-attempts <count>", "Número máximo de tentativas", (value) => Number(value))
+    .option("--env-file <path>", "Caminho do arquivo de credenciais (env.test)")
+    .action(async (options: SshKeyStoreCliOptions) => {
+      const baseUrl = options.baseUrl?.trim() ?? "https://git.tse.jus.br";
+      const server: GitServerEntry = {
+        id: baseUrl,
+        name: options.serverName ?? "GitLab",
+        baseUrl,
+        useBasicAuth: true,
+        username: options.username,
+      };
+
+      await storeSshKeyOnly(server, session, options);
     });
 };

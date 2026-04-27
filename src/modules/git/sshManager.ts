@@ -512,7 +512,32 @@ const validateKeyTitleInHtml = (html: string, title: string): boolean => {
     return true;
   }
   const bodyText = $("body").text();
-  return bodyText.includes(title);
+  if (bodyText.includes(title)) {
+    return true;
+  }
+  return html.includes(title);
+};
+
+const extractKeyIdFromHtml = (html: string, title: string): number => {
+  const $ = cheerio.load(html);
+  let keyId = 0;
+  const titleCandidates = $(":contains('" + title + "')");
+  titleCandidates.each((_, element) => {
+    if (keyId) {
+      return;
+    }
+    const nearestLink = $(element).closest("a[href*='/ssh_keys/']").attr("href");
+    const href = nearestLink ?? $(element).find("a[href*='/ssh_keys/']").attr("href");
+    const match = href?.match(/\/ssh_keys\/(\d+)/);
+    if (match) {
+      keyId = Number(match[1]);
+    }
+  });
+  if (keyId) {
+    return keyId;
+  }
+  const anyMatch = html.match(/\/ssh_keys\/(\d+)/);
+  return anyMatch ? Number(anyMatch[1]) : 0;
 };
 
 const runWebFlowOnce = async (options: {
@@ -603,27 +628,45 @@ const runWebFlowOnce = async (options: {
     throw new Error(`Falha ao cadastrar chave SSH (${registerResponse.status}): ${text}`);
   }
 
-  const location = registerResponse.headers.get("location") ?? "";
-  const idMatch = location.match(/\/ssh_keys\/(\d+)/);
-  const keyId = idMatch ? Number(idMatch[1]) : 0;
+  const location = registerResponse.headers.get("location") ?? registerResponse.headers.get("Location") ?? "";
+  let idMatch = location.match(/\/ssh_keys\/(\d+)/);
+  let keyId = idMatch ? Number(idMatch[1]) : 0;
   if (!keyId) {
-    throw new Error("Não foi possível obter o ID da chave SSH cadastrada.");
+    const responseText = await registerResponse.text();
+    idMatch = responseText.match(/\/ssh_keys\/(\d+)/);
+    keyId = idMatch ? Number(idMatch[1]) : 0;
+  }
+  let validated = false;
+  let validateUrl = "";
+  if (keyId) {
+    validateUrl = `${baseUrl}/-/user_settings/ssh_keys/${keyId}`;
+    logger?.(`HTTP GET ${validateUrl}`);
+    const validateResponse = await fetchWithCookies(fetchImpl, jar, validateUrl, {
+      headers: buildBrowserHeaders(jar.getCookieStringSync(validateUrl), keysUrl),
+    });
+    if (validateResponse.status === 401) {
+      throw new SshManagerAuthError("Sessão inválida ao validar chave SSH.", validateResponse.status);
+    }
+    const validateHtml = await validateResponse.text();
+    validated = validateKeyTitleInHtml(validateHtml, title);
   }
 
-  const validateUrl = `${baseUrl}/-/user_settings/ssh_keys/${keyId}`;
-  logger?.(`HTTP GET ${validateUrl}`);
-  const validateResponse = await fetchWithCookies(fetchImpl, jar, validateUrl, {
-    headers: buildBrowserHeaders(jar.getCookieStringSync(validateUrl), keysUrl),
-  });
-  if (validateResponse.status === 401) {
-    throw new SshManagerAuthError("Sessão inválida ao validar chave SSH.", validateResponse.status);
+  if (!validated) {
+    const refreshKeysResponse = await fetchWithCookies(fetchImpl, jar, keysUrl, {
+      headers: buildBrowserHeaders(jar.getCookieStringSync(keysUrl), keysUrl),
+    });
+    const refreshHtml = await refreshKeysResponse.text();
+    if (!keyId) {
+      keyId = extractKeyIdFromHtml(refreshHtml, title);
+    }
+    validated = validateKeyTitleInHtml(refreshHtml, title);
   }
-  const validateHtml = await validateResponse.text();
-  if (!validateKeyTitleInHtml(validateHtml, title)) {
+
+  if (!validated) {
     throw new SshManagerAuthError(`Validação falhou: chave ${title} não encontrada.`);
   }
 
-  return keyId;
+  return keyId || 0;
 };
 
 const isRetryableError = (error: unknown): boolean => {

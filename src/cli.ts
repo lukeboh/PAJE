@@ -1,6 +1,6 @@
 import blessed from "blessed";
 import { Command } from "commander";
-import { configureGitSyncCommand } from "./modules/git/gitCommand.js";
+import { configureGitSyncCommand, configureSshKeyStoreCommand } from "./modules/git/gitCommand.js";
 import { createTuiSession } from "./modules/git/tuiSession.js";
 
 type MenuItem = {
@@ -14,6 +14,11 @@ const menuItems: MenuItem[] = [
     label: "Sincronizar repositórios GitLab (git-sync)",
     command: "git-sync",
     description: "Seleciona grupos e projetos via TUI e executa clone/pull paralelo.",
+  },
+  {
+    label: "Gerar e armazenar chave SSH (ssh-key-store)",
+    command: "ssh-key-store",
+    description: "Gera chave SSH, grava no ~/.ssh/config e envia ao GitLab.",
   },
 ];
 
@@ -41,6 +46,7 @@ const main = async (): Promise<void> => {
     .version("0.1.0");
 
   configureGitSyncCommand(baseProgram);
+  configureSshKeyStoreCommand(baseProgram);
 
   const args = process.argv.slice(2);
   if (args.length === 0) {
@@ -55,6 +61,7 @@ const main = async (): Promise<void> => {
       .description("PAJÉ - Plataforma de Apoio à Jornada do Engenheiro")
       .version("0.1.0");
     configureGitSyncCommand(program, session);
+    configureSshKeyStoreCommand(program, session);
     program.configureOutput({
       writeOut: async (str) => {
         await session.showMessage({ title: "PAJÉ", message: str });
