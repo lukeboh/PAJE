@@ -807,6 +807,12 @@ const runWebFlowOnce = async (options: {
     throw new SshManagerAuthError("Token de sessão ausente na página de chaves SSH.");
   }
 
+  if (validateKeyTitleInHtml(keysHtml, title)) {
+    const existingId = extractKeyIdFromHtml(keysHtml, title);
+    logger?.(`Chave SSH ${title} já está cadastrada no GitLab. Reutilizando.`);
+    return existingId;
+  }
+
   const registerForm = new URLSearchParams();
   registerForm.set("authenticity_token", tokenForForm);
   registerForm.set("key[key]", publicKey);
@@ -991,6 +997,95 @@ const isRetryableError = (error: unknown): boolean => {
   return false;
 };
 
+type PersonalAccessTokenInfo = {
+  id?: number;
+  name?: string;
+  token?: string;
+  expires_at?: string;
+  scopes?: string[];
+  active?: boolean;
+};
+
+const isTokenExpired = (expiresAt?: string): boolean => {
+  if (!expiresAt) {
+    return false;
+  }
+  const parsed = new Date(expiresAt);
+  if (Number.isNaN(parsed.getTime())) {
+    return false;
+  }
+  return parsed.getTime() < Date.now();
+};
+
+export const validatePersonalAccessToken = async (options: {
+  baseUrl?: string;
+  token: string;
+  fetchImpl?: typeof fetch;
+  logger?: SshManagerLogger;
+}): Promise<{ valid: boolean; expiresAt?: string; scopes?: string[]; active?: boolean }> => {
+  const baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const url = `${baseUrl}/api/v4/personal_access_tokens/self`;
+  options.logger?.(`HTTP GET ${url}`);
+  const response = await fetchImpl(url, {
+    headers: {
+      "PRIVATE-TOKEN": options.token,
+    },
+  });
+  if (response.status === 401) {
+    return { valid: false };
+  }
+  if (response.status >= 400) {
+    throw new Error(`Falha ao validar token pessoal (${response.status}).`);
+  }
+  const data = (await response.json()) as PersonalAccessTokenInfo;
+  const active = data.active ?? true;
+  const expiresAt = data.expires_at;
+  const expired = isTokenExpired(expiresAt);
+  return {
+    valid: active && !expired,
+    expiresAt,
+    scopes: data.scopes ?? [],
+    active,
+  };
+};
+
+export const rotatePersonalAccessToken = async (options: {
+  baseUrl?: string;
+  token: string;
+  fetchImpl?: typeof fetch;
+  logger?: SshManagerLogger;
+}): Promise<{ token: string; name: string; scopes: string[]; expiresAt?: string; id?: number }> => {
+  const baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const url = `${baseUrl}/api/v4/personal_access_tokens/self/rotate`;
+  options.logger?.(`HTTP POST ${url}`);
+  const response = await fetchImpl(url, {
+    method: "POST",
+    headers: {
+      "PRIVATE-TOKEN": options.token,
+    },
+  });
+  if (response.status === 401) {
+    throw new SshManagerAuthError("Token pessoal inválido para rotação.", response.status);
+  }
+  if (response.status >= 400) {
+    const text = await response.text();
+    throw new Error(`Falha ao rotacionar token pessoal (${response.status}): ${text}`);
+  }
+  const data = (await response.json()) as PersonalAccessTokenInfo;
+  if (!data.token || !data.name) {
+    throw new Error("Resposta de rotação não contém token.");
+  }
+  return {
+    id: data.id,
+    name: data.name,
+    token: data.token,
+    expiresAt: data.expires_at,
+    scopes: data.scopes ?? [],
+  };
+};
+
 export const ensureGitLabSshKey = async (options: EnsureGitLabSshKeyOptions = {}): Promise<{
   id: number;
   keyInfo: SshKeyInfo;
@@ -1002,7 +1097,7 @@ export const ensureGitLabSshKey = async (options: EnsureGitLabSshKeyOptions = {}
   const usageType = options.usageType ?? DEFAULT_USAGE_TYPE;
   const fetchImpl = options.fetchImpl ?? fetch;
   const sleepFn = options.sleepFn ?? sleep;
-  const maxAttempts = options.maxAttempts ?? 5;
+  const maxAttempts = options.maxAttempts ?? 1;
   const retryDelayMs = options.retryDelayMs ?? 4000;
 
   const credentials =
@@ -1057,7 +1152,7 @@ export const ensureGitLabPersonalAccessToken = async (
   const scopes = options.scopes ?? DEFAULT_TOKEN_SCOPES;
   const fetchImpl = options.fetchImpl ?? fetch;
   const sleepFn = options.sleepFn ?? sleep;
-  const maxAttempts = options.maxAttempts ?? 5;
+  const maxAttempts = options.maxAttempts ?? 1;
   const retryDelayMs = options.retryDelayMs ?? 4000;
 
   const credentials =

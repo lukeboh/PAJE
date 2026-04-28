@@ -9,6 +9,7 @@ const originalFetch = globalThis.fetch;
 const originalHome = process.env.HOME;
 const originalSkip = process.env.PAJE_SKIP_SSH_STORE;
 const originalPrompt = inquirer.prompt;
+const originalConsoleLog = console.log;
 
 const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "paje-home-"));
 process.env.HOME = tempHome;
@@ -26,7 +27,22 @@ fs.writeFileSync(publicKeyPath, "ssh-ed25519 AAA", "utf-8");
 fs.writeFileSync(privateKeyPath, "PRIVATE", "utf-8");
 
 const envFilePath = path.join(tempHome, "env-test.yaml");
-fs.writeFileSync(envFilePath, "username: usuario\npassword: segredo\n", "utf-8");
+fs.writeFileSync(envFilePath, "username: usuario\npassword: segredo\ntokenName: paje-token\n", "utf-8");
+
+const pajeDir = path.join(tempHome, ".paje");
+fs.mkdirSync(pajeDir, { recursive: true });
+fs.writeFileSync(
+  path.join(pajeDir, "git-servers.json"),
+  JSON.stringify([
+    {
+      id: "https://git.tse.jus.br",
+      name: "TSE-GIT",
+      baseUrl: "https://git.tse.jus.br",
+      token: "glpat-existing",
+    },
+  ]),
+  "utf-8"
+);
 
 const makeHeaders = (extra?: Record<string, string>) => ({
   "content-type": "text/html; charset=utf-8",
@@ -89,6 +105,7 @@ const keyDetailsHtml = `
 `;
 
 const calls: Array<{ url: string; init?: RequestInit }> = [];
+const logMessages: string[] = [];
 let keysFetchCount = 0;
 let tokenCreated = false;
 
@@ -113,6 +130,13 @@ const mockFetch = async (url: string, init?: RequestInit): Promise<Response> => 
   }
   if (url.endsWith("/-/user_settings/ssh_keys/1722")) {
     return makeResponse(keyDetailsHtml, 200, makeHeaders());
+  }
+  if (url.endsWith("/api/v4/personal_access_tokens/self")) {
+    return makeResponse(
+      JSON.stringify({ active: true, expires_at: "2099-01-01", scopes: ["read_api"] }),
+      200,
+      makeHeaders({ "content-type": "application/json" })
+    );
   }
   if (url.endsWith("/-/user_settings/personal_access_tokens") && (!init?.method || init.method === "GET")) {
     if (tokenCreated) {
@@ -143,6 +167,9 @@ inquirer.prompt = (async () => promptAnswers.shift() ?? {}) as unknown as typeof
 
 const program = new Command();
 configureSshKeyStoreCommand(program);
+console.log = (...args: unknown[]) => {
+  logMessages.push(args.map((item) => String(item)).join(" ").trim());
+};
 process.env.PAJE_SKIP_SSH_STORE = "0";
 await program.parseAsync([
   "node",
@@ -175,14 +202,23 @@ assert.ok(true, "Fluxo de git-server-store executado");
 
 assert.ok(true, "Fluxo de configuração SSH concluído");
 
-const tokenPath = path.join(tempHome, ".paje", "git-tokens.json");
-assert.ok(fs.existsSync(tokenPath), "Deve persistir token em ~/.paje/git-tokens.json");
-const tokenData = JSON.parse(fs.readFileSync(tokenPath, "utf-8")) as Array<{ token: string }>;
-assert.ok(tokenData.some((item) => item.token === "glpat-xyz"), "Deve salvar token retornado");
+const tokenCalls = calls.filter(
+  (call) => call.url.endsWith("/-/user_settings/personal_access_tokens") && call.init?.method === "POST"
+);
+assert.strictEqual(tokenCalls.length, 0, "Não deve criar token quando já existe em git-servers.json");
+assert.ok(
+  logMessages.some((message) => message.includes("Detalhes do token:")),
+  "Deve exibir detalhes do token existente"
+);
+
+const serversPath = path.join(tempHome, ".paje", "git-servers.json");
+const serverData = JSON.parse(fs.readFileSync(serversPath, "utf-8")) as Array<{ token?: string }>;
+assert.ok(serverData.some((item) => item.token === "glpat-existing"), "Deve manter token existente no servidor");
 
 globalThis.fetch = originalFetch as typeof fetch;
 process.env.HOME = originalHome;
 process.env.PAJE_SKIP_SSH_STORE = originalSkip;
 inquirer.prompt = originalPrompt;
+console.log = originalConsoleLog;
 
 console.log("ssh_key_store_command_test: OK");

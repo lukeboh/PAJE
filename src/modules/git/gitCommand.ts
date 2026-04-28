@@ -25,6 +25,8 @@ import {
   sshKeyExists,
   ensureGitLabSshKey,
   ensureGitLabPersonalAccessToken,
+  validatePersonalAccessToken,
+  rotatePersonalAccessToken,
   loadGitCredentials,
   ensurePajeKeyPair,
   loadEnvConfig,
@@ -32,7 +34,7 @@ import {
   type EnvConfigValue,
   type SshKeyInfo,
 } from "./sshManager.js";
-import { readGitServers, readGitTokens, writeGitServers, writeGitTokens } from "./persistence.js";
+import { readGitServers, writeGitServers } from "./persistence.js";
 
 type GitServerEntry = {
   id: string;
@@ -41,15 +43,6 @@ type GitServerEntry = {
   useBasicAuth?: boolean;
   username?: string;
   token?: string;
-};
-
-type GitServerTokenEntry = {
-  id: string;
-  name: string;
-  baseUrl: string;
-  token: string;
-  scopes?: string[];
-  createdAt: string;
 };
 
 type GitSyncCliOptions = {
@@ -83,17 +76,6 @@ type SshKeyStoreCliOptions = {
   tokenName?: string;
   tokenScopes?: string;
   tokenExpiresAt?: string;
-};
-
-const mergeToken = (tokens: GitServerTokenEntry[], next: GitServerTokenEntry): GitServerTokenEntry[] => {
-  const normalizedBase = normalizeBaseUrl(next.baseUrl);
-  const updated = [...tokens];
-  const index = updated.findIndex((item) => item.id === next.id || normalizeBaseUrl(item.baseUrl) === normalizedBase);
-  if (index >= 0) {
-    updated[index] = { ...updated[index], ...next, baseUrl: normalizedBase };
-    return updated;
-  }
-  return [...updated, { ...next, baseUrl: normalizedBase }];
 };
 
 const normalizeBaseUrl = (url: string): string => url.trim().replace(/\/+$/, "");
@@ -879,17 +861,69 @@ const storeSshKeyOnly = async (
     return;
   }
 
+  const normalizedBaseUrl = normalizeBaseUrl(server.baseUrl);
+  const existingServers = readGitServers<GitServerEntry[]>([]);
+  const existingServer = existingServers.find((item) => normalizeBaseUrl(item.baseUrl) === normalizedBaseUrl);
+
+  if (existingServer?.token) {
+    try {
+      const tokenStatus = await validatePersonalAccessToken({
+        baseUrl: normalizedBaseUrl,
+        token: existingServer.token,
+        fetchImpl: globalThis.fetch,
+        logger,
+      });
+      if (tokenStatus.valid) {
+        const expiresAt = tokenStatus.expiresAt ?? "não informado";
+        const scopes = tokenStatus.scopes && tokenStatus.scopes.length > 0 ? tokenStatus.scopes.join(", ") : "não informado";
+        const active = tokenStatus.active ?? true;
+        logger?.(`Token já existe e está válido para ${normalizedBaseUrl}.`);
+        logger?.(`Detalhes do token: ativo=${active}, expira=${expiresAt}, escopos=${scopes}.`);
+        logger?.("Reutilizando token existente.");
+        return;
+      }
+      logger?.("Token existente inválido/expirado. Status=401 ou expirado.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "erro desconhecido";
+      logger?.(`Falha ao validar token existente (${message}). Tentando rotacionar.`);
+    }
+
+    logger?.(`Token existente inválido/expirado para ${normalizedBaseUrl}. Tentando rotacionar.`);
+    try {
+      const rotated = await rotatePersonalAccessToken({
+        baseUrl: normalizedBaseUrl,
+        token: existingServer.token,
+        fetchImpl: globalThis.fetch,
+        logger,
+      });
+      const serverWithToken: GitServerEntry = {
+        ...server,
+        token: rotated.token,
+      };
+      const mergedServers = mergeServer(existingServers, serverWithToken);
+      writeGitServers(mergedServers.servers);
+      logger?.(`Token rotacionado com sucesso para ${normalizedBaseUrl}.`);
+      return;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "erro desconhecido";
+      logger?.(`Falha ao rotacionar token (${message}). Gerando novo token.`);
+    }
+  }
+
   const resolvedTokenName = resolveEnvString(cli?.tokenName?.trim(), envConfig, "tokenName");
   const resolvedTokenScopes = resolveEnvStringArray(cli?.tokenScopes, envConfig, "tokenScopes");
   const resolvedTokenExpiresAt = resolveEnvString(cli?.tokenExpiresAt, envConfig, "tokenExpiresAt");
-  const tokenName =
-    resolvedTokenName ||
-    `paje-${resolveEnvString(cli?.keyLabel, envConfig, "keyLabel") ?? "ssh"}-${Date.now()}`;
+  const tokenName = resolvedTokenName ?? "";
   const scopeList = resolvedTokenScopes
     ? resolvedTokenScopes.split(",").map((item) => item.trim()).filter(Boolean)
-    : ["api"];
+    : ["read_repository", "read_api", "read_virtual_registry", "self_rotate"];
+  if (!resolvedTokenName) {
+    logger?.("Nome do token não informado. Configure tokenName no env-test.yaml.");
+    return;
+  }
+
   const tokenResult = await ensureGitLabPersonalAccessToken({
-    baseUrl: server.baseUrl,
+    baseUrl: normalizedBaseUrl,
     name: tokenName,
     scopes: scopeList,
     expiresAt: resolvedTokenExpiresAt,
@@ -904,20 +938,6 @@ const storeSshKeyOnly = async (
     retryDelayMs: resolveEnvNumber(cli?.retryDelayMs, envConfig, "retryDelayMs"),
   });
 
-  const tokenEntry: GitServerTokenEntry = {
-    id: `${normalizeBaseUrl(server.baseUrl)}::${tokenResult.name}`,
-    name: tokenResult.name,
-    baseUrl: normalizeBaseUrl(server.baseUrl),
-    token: tokenResult.token,
-    scopes: tokenResult.scopes,
-    createdAt: new Date().toISOString(),
-  };
-
-  const existingTokens = readGitTokens<GitServerTokenEntry[]>([]);
-  const mergedTokens = mergeToken(existingTokens, tokenEntry);
-  writeGitTokens(mergedTokens);
-
-  const existingServers = readGitServers<GitServerEntry[]>([]);
   const serverWithToken: GitServerEntry = {
     ...server,
     token: tokenResult.token,

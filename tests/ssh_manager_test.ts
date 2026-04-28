@@ -56,6 +56,7 @@ const keysHtml = `
     <form>
       <input type="hidden" name="authenticity_token" value="token-keys" />
     </form>
+    <a href="/-/user_settings/ssh_keys/1722">paje</a>
   </body>
 </html>
 `;
@@ -125,8 +126,8 @@ const result = await resultPromise;
 assert.strictEqual(result.id, 1722, "Deve retornar id da chave cadastrada");
 assert.ok(calls.some((call) => call.url.endsWith("/users/auth/ldapmain/callback")), "Deve chamar login LDAP");
 assert.ok(
-  calls.some((call) => call.url.endsWith("/-/user_settings/ssh_keys") && call.init?.method === "POST"),
-  "Deve chamar cadastro de chave via web"
+  !calls.some((call) => call.url.endsWith("/-/user_settings/ssh_keys") && call.init?.method === "POST"),
+  "Não deve cadastrar chave quando já existe"
 );
 
 globalThis.fetch = originalFetch as typeof fetch;
