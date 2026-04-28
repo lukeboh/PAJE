@@ -27,6 +27,9 @@ import {
   ensureGitLabPersonalAccessToken,
   loadGitCredentials,
   ensurePajeKeyPair,
+  loadEnvConfig,
+  type EnvConfig,
+  type EnvConfigValue,
   type SshKeyInfo,
 } from "./sshManager.js";
 import { readGitServers, readGitTokens, writeGitServers, writeGitTokens } from "./persistence.js";
@@ -61,6 +64,7 @@ type GitSyncCliOptions = {
   publicKeyPath?: string;
   gitShowPulicRepos?: boolean;
   gitShowPublicRepos?: boolean;
+  envFile?: string;
 };
 
 type SshKeyStoreCliOptions = {
@@ -671,6 +675,88 @@ const resolveEnvPaths = (envFile?: string): string[] | undefined => {
   return [envFile];
 };
 
+const defaultEnvPath = path.join(os.homedir(), ".paje", "env.yaml");
+
+const resolveEnvFileFromCli = (envFile?: string): string | undefined => {
+  if (envFile && envFile.trim()) {
+    return envFile;
+  }
+  return defaultEnvPath;
+};
+
+const resolveEnvValue = <T extends EnvConfigValue>(
+  cliValue: T | undefined,
+  env: EnvConfig,
+  key: string
+): T | undefined => {
+  if (cliValue !== undefined && cliValue !== null && String(cliValue).trim() !== "") {
+    return cliValue;
+  }
+  const value = env[key];
+  if (value === undefined || value === null || String(value).trim() === "") {
+    return undefined;
+  }
+  return value as T;
+};
+
+const resolveEnvString = (cliValue: string | undefined, env: EnvConfig, key: string): string | undefined => {
+  const resolved = resolveEnvValue(cliValue, env, key);
+  if (resolved === undefined) {
+    return undefined;
+  }
+  return String(resolved);
+};
+
+const resolveEnvBoolean = (cliValue: boolean | undefined, env: EnvConfig, key: string): boolean | undefined => {
+  if (cliValue !== undefined) {
+    return cliValue;
+  }
+  const value = env[key];
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "string") {
+    if (value.toLowerCase() === "true") {
+      return true;
+    }
+    if (value.toLowerCase() === "false") {
+      return false;
+    }
+  }
+  return undefined;
+};
+
+const resolveEnvNumber = (cliValue: number | undefined, env: EnvConfig, key: string): number | undefined => {
+  if (cliValue !== undefined && !Number.isNaN(cliValue)) {
+    return cliValue;
+  }
+  const value = env[key];
+  if (typeof value === "number") {
+    return value;
+  }
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+  return undefined;
+};
+
+const resolveEnvStringArray = (cliValue: string | undefined, env: EnvConfig, key: string): string | undefined => {
+  if (cliValue && cliValue.trim()) {
+    return cliValue;
+  }
+  const value = env[key];
+  if (Array.isArray(value)) {
+    return value.join(",");
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  return undefined;
+};
+
 const storeSshKeyOnly = async (
   server: GitServerEntry,
   session?: TuiSession,
@@ -683,7 +769,9 @@ const storeSshKeyOnly = async (
     : console.log;
   const serverHost = new URL(server.baseUrl).hostname;
 
-  let resolvedUsername = cli?.username?.trim();
+  const envConfig = loadEnvConfig({ envFile: resolveEnvFileFromCli(cli?.envFile) });
+
+  let resolvedUsername = resolveEnvString(cli?.username?.trim(), envConfig, "username");
   if (!resolvedUsername) {
     if (session) {
       const form = await session.promptForm<{ username: string }>({
@@ -705,9 +793,10 @@ const storeSshKeyOnly = async (
     }
   }
 
+  const resolvedPublicKeyPath = resolveEnvString(cli?.publicKeyPath, envConfig, "publicKeyPath");
   let keyInfo: SshKeyInfo | undefined;
-  if (cli?.publicKeyPath) {
-    const selectedKey = cli.publicKeyPath;
+  if (resolvedPublicKeyPath) {
+    const selectedKey = resolvedPublicKeyPath;
     if (!fs.existsSync(selectedKey)) {
       const message = `Chave pública informada não existe: ${selectedKey}`;
       if (session) {
@@ -724,15 +813,15 @@ const storeSshKeyOnly = async (
     };
   } else {
     keyInfo = await ensurePajeKeyPair({
-      keyLabel: cli?.keyLabel,
-      passphrase: cli?.passphrase,
-      overwrite: cli?.keyOverwrite ?? false,
+      keyLabel: resolveEnvString(cli?.keyLabel, envConfig, "keyLabel"),
+      passphrase: resolveEnvString(cli?.passphrase, envConfig, "passphrase"),
+      overwrite: resolveEnvBoolean(cli?.keyOverwrite, envConfig, "keyOverwrite") ?? false,
       logger,
     });
   }
 
   upsertSshConfigHost(serverHost, keyInfo.privateKeyPath);
-  await ensureKnownHost(serverHost, session, cli?.verbose);
+  await ensureKnownHost(serverHost, session, resolveEnvBoolean(cli?.verbose, envConfig, "verbose"));
   await reportSshPersistenceStatus(serverHost, session);
 
   if (process.env.PAJE_SKIP_SSH_STORE === "1") {
@@ -740,14 +829,8 @@ const storeSshKeyOnly = async (
     return;
   }
 
-  let credentials: { username: string; password: string; source: string };
-  if (cli?.envFile) {
-    credentials = loadGitCredentials({
-      envFilePaths: resolveEnvPaths(cli.envFile),
-      allowProcessEnv: false,
-    });
-  } else {
-    let password = "";
+  let resolvedPassword = resolveEnvString(undefined, envConfig, "password");
+  if (!resolvedPassword) {
     if (session) {
       const form = await session.promptForm<{ password: string }>({
         title: "GitLab",
@@ -760,33 +843,34 @@ const storeSshKeyOnly = async (
           },
         ],
       });
-      password = form?.password ?? "";
+      resolvedPassword = form?.password ?? "";
     } else {
       const promptPass = (await inquirer.prompt([
         { name: "password", message: "Senha do GitLab", type: "password" },
       ])) as { password?: string };
-      password = promptPass.password ?? "";
+      resolvedPassword = promptPass.password ?? "";
     }
-    credentials = {
-      username: resolvedUsername ?? "",
-      password,
-      source: "prompt",
-    };
   }
+
+  const credentials = loadGitCredentials({
+    envFilePaths: resolveEnvPaths(resolveEnvFileFromCli(cli?.envFile)),
+    allowProcessEnv: false,
+  });
 
   await ensureGitLabSshKey({
     baseUrl: server.baseUrl,
-    title: cli?.keyLabel ?? "paje",
+    title: resolveEnvString(cli?.keyLabel, envConfig, "keyLabel") ?? "paje",
     usageType: "auth_and_signing",
     credentials: {
       ...credentials,
       username: resolvedUsername ?? credentials.username,
+      password: resolvedPassword ?? credentials.password,
     },
     keyInfo,
     fetchImpl: globalThis.fetch,
     logger,
-    maxAttempts: cli?.maxAttempts,
-    retryDelayMs: cli?.retryDelayMs,
+    maxAttempts: resolveEnvNumber(cli?.maxAttempts, envConfig, "maxAttempts"),
+    retryDelayMs: resolveEnvNumber(cli?.retryDelayMs, envConfig, "retryDelayMs"),
   });
 
   if (process.env.PAJE_SKIP_SSH_STORE === "1") {
@@ -794,23 +878,29 @@ const storeSshKeyOnly = async (
     return;
   }
 
-  const tokenName = cli?.tokenName?.trim() || `paje-${cli?.keyLabel ?? "ssh"}-${Date.now()}`;
-  const scopeList = cli?.tokenScopes
-    ? cli.tokenScopes.split(",").map((item) => item.trim()).filter(Boolean)
+  const resolvedTokenName = resolveEnvString(cli?.tokenName?.trim(), envConfig, "tokenName");
+  const resolvedTokenScopes = resolveEnvStringArray(cli?.tokenScopes, envConfig, "tokenScopes");
+  const resolvedTokenExpiresAt = resolveEnvString(cli?.tokenExpiresAt, envConfig, "tokenExpiresAt");
+  const tokenName =
+    resolvedTokenName ||
+    `paje-${resolveEnvString(cli?.keyLabel, envConfig, "keyLabel") ?? "ssh"}-${Date.now()}`;
+  const scopeList = resolvedTokenScopes
+    ? resolvedTokenScopes.split(",").map((item) => item.trim()).filter(Boolean)
     : ["api"];
   const tokenResult = await ensureGitLabPersonalAccessToken({
     baseUrl: server.baseUrl,
     name: tokenName,
     scopes: scopeList,
-    expiresAt: cli?.tokenExpiresAt,
+    expiresAt: resolvedTokenExpiresAt,
     credentials: {
       ...credentials,
       username: resolvedUsername ?? credentials.username,
+      password: resolvedPassword ?? credentials.password,
     },
     fetchImpl: globalThis.fetch,
     logger,
-    maxAttempts: cli?.maxAttempts,
-    retryDelayMs: cli?.retryDelayMs,
+    maxAttempts: resolveEnvNumber(cli?.maxAttempts, envConfig, "maxAttempts"),
+    retryDelayMs: resolveEnvNumber(cli?.retryDelayMs, envConfig, "retryDelayMs"),
   });
 
   const tokenEntry: GitServerTokenEntry = {
@@ -924,6 +1014,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
     .option("--key-label <label>", "Nome da chave SSH a ser gerada")
     .option("--passphrase <passphrase>", "Passphrase da chave SSH")
     .option("--public-key-path <path>", "Caminho para chave pública existente (.pub)")
+    .option("--env-file <path>", "Caminho do arquivo de ambiente (yaml)")
     .option(
       "--git-show-pulic-repos",
       "Permitir listagem de repositórios sem autenticação (apenas públicos)",
@@ -938,7 +1029,26 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       const logger = new PajeLogger();
       logger.info("Iniciando sincronização GitLab");
 
-      const server = await selectGitServer(session, options);
+      const envConfig = loadEnvConfig({ envFile: resolveEnvFileFromCli(options.envFile) });
+      const mergedOptions: GitSyncCliOptions = {
+        ...options,
+        baseDir: resolveEnvString(options.baseDir, envConfig, "baseDir") ?? options.baseDir,
+        serverName: resolveEnvString(options.serverName, envConfig, "serverName") ?? options.serverName,
+        baseUrl: resolveEnvString(options.baseUrl, envConfig, "baseUrl") ?? options.baseUrl,
+        useBasicAuth: resolveEnvBoolean(options.useBasicAuth, envConfig, "useBasicAuth") ?? options.useBasicAuth,
+        username: resolveEnvString(options.username, envConfig, "username") ?? options.username,
+        password: resolveEnvString(options.password, envConfig, "password") ?? options.password,
+        keyLabel: resolveEnvString(options.keyLabel, envConfig, "keyLabel") ?? options.keyLabel,
+        passphrase: resolveEnvString(options.passphrase, envConfig, "passphrase") ?? options.passphrase,
+        publicKeyPath: resolveEnvString(options.publicKeyPath, envConfig, "publicKeyPath") ?? options.publicKeyPath,
+        gitShowPulicRepos:
+          resolveEnvBoolean(options.gitShowPulicRepos, envConfig, "gitShowPulicRepos") ?? options.gitShowPulicRepos,
+        gitShowPublicRepos:
+          resolveEnvBoolean(options.gitShowPublicRepos, envConfig, "gitShowPublicRepos") ?? options.gitShowPublicRepos,
+        verbose: resolveEnvBoolean(options.verbose, envConfig, "verbose") ?? options.verbose,
+      };
+
+      const server = await selectGitServer(session, mergedOptions);
       let basicAuth: { username: string; password: string } | undefined;
       const serverHost = new URL(server.baseUrl).hostname;
       const hasSshAssociation = hasValidSshAssociation(serverHost);
@@ -953,21 +1063,21 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             console.log(message);
           }
         } else {
-          const password = await promptBasicAuthPassword(resolvedUsername, session, options.password);
+          const password = await promptBasicAuthPassword(resolvedUsername, session, mergedOptions.password);
           basicAuth = { username: resolvedUsername, password };
         }
       }
       const api = new GitLabApi({
         baseUrl: server.baseUrl,
         basicAuth,
-        verbose: options.verbose ?? false,
+        verbose: mergedOptions.verbose ?? false,
         logger: session
           ? (message) => {
               session.showMessage({ title: "Verbose", message });
             }
           : undefined,
       });
-      const allowPublic = options.gitShowPulicRepos || options.gitShowPublicRepos;
+      const allowPublic = mergedOptions.gitShowPulicRepos || mergedOptions.gitShowPublicRepos;
       if (!api.hasAuth() && !allowPublic && !hasSshAssociation) {
         const message =
           "Não há autenticação configurada. Para consultar repositórios sem autenticação, use --git-show-pulic-repos.";
@@ -979,7 +1089,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         return;
       }
 
-      await ensureSshKey(api, session, options.verbose ?? false, options);
+      await ensureSshKey(api, session, mergedOptions.verbose ?? false, mergedOptions);
 
       const [groups, projects] = allowPublic && !api.hasAuth() && !hasSshAssociation
         ? await Promise.all([api.listPublicGroups(), api.listPublicProjects()])
@@ -999,7 +1109,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       }
 
       const parallelOptions = await resolveParallelOptions(session);
-      const targets = prepareTargets(selected, options.baseDir ?? "repos");
+      const targets = prepareTargets(selected, mergedOptions.baseDir ?? "repos");
 
       logger.info(`Sincronizando ${targets.length} repositórios`);
       await parallelSync(targets, parallelOptions, (result) => {

@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { ensureGitLabSshKey, loadGitCredentials } from "../src/modules/git/sshManager.js";
 
 const originalFetch = globalThis.fetch;
@@ -93,7 +96,10 @@ const mockFetch = async (url: string, init?: RequestInit): Promise<Response> => 
 
 globalThis.fetch = mockFetch as typeof fetch;
 
-const credentials = loadGitCredentials({ allowProcessEnv: true, envFilePaths: ["env.test"] });
+const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "paje-home-"));
+const envFilePath = path.join(tempHome, "env-test.yaml");
+fs.writeFileSync(envFilePath, "username: usuario\npassword: segredo\n", "utf-8");
+const credentials = loadGitCredentials({ allowProcessEnv: true, envFilePaths: [envFilePath] });
 
 const resultPromise = ensureGitLabSshKey({
   baseUrl: "https://git.tse.jus.br",

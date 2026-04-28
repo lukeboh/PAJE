@@ -340,7 +340,15 @@ export const registerKeyInGitLab = async (
   await api.createSshKey(title, publicKey);
 };
 
-const DEFAULT_ENV_PATHS = ["env.test", ".env.test", "config.local.env", ".env.local", ".env"];
+const DEFAULT_ENV_PATHS = [
+  path.join(os.homedir(), ".paje", "env.yaml"),
+  "env-test.yaml",
+  "env.test",
+  ".env.test",
+  "config.local.env",
+  ".env.local",
+  ".env",
+];
 const DEFAULT_JSON_PATH = "config.local.json";
 const DEFAULT_BASE_URL = "https://git.tse.jus.br";
 const DEFAULT_KEY_TITLE = "paje";
@@ -360,6 +368,85 @@ class SshManagerAuthError extends Error {
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
+export type EnvConfigValue = string | number | boolean | string[];
+
+export type EnvConfig = Record<string, EnvConfigValue>;
+
+const stripInlineComment = (line: string): string => {
+  let inSingle = false;
+  let inDouble = false;
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    if (char === "'" && !inDouble) {
+      inSingle = !inSingle;
+      continue;
+    }
+    if (char === '"' && !inSingle) {
+      inDouble = !inDouble;
+      continue;
+    }
+    if (char === "#" && !inSingle && !inDouble) {
+      return line.slice(0, index);
+    }
+  }
+  return line;
+};
+
+const parseYamlValue = (rawValue: string): EnvConfigValue | undefined => {
+  const trimmed = rawValue.trim();
+  if (!trimmed || trimmed === "~" || trimmed.toLowerCase() === "null") {
+    return undefined;
+  }
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    const inner = trimmed.slice(1, -1).trim();
+    if (!inner) {
+      return [];
+    }
+    return inner
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item) => item.replace(/^['"]|['"]$/g, ""));
+  }
+  const unquoted = trimmed.replace(/^['"]|['"]$/g, "");
+  if (unquoted === "true") {
+    return true;
+  }
+  if (unquoted === "false") {
+    return false;
+  }
+  if (/^-?\d+(\.\d+)?$/.test(unquoted)) {
+    return Number(unquoted);
+  }
+  return unquoted;
+};
+
+const parseYamlContent = (contents: string): EnvConfig => {
+  const result: EnvConfig = {};
+  contents
+    .split(/\r?\n/)
+    .map((line) => stripInlineComment(line))
+    .map((line) => line.trim())
+    .filter((line) => line)
+    .forEach((line) => {
+      const separatorIndex = line.indexOf(":");
+      if (separatorIndex <= 0) {
+        return;
+      }
+      const key = line.slice(0, separatorIndex).trim();
+      if (!key) {
+        return;
+      }
+      const rawValue = line.slice(separatorIndex + 1);
+      const parsed = parseYamlValue(rawValue);
+      if (parsed === undefined) {
+        return;
+      }
+      result[key] = parsed;
+    });
+  return result;
+};
+
 const parseEnvContent = (contents: string): Record<string, string> => {
   const result: Record<string, string> = {};
   contents
@@ -377,6 +464,18 @@ const parseEnvContent = (contents: string): Record<string, string> => {
       result[key] = value;
     });
   return result;
+};
+
+const isYamlFile = (filePath: string): boolean => filePath.endsWith(".yaml") || filePath.endsWith(".yml");
+
+const parseEnvFile = (filePath: string, contents: string): Record<string, string> => {
+  const parsed = isYamlFile(filePath) ? parseYamlContent(contents) : parseEnvContent(contents);
+  return Object.fromEntries(
+    Object.entries(parsed).map(([key, value]) => [
+      key,
+      Array.isArray(value) ? value.join(",") : String(value),
+    ])
+  );
 };
 
 const readFileIfExists = (filePath: string): string | null => {
@@ -403,8 +502,8 @@ export const loadGitCredentials = (options: {
   const jsonContents = readFileIfExists(jsonPath);
   if (jsonContents) {
     const parsed = JSON.parse(jsonContents) as Record<string, unknown>;
-    const username = String(parsed.GIT_USER ?? parsed.gitUser ?? "");
-    const password = String(parsed.GIT_PASS ?? parsed.gitPass ?? "");
+    const username = String(parsed.username ?? parsed.GIT_USER ?? parsed.gitUser ?? "");
+    const password = String(parsed.password ?? parsed.GIT_PASS ?? parsed.gitPass ?? "");
     if (username && password) {
       return { username, password, source: jsonPath };
     }
@@ -416,17 +515,34 @@ export const loadGitCredentials = (options: {
     if (!contents) {
       continue;
     }
-    const data = parseEnvContent(contents);
-    const username = data.GIT_USER;
-    const password = data.GIT_PASS;
+    const data = parseEnvFile(envPath, contents);
+    const username = data.username ?? data.GIT_USER;
+    const password = data.password ?? data.GIT_PASS;
     if (username && password) {
       return { username, password, source: envPath };
     }
   }
 
   throw new Error(
-    "Credenciais GitLab não encontradas. Informe GIT_USER e GIT_PASS em config.local.json ou .env.test."
+    "Credenciais GitLab não encontradas. Informe GIT_USER e GIT_PASS em ~/.paje/env.yaml."
   );
+};
+
+export const loadEnvConfig = (options: { envFile?: string } = {}): EnvConfig => {
+  const envFile = options.envFile;
+  if (envFile) {
+    const contents = readFileIfExists(envFile);
+    if (!contents) {
+      return {};
+    }
+    return parseYamlContent(contents);
+  }
+  const defaultPath = DEFAULT_ENV_PATHS[0];
+  const contents = readFileIfExists(defaultPath);
+  if (!contents) {
+    return {};
+  }
+  return parseYamlContent(contents);
 };
 
 const normalizeKeyLabel = (keyLabel: string): string => keyLabel.replace(/[^a-zA-Z0-9-_]/g, "_");

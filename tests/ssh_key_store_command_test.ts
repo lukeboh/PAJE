@@ -25,8 +25,8 @@ const privateKeyPath = path.join(sshDir, "paje");
 fs.writeFileSync(publicKeyPath, "ssh-ed25519 AAA", "utf-8");
 fs.writeFileSync(privateKeyPath, "PRIVATE", "utf-8");
 
-const envFilePath = path.join(tempHome, "env.test");
-fs.writeFileSync(envFilePath, "GIT_USER=usuario\nGIT_PASS=segredo\n", "utf-8");
+const envFilePath = path.join(tempHome, "env-test.yaml");
+fs.writeFileSync(envFilePath, "username: usuario\npassword: segredo\n", "utf-8");
 
 const makeHeaders = (extra?: Record<string, string>) => ({
   "content-type": "text/html; charset=utf-8",
@@ -144,6 +144,8 @@ await program.parseAsync([
   "node",
   "cli.ts",
   "ssh-key-store",
+  "--env-file",
+  envFilePath,
   "--server-name",
   "TSE-GIT",
   "--base-url",

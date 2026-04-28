@@ -5,7 +5,11 @@ Você é um Arquiteto de Software Sênior e Desenvolvedor Full-stack. O PAJÉ é
 ## Diretrizes de Implementação
 - **Identidade:** PAJÉ - Plataforma de Apoio à Jornada do Engenheiro.
 - **Linguagem:** TypeScript (Node.js).
-- **Interface:** CLI robusta (Commander.js/Inquirer) e futura Extensão de Navegador.
+- **Interface:** O PAJE poderá ser usado de três formas:
+-- via CLI, robusta e que permita testes uso indivisual e automatizações dos processos;
+-- via TUI - Terminal de Usuário Textua - que deve servir para uso completo de todas as funcionalidades, sem necessidade de memorização de todos os parâmetros;
+-- via GUI - como extensão de navegador ou mesmo uma aplicação completa para usuários que não tem experiência com prompts de comando.
+-- Em todos os casos, o sistema deve procurar persistir os parâmetros de configuração do diretório ~/.paje. E deve ser possível armazenar os parâmetros em um arquivo de ambiente (default: ~/.paje/env.yaml) que pode ser passado de parâmetro.
 - **Segurança:** NUNCA salvar senhas em texto plano. Usar variáveis de ambiente seguras ou gerenciadores de chaves (como keytar).
 - **Testes:** Todo novo recurso deve incluir testes automatizados. A tarefa só é considerada concluída após a verificação de sucesso dos testes.
 - **Agnosticismo:** A ferramenta deve funcionar com GitLab corporativo ou GitHub.

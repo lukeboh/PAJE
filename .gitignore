@@ -28,7 +28,7 @@ yarn-error.log*
 *.pem
 *.key
 .ssh/
-env.test
+env-test.yaml
 
 # --- Testes ---
 coverage/
