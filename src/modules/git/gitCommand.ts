@@ -40,6 +40,7 @@ type GitServerEntry = {
   baseUrl: string;
   useBasicAuth?: boolean;
   username?: string;
+  token?: string;
 };
 
 type GitServerTokenEntry = {
@@ -915,6 +916,14 @@ const storeSshKeyOnly = async (
   const existingTokens = readGitTokens<GitServerTokenEntry[]>([]);
   const mergedTokens = mergeToken(existingTokens, tokenEntry);
   writeGitTokens(mergedTokens);
+
+  const existingServers = readGitServers<GitServerEntry[]>([]);
+  const serverWithToken: GitServerEntry = {
+    ...server,
+    token: tokenResult.token,
+  };
+  const mergedServers = mergeServer(existingServers, serverWithToken);
+  writeGitServers(mergedServers.servers);
 };
 
 const prepareTargets = (projects: GitLabProject[], baseDir: string): GitRepositoryTarget[] => {

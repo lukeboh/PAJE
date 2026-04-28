@@ -114,15 +114,19 @@ const mockFetch = async (url: string, init?: RequestInit): Promise<Response> => 
   if (url.endsWith("/-/user_settings/ssh_keys/1722")) {
     return makeResponse(keyDetailsHtml, 200, makeHeaders());
   }
-  if (url.endsWith("/-/profile/personal_access_tokens") && (!init?.method || init.method === "GET")) {
+  if (url.endsWith("/-/user_settings/personal_access_tokens") && (!init?.method || init.method === "GET")) {
     if (tokenCreated) {
       return makeResponse(createdTokenHtml, 200, makeHeaders());
     }
     return makeResponse(tokenHtml, 200, makeHeaders({ "set-cookie": "_gitlab_session=ghi; Path=/; HttpOnly" }));
   }
-  if (url.endsWith("/-/profile/personal_access_tokens") && init?.method === "POST") {
+  if (url.endsWith("/-/user_settings/personal_access_tokens") && init?.method === "POST") {
     tokenCreated = true;
-    return makeResponse("", 302, makeHeaders({ location: "/-/profile/personal_access_tokens" }));
+    return makeResponse(
+      JSON.stringify({ token: "glpat-xyz" }),
+      201,
+      makeHeaders({ "content-type": "application/json" })
+    );
   }
   throw new Error(`URL inesperada: ${url}`);
 };

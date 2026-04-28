@@ -76,15 +76,19 @@ const mockFetch = async (url: string, init?: RequestInit): Promise<Response> => 
   if (url.endsWith("/users/auth/ldapmain/callback")) {
     return new MockResponse("", 302, makeHeaders({ location: "/" }), ["_gitlab_session=def; Path=/; HttpOnly"]) as unknown as Response;
   }
-  if (url.endsWith("/-/profile/personal_access_tokens") && (!init?.method || init.method === "GET")) {
+  if (url.endsWith("/-/user_settings/personal_access_tokens") && (!init?.method || init.method === "GET")) {
     if (tokenCreated) {
       return new MockResponse(createdTokenHtml, 200, makeHeaders()) as unknown as Response;
     }
     return new MockResponse(tokenHtml, 200, makeHeaders(), ["_gitlab_session=ghi; Path=/; HttpOnly"]) as unknown as Response;
   }
-  if (url.endsWith("/-/profile/personal_access_tokens") && init?.method === "POST") {
+  if (url.endsWith("/-/user_settings/personal_access_tokens") && init?.method === "POST") {
     tokenCreated = true;
-    return new MockResponse("", 302, makeHeaders({ location: "/-/profile/personal_access_tokens" })) as unknown as Response;
+    return new MockResponse(
+      JSON.stringify({ token: "glpat-123456" }),
+      201,
+      makeHeaders({ "content-type": "application/json" })
+    ) as unknown as Response;
   }
   throw new Error(`URL inesperada: ${url}`);
 };
@@ -104,7 +108,7 @@ const result = await ensureGitLabPersonalAccessToken({
 
 assert.strictEqual(result.token, "glpat-123456", "Deve extrair token pessoal criado");
 assert.ok(
-  calls.some((call) => call.url.endsWith("/-/profile/personal_access_tokens") && call.init?.method === "POST"),
+  calls.some((call) => call.url.endsWith("/-/user_settings/personal_access_tokens") && call.init?.method === "POST"),
   "Deve chamar cadastro de token pessoal"
 );
 

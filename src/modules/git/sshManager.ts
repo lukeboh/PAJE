@@ -44,6 +44,7 @@ export type EnsureGitLabSshKeyOptions = {
 export type EnsureGitLabTokenOptions = {
   baseUrl?: string;
   name: string;
+  description?: string;
   scopes?: string[];
   expiresAt?: string;
   credentials?: GitCredentials;
@@ -353,7 +354,7 @@ const DEFAULT_JSON_PATH = "config.local.json";
 const DEFAULT_BASE_URL = "https://git.tse.jus.br";
 const DEFAULT_KEY_TITLE = "paje";
 const DEFAULT_USAGE_TYPE: "auth_and_signing" = "auth_and_signing";
-const DEFAULT_TOKEN_SCOPES = ["api"];
+const DEFAULT_TOKEN_SCOPES = ["read_repository", "read_api", "read_virtual_registry", "self_rotate"];
 const DEFAULT_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0";
 
@@ -367,6 +368,29 @@ class SshManagerAuthError extends Error {
 }
 
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+const formatDate = (date: Date): string => date.toISOString().slice(0, 10);
+
+const resolveTokenExpiresAt = (expiresAt?: string): string => {
+  if (expiresAt && expiresAt.trim()) {
+    const parsed = new Date(expiresAt);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new Error("Data de expiração do token inválida.");
+    }
+    const maxDate = new Date();
+    maxDate.setFullYear(maxDate.getFullYear() + 1);
+    if (parsed > maxDate) {
+      throw new Error("Data de expiração do token não pode exceder 1 ano.");
+    }
+    return formatDate(parsed);
+  }
+  const defaultDate = new Date();
+  defaultDate.setFullYear(defaultDate.getFullYear() + 1);
+  return formatDate(defaultDate);
+};
+
+const buildTokenDescription = (credentials: GitCredentials): string =>
+  `Token usado pelo ${credentials.username} na estação ${os.hostname()}`;
 
 export type EnvConfigValue = string | number | boolean | string[];
 
@@ -649,6 +673,19 @@ const buildBrowserHeaders = (cookie?: string, referer?: string): Record<string, 
   ...(cookie ? { Cookie: cookie } : {}),
 });
 
+const buildJsonHeaders = (cookie?: string, referer?: string, csrfToken?: string): Record<string, string> => ({
+  Accept: "application/json, text/plain, */*",
+  "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
+  "Cache-Control": "no-cache",
+  Pragma: "no-cache",
+  "Content-Type": "application/json",
+  "User-Agent": DEFAULT_USER_AGENT,
+  "X-Requested-With": "XMLHttpRequest",
+  ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+  ...(referer ? { Referer: referer } : {}),
+  ...(cookie ? { Cookie: cookie } : {}),
+});
+
 const updateCookieJar = (jar: CookieJar, response: Response, url: string): void => {
   const setCookies = (response.headers as any).getSetCookie?.() as string[] | undefined;
   const fallback = response.headers.get("set-cookie");
@@ -840,12 +877,13 @@ const runTokenWebFlowOnce = async (options: {
   baseUrl: string;
   credentials: GitCredentials;
   name: string;
+  description: string;
   scopes: string[];
   expiresAt?: string;
   fetchImpl: typeof fetch;
   logger?: SshManagerLogger;
 }): Promise<string> => {
-  const { baseUrl, credentials, name, scopes, expiresAt, fetchImpl, logger } = options;
+  const { baseUrl, credentials, name, description, scopes, expiresAt, fetchImpl, logger } = options;
   const jar = new CookieJar();
 
   const signInUrl = `${baseUrl}/users/sign_in`;
@@ -883,7 +921,7 @@ const runTokenWebFlowOnce = async (options: {
     throw new SshManagerAuthError("Credenciais inválidas no LDAP.", loginResponse.status);
   }
 
-  const tokenUrl = `${baseUrl}/-/profile/personal_access_tokens`;
+  const tokenUrl = `${baseUrl}/-/user_settings/personal_access_tokens`;
   logger?.(`HTTP GET ${tokenUrl}`);
   const tokenPageResponse = await fetchWithCookies(fetchImpl, jar, tokenUrl, {
     headers: buildBrowserHeaders(jar.getCookieStringSync(tokenUrl), signInUrl),
@@ -899,49 +937,46 @@ const runTokenWebFlowOnce = async (options: {
     throw new SshManagerAuthError("Token de sessão ausente na página de tokens pessoais.");
   }
 
-  const registerForm = new URLSearchParams();
-  registerForm.set("authenticity_token", tokenForForm);
-  registerForm.set("personal_access_token[name]", name);
-  scopes.forEach((scope) => {
-    registerForm.append("personal_access_token[scopes][]", scope);
-  });
+  const payload: Record<string, unknown> = {
+    name,
+    description,
+    scopes,
+  };
   if (expiresAt) {
-    registerForm.set("personal_access_token[expires_at]", expiresAt);
+    payload.expires_at = expiresAt;
   }
 
   logger?.(`HTTP POST ${tokenUrl}`);
   const registerResponse = await fetchWithCookies(fetchImpl, jar, tokenUrl, {
     method: "POST",
-    headers: {
-      ...buildBrowserHeaders(jar.getCookieStringSync(tokenUrl), tokenUrl),
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: registerForm.toString(),
-    redirect: "manual",
+    headers: buildJsonHeaders(jar.getCookieStringSync(tokenUrl), tokenUrl, tokenForForm),
+    body: JSON.stringify(payload),
   });
 
   if (registerResponse.status === 401) {
     throw new SshManagerAuthError("Não autorizado ao cadastrar token pessoal.", registerResponse.status);
   }
-  if (registerResponse.status >= 400 && registerResponse.status !== 302) {
+  if (registerResponse.status >= 400) {
     const text = await registerResponse.text();
     throw new Error(`Falha ao cadastrar token pessoal (${registerResponse.status}): ${text}`);
   }
 
-  let tokenHtml = "";
-  if (registerResponse.status === 302) {
-    const location = registerResponse.headers.get("location") ?? registerResponse.headers.get("Location") ?? tokenUrl;
-    const redirectUrl = location.startsWith("http") ? location : `${baseUrl}${location}`;
-    logger?.(`HTTP GET ${redirectUrl}`);
-    const redirectResponse = await fetchWithCookies(fetchImpl, jar, redirectUrl, {
-      headers: buildBrowserHeaders(jar.getCookieStringSync(redirectUrl), tokenUrl),
-    });
-    tokenHtml = await redirectResponse.text();
-  } else {
-    tokenHtml = await registerResponse.text();
+  const responseText = await registerResponse.text();
+  const contentType = registerResponse.headers.get("content-type") ?? "";
+  let tokenValue: string | null = null;
+  if (contentType.includes("application/json") || responseText.trim().startsWith("{")) {
+    try {
+      const parsed = JSON.parse(responseText) as { token?: string };
+      if (parsed?.token) {
+        tokenValue = parsed.token;
+      }
+    } catch {
+      tokenValue = null;
+    }
   }
-
-  const tokenValue = extractPersonalAccessToken(tokenHtml);
+  if (!tokenValue) {
+    tokenValue = extractPersonalAccessToken(responseText);
+  }
   if (!tokenValue) {
     throw new SshManagerAuthError("Token pessoal não encontrado na resposta do GitLab.");
   }
@@ -1034,6 +1069,8 @@ export const ensureGitLabPersonalAccessToken = async (
     });
 
   logger(`Credenciais carregadas de ${credentials.source}.`);
+  const description = options.description ?? buildTokenDescription(credentials);
+  const expiresAt = resolveTokenExpiresAt(options.expiresAt);
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     logger(`Tentativa ${attempt}/${maxAttempts} para gerar token pessoal no GitLab.`);
@@ -1042,8 +1079,9 @@ export const ensureGitLabPersonalAccessToken = async (
         baseUrl,
         credentials,
         name: options.name,
+        description,
         scopes,
-        expiresAt: options.expiresAt,
+        expiresAt,
         fetchImpl,
         logger,
       });
