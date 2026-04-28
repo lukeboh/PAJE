@@ -24,11 +24,12 @@ import {
   registerKeyInGitLab,
   sshKeyExists,
   ensureGitLabSshKey,
+  ensureGitLabPersonalAccessToken,
   loadGitCredentials,
   ensurePajeKeyPair,
   type SshKeyInfo,
 } from "./sshManager.js";
-import { readGitServers, writeGitServers } from "./persistence.js";
+import { readGitServers, readGitTokens, writeGitServers, writeGitTokens } from "./persistence.js";
 
 type GitServerEntry = {
   id: string;
@@ -36,6 +37,15 @@ type GitServerEntry = {
   baseUrl: string;
   useBasicAuth?: boolean;
   username?: string;
+};
+
+type GitServerTokenEntry = {
+  id: string;
+  name: string;
+  baseUrl: string;
+  token: string;
+  scopes?: string[];
+  createdAt: string;
 };
 
 type GitSyncCliOptions = {
@@ -65,6 +75,20 @@ type SshKeyStoreCliOptions = {
   retryDelayMs?: number;
   maxAttempts?: number;
   envFile?: string;
+  tokenName?: string;
+  tokenScopes?: string;
+  tokenExpiresAt?: string;
+};
+
+const mergeToken = (tokens: GitServerTokenEntry[], next: GitServerTokenEntry): GitServerTokenEntry[] => {
+  const normalizedBase = normalizeBaseUrl(next.baseUrl);
+  const updated = [...tokens];
+  const index = updated.findIndex((item) => item.id === next.id || normalizeBaseUrl(item.baseUrl) === normalizedBase);
+  if (index >= 0) {
+    updated[index] = { ...updated[index], ...next, baseUrl: normalizedBase };
+    return updated;
+  }
+  return [...updated, { ...next, baseUrl: normalizedBase }];
 };
 
 const normalizeBaseUrl = (url: string): string => url.trim().replace(/\/+$/, "");
@@ -764,6 +788,43 @@ const storeSshKeyOnly = async (
     maxAttempts: cli?.maxAttempts,
     retryDelayMs: cli?.retryDelayMs,
   });
+
+  if (process.env.PAJE_SKIP_SSH_STORE === "1") {
+    logger?.("Execução de testes: etapa de token remoto ignorada.");
+    return;
+  }
+
+  const tokenName = cli?.tokenName?.trim() || `paje-${cli?.keyLabel ?? "ssh"}-${Date.now()}`;
+  const scopeList = cli?.tokenScopes
+    ? cli.tokenScopes.split(",").map((item) => item.trim()).filter(Boolean)
+    : ["api"];
+  const tokenResult = await ensureGitLabPersonalAccessToken({
+    baseUrl: server.baseUrl,
+    name: tokenName,
+    scopes: scopeList,
+    expiresAt: cli?.tokenExpiresAt,
+    credentials: {
+      ...credentials,
+      username: resolvedUsername ?? credentials.username,
+    },
+    fetchImpl: globalThis.fetch,
+    logger,
+    maxAttempts: cli?.maxAttempts,
+    retryDelayMs: cli?.retryDelayMs,
+  });
+
+  const tokenEntry: GitServerTokenEntry = {
+    id: `${normalizeBaseUrl(server.baseUrl)}::${tokenResult.name}`,
+    name: tokenResult.name,
+    baseUrl: normalizeBaseUrl(server.baseUrl),
+    token: tokenResult.token,
+    scopes: tokenResult.scopes,
+    createdAt: new Date().toISOString(),
+  };
+
+  const existingTokens = readGitTokens<GitServerTokenEntry[]>([]);
+  const mergedTokens = mergeToken(existingTokens, tokenEntry);
+  writeGitTokens(mergedTokens);
 };
 
 const prepareTargets = (projects: GitLabProject[], baseDir: string): GitRepositoryTarget[] => {
@@ -973,6 +1034,9 @@ export const configureSshKeyStoreCommand = (program: Command, session?: TuiSessi
     .option("--retry-delay-ms <ms>", "Intervalo de retry em ms", (value) => Number(value))
     .option("--max-attempts <count>", "Número máximo de tentativas", (value) => Number(value))
     .option("--env-file <path>", "Caminho do arquivo de credenciais (env.test)")
+    .option("--token-name <name>", "Nome do token pessoal no GitLab")
+    .option("--token-scopes <scopes>", "Escopos do token (ex: api,read_repository)")
+    .option("--token-expires-at <date>", "Data de expiração do token (YYYY-MM-DD)")
     .action(async (options: SshKeyStoreCliOptions) => {
       const baseUrl = options.baseUrl?.trim() ?? "https://git.tse.jus.br";
       const server: GitServerEntry = {

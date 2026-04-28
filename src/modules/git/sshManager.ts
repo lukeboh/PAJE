@@ -41,6 +41,22 @@ export type EnsureGitLabSshKeyOptions = {
   sleepFn?: (ms: number) => Promise<void>;
 };
 
+export type EnsureGitLabTokenOptions = {
+  baseUrl?: string;
+  name: string;
+  scopes?: string[];
+  expiresAt?: string;
+  credentials?: GitCredentials;
+  envFilePaths?: string[];
+  jsonFilePath?: string;
+  allowProcessEnv?: boolean;
+  maxAttempts?: number;
+  retryDelayMs?: number;
+  logger?: SshManagerLogger;
+  fetchImpl?: typeof fetch;
+  sleepFn?: (ms: number) => Promise<void>;
+};
+
 type SshConfigBlock = {
   hosts: string[];
   start: number;
@@ -329,6 +345,7 @@ const DEFAULT_JSON_PATH = "config.local.json";
 const DEFAULT_BASE_URL = "https://git.tse.jus.br";
 const DEFAULT_KEY_TITLE = "paje";
 const DEFAULT_USAGE_TYPE: "auth_and_signing" = "auth_and_signing";
+const DEFAULT_TOKEN_SCOPES = ["api"];
 const DEFAULT_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36 Edg/147.0.0.0";
 
@@ -482,6 +499,27 @@ const extractAuthenticityToken = (html: string): string | null => {
 const extractCsrfToken = (html: string): string | null => {
   const $ = cheerio.load(html);
   return $("meta[name='csrf-token']").attr("content") ?? null;
+};
+
+const extractPersonalAccessToken = (html: string): string | null => {
+  const $ = cheerio.load(html);
+  const inputValue =
+    $("#created-personal-access-token").attr("value") ??
+    $("input#created-personal-access-token").attr("value") ??
+    $("input[name='created_personal_access_token']").attr("value") ??
+    $("input[name='personal_access_token']").attr("value");
+  if (inputValue && inputValue.trim()) {
+    return inputValue.trim();
+  }
+  const testIdText = $("[data-testid='created-personal-access-token']").text();
+  if (testIdText && testIdText.trim()) {
+    return testIdText.trim();
+  }
+  const codeText = $("code").first().text();
+  if (codeText && codeText.trim().startsWith("glpat-")) {
+    return codeText.trim();
+  }
+  return null;
 };
 
 const buildBrowserHeaders = (cookie?: string, referer?: string): Record<string, string> => ({
@@ -682,6 +720,119 @@ const runWebFlowOnce = async (options: {
   return keyId || 0;
 };
 
+const runTokenWebFlowOnce = async (options: {
+  baseUrl: string;
+  credentials: GitCredentials;
+  name: string;
+  scopes: string[];
+  expiresAt?: string;
+  fetchImpl: typeof fetch;
+  logger?: SshManagerLogger;
+}): Promise<string> => {
+  const { baseUrl, credentials, name, scopes, expiresAt, fetchImpl, logger } = options;
+  const jar = new CookieJar();
+
+  const signInUrl = `${baseUrl}/users/sign_in`;
+  logger?.(`HTTP GET ${signInUrl}`);
+  const signInResponse = await fetchWithCookies(fetchImpl, jar, signInUrl, {
+    headers: buildBrowserHeaders(),
+  });
+  if (signInResponse.status === 401) {
+    throw new SshManagerAuthError("Não autorizado na página de login.", signInResponse.status);
+  }
+  const signInHtml = await signInResponse.text();
+  const signInToken = extractAuthenticityToken(signInHtml);
+  if (!signInToken) {
+    throw new SshManagerAuthError("Token de autenticidade ausente no login.");
+  }
+
+  const loginUrl = `${baseUrl}/users/auth/ldapmain/callback`;
+  const loginForm = new URLSearchParams();
+  loginForm.set("username", credentials.username);
+  loginForm.set("password", credentials.password);
+  loginForm.set("remember_me", "0");
+  loginForm.set("authenticity_token", signInToken);
+
+  logger?.(`HTTP POST ${loginUrl}`);
+  const loginResponse = await fetchWithCookies(fetchImpl, jar, loginUrl, {
+    method: "POST",
+    headers: {
+      ...buildBrowserHeaders(jar.getCookieStringSync(loginUrl), signInUrl),
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: loginForm.toString(),
+    redirect: "manual",
+  });
+  if (loginResponse.status === 401) {
+    throw new SshManagerAuthError("Credenciais inválidas no LDAP.", loginResponse.status);
+  }
+
+  const tokenUrl = `${baseUrl}/-/profile/personal_access_tokens`;
+  logger?.(`HTTP GET ${tokenUrl}`);
+  const tokenPageResponse = await fetchWithCookies(fetchImpl, jar, tokenUrl, {
+    headers: buildBrowserHeaders(jar.getCookieStringSync(tokenUrl), signInUrl),
+  });
+  if (tokenPageResponse.status === 401) {
+    throw new SshManagerAuthError("Sessão expirada ao acessar tokens pessoais.", tokenPageResponse.status);
+  }
+  const tokenPageHtml = await tokenPageResponse.text();
+  const webAuthenticityToken = extractAuthenticityToken(tokenPageHtml);
+  const csrfToken = extractCsrfToken(tokenPageHtml);
+  const tokenForForm = webAuthenticityToken ?? csrfToken;
+  if (!tokenForForm) {
+    throw new SshManagerAuthError("Token de sessão ausente na página de tokens pessoais.");
+  }
+
+  const registerForm = new URLSearchParams();
+  registerForm.set("authenticity_token", tokenForForm);
+  registerForm.set("personal_access_token[name]", name);
+  scopes.forEach((scope) => {
+    registerForm.append("personal_access_token[scopes][]", scope);
+  });
+  if (expiresAt) {
+    registerForm.set("personal_access_token[expires_at]", expiresAt);
+  }
+
+  logger?.(`HTTP POST ${tokenUrl}`);
+  const registerResponse = await fetchWithCookies(fetchImpl, jar, tokenUrl, {
+    method: "POST",
+    headers: {
+      ...buildBrowserHeaders(jar.getCookieStringSync(tokenUrl), tokenUrl),
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: registerForm.toString(),
+    redirect: "manual",
+  });
+
+  if (registerResponse.status === 401) {
+    throw new SshManagerAuthError("Não autorizado ao cadastrar token pessoal.", registerResponse.status);
+  }
+  if (registerResponse.status >= 400 && registerResponse.status !== 302) {
+    const text = await registerResponse.text();
+    throw new Error(`Falha ao cadastrar token pessoal (${registerResponse.status}): ${text}`);
+  }
+
+  let tokenHtml = "";
+  if (registerResponse.status === 302) {
+    const location = registerResponse.headers.get("location") ?? registerResponse.headers.get("Location") ?? tokenUrl;
+    const redirectUrl = location.startsWith("http") ? location : `${baseUrl}${location}`;
+    logger?.(`HTTP GET ${redirectUrl}`);
+    const redirectResponse = await fetchWithCookies(fetchImpl, jar, redirectUrl, {
+      headers: buildBrowserHeaders(jar.getCookieStringSync(redirectUrl), tokenUrl),
+    });
+    tokenHtml = await redirectResponse.text();
+  } else {
+    tokenHtml = await registerResponse.text();
+  }
+
+  const tokenValue = extractPersonalAccessToken(tokenHtml);
+  if (!tokenValue) {
+    throw new SshManagerAuthError("Token pessoal não encontrado na resposta do GitLab.");
+  }
+
+  return tokenValue;
+};
+
 const isRetryableError = (error: unknown): boolean => {
   if (error instanceof SshManagerAuthError) {
     return true;
@@ -745,4 +896,54 @@ export const ensureGitLabSshKey = async (options: EnsureGitLabSshKeyOptions = {}
   }
 
   throw new Error("Falha inesperada no fluxo de registro de chave SSH.");
+};
+
+export const ensureGitLabPersonalAccessToken = async (
+  options: EnsureGitLabTokenOptions
+): Promise<{ token: string; name: string; scopes: string[] }> => {
+  const logger = options.logger ?? console.log;
+  const baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
+  const scopes = options.scopes ?? DEFAULT_TOKEN_SCOPES;
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const sleepFn = options.sleepFn ?? sleep;
+  const maxAttempts = options.maxAttempts ?? 5;
+  const retryDelayMs = options.retryDelayMs ?? 4000;
+
+  const credentials =
+    options.credentials ??
+    loadGitCredentials({
+      envFilePaths: options.envFilePaths,
+      jsonFilePath: options.jsonFilePath,
+      allowProcessEnv: options.allowProcessEnv,
+    });
+
+  logger(`Credenciais carregadas de ${credentials.source}.`);
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    logger(`Tentativa ${attempt}/${maxAttempts} para gerar token pessoal no GitLab.`);
+    try {
+      const token = await runTokenWebFlowOnce({
+        baseUrl,
+        credentials,
+        name: options.name,
+        scopes,
+        expiresAt: options.expiresAt,
+        fetchImpl,
+        logger,
+      });
+      logger(`Token pessoal gerado com sucesso (${options.name}).`);
+      return { token, name: options.name, scopes };
+    } catch (error) {
+      if (!isRetryableError(error) || attempt === maxAttempts) {
+        const message = error instanceof Error ? error.message : "erro desconhecido";
+        logger(`Falha definitiva ao gerar token pessoal: ${message}`);
+        throw error;
+      }
+      const message = error instanceof Error ? error.message : "erro desconhecido";
+      logger(`Falha temporária (${message}). Aguardando ${retryDelayMs}ms para nova tentativa.`);
+      await sleepFn(retryDelayMs);
+    }
+  }
+
+  throw new Error("Falha inesperada no fluxo de geração de token pessoal.");
 };

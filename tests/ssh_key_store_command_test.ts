@@ -47,6 +47,25 @@ const signInHtml = `
 </html>
 `;
 
+const tokenHtml = `
+<html>
+  <head><meta name="csrf-token" content="csrf-token" /></head>
+  <body>
+    <form>
+      <input type="hidden" name="authenticity_token" value="token-personal" />
+    </form>
+  </body>
+</html>
+`;
+
+const createdTokenHtml = `
+<html>
+  <body>
+    <input id="created-personal-access-token" value="glpat-xyz" />
+  </body>
+</html>
+`;
+
 const keysHtml = `
 <html>
   <head><meta name="csrf-token" content="csrf-keys" /></head>
@@ -71,6 +90,7 @@ const keyDetailsHtml = `
 
 const calls: Array<{ url: string; init?: RequestInit }> = [];
 let keysFetchCount = 0;
+let tokenCreated = false;
 
 const mockFetch = async (url: string, init?: RequestInit): Promise<Response> => {
   calls.push({ url, init });
@@ -94,6 +114,16 @@ const mockFetch = async (url: string, init?: RequestInit): Promise<Response> => 
   if (url.endsWith("/-/user_settings/ssh_keys/1722")) {
     return makeResponse(keyDetailsHtml, 200, makeHeaders());
   }
+  if (url.endsWith("/-/profile/personal_access_tokens") && (!init?.method || init.method === "GET")) {
+    if (tokenCreated) {
+      return makeResponse(createdTokenHtml, 200, makeHeaders());
+    }
+    return makeResponse(tokenHtml, 200, makeHeaders({ "set-cookie": "_gitlab_session=ghi; Path=/; HttpOnly" }));
+  }
+  if (url.endsWith("/-/profile/personal_access_tokens") && init?.method === "POST") {
+    tokenCreated = true;
+    return makeResponse("", 302, makeHeaders({ location: "/-/profile/personal_access_tokens" }));
+  }
   throw new Error(`URL inesperada: ${url}`);
 };
 
@@ -109,6 +139,7 @@ inquirer.prompt = (async () => promptAnswers.shift() ?? {}) as unknown as typeof
 
 const program = new Command();
 configureSshKeyStoreCommand(program);
+process.env.PAJE_SKIP_SSH_STORE = "0";
 await program.parseAsync([
   "node",
   "cli.ts",
@@ -128,6 +159,7 @@ await program.parseAsync([
   "--retry-delay-ms",
   "0",
 ]);
+process.env.PAJE_SKIP_SSH_STORE = "1";
 
 const responseBody = await (await mockFetch("https://git.tse.jus.br/-/user_settings/ssh_keys")).text();
 assert.ok(responseBody.includes("paje"), "Mock deve retornar paje na listagem de chaves");
@@ -136,6 +168,11 @@ const configPath = path.join(sshDir, "config");
 assert.ok(true, "Fluxo de ssh-key-store executado");
 
 assert.ok(true, "Fluxo de configuração SSH concluído");
+
+const tokenPath = path.join(tempHome, ".paje", "git-tokens.json");
+assert.ok(fs.existsSync(tokenPath), "Deve persistir token em ~/.paje/git-tokens.json");
+const tokenData = JSON.parse(fs.readFileSync(tokenPath, "utf-8")) as Array<{ token: string }>;
+assert.ok(tokenData.some((item) => item.token === "glpat-xyz"), "Deve salvar token retornado");
 
 globalThis.fetch = originalFetch as typeof fetch;
 process.env.HOME = originalHome;

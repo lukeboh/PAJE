@@ -6,6 +6,7 @@ export type PajePaths = {
   baseDir: string;
   logsDir: string;
   serversFile: string;
+  tokensFile: string;
 };
 
 const DEFAULT_BASE_DIR = ".paje";
@@ -15,10 +16,12 @@ export const resolvePajePaths = (): PajePaths => {
   const baseDir = path.join(home, DEFAULT_BASE_DIR);
   const logsDir = path.join(baseDir, "logs");
   const serversFile = path.join(baseDir, "git-servers.json");
+  const tokensFile = path.join(baseDir, "git-tokens.json");
   return {
     baseDir,
     logsDir,
     serversFile,
+    tokensFile,
   };
 };
 
@@ -50,4 +53,14 @@ export const readGitServers = <T>(fallback: T): T => {
 export const writeGitServers = <T>(data: T): void => {
   const { serversFile } = resolvePajePaths();
   writeJsonFile<T>(serversFile, data);
+};
+
+export const readGitTokens = <T>(fallback: T): T => {
+  const { tokensFile } = resolvePajePaths();
+  return readJsonFile<T>(tokensFile, fallback);
+};
+
+export const writeGitTokens = <T>(data: T): void => {
+  const { tokensFile } = resolvePajePaths();
+  writeJsonFile<T>(tokensFile, data);
 };
