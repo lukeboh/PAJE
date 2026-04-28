@@ -16,9 +16,9 @@ const menuItems: MenuItem[] = [
     description: "Seleciona grupos e projetos via TUI e executa clone/pull paralelo.",
   },
   {
-    label: "Gerar e armazenar chave SSH (ssh-key-store)",
-    command: "ssh-key-store",
-    description: "Gera chave SSH, grava no ~/.ssh/config e envia ao GitLab.",
+    label: "Gerar e armazenar servidor GitLab (git-server-store)",
+    command: "git-server-store",
+    description: "Gera chave SSH, grava no ~/.ssh/config, registra no GitLab e salva token.",
   },
 ];
 

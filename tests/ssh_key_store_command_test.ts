@@ -147,7 +147,7 @@ process.env.PAJE_SKIP_SSH_STORE = "0";
 await program.parseAsync([
   "node",
   "cli.ts",
-  "ssh-key-store",
+  "git-server-store",
   "--env-file",
   envFilePath,
   "--server-name",
@@ -171,7 +171,7 @@ const responseBody = await (await mockFetch("https://git.tse.jus.br/-/user_setti
 assert.ok(responseBody.includes("paje"), "Mock deve retornar paje na listagem de chaves");
 
 const configPath = path.join(sshDir, "config");
-assert.ok(true, "Fluxo de ssh-key-store executado");
+assert.ok(true, "Fluxo de git-server-store executado");
 
 assert.ok(true, "Fluxo de configuração SSH concluído");
 

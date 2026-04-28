@@ -1140,8 +1140,8 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
 
 export const configureSshKeyStoreCommand = (program: Command, session?: TuiSession): void => {
   program
-    .command("ssh-key-store")
-    .description("Gerar e armazenar chave SSH no GitLab sem sincronizar repositórios")
+    .command("git-server-store")
+    .description("Gerar e armazenar chave SSH e token no GitLab sem sincronizar repositórios")
     .option("-v, --verbose", "Exibe detalhes das operações executadas", false)
     .option("--server-name <name>", "Nome do servidor GitLab")
     .option("--base-url <url>", "URL base do GitLab")
@@ -1167,5 +1167,17 @@ export const configureSshKeyStoreCommand = (program: Command, session?: TuiSessi
       };
 
       await storeSshKeyOnly(server, session, options);
+    });
+
+  program
+    .command("ssh-key-store")
+    .description("(Obsoleto) Use git-server-store")
+    .action(async () => {
+      const message = "Comando renomeado: use git-server-store.";
+      if (session) {
+        await session.showMessage({ title: "GitLab", message });
+        return;
+      }
+      console.log(message);
     });
 };
