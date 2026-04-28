@@ -1,10 +1,13 @@
 export {};
 await import("./git_tree_selection_test.js");
 await import("./git_parallel_sync_test.js");
+await import("./git_command_helpers_test.js");
+await import("./git_command_select_server_test.js");
 await import("./ssh_config_test.js");
 await import("./ssh_manager_test.js");
 await import("./ssh_key_store_command_test.js");
 await import("./ssh_key_overwrite_test.js");
+await import("./tui_render_test.js");
 await import("./tui_stack_overflow_test.js");
 await import("./gitlab_web_key_test.js");
 await import("./git_sync_auth_guard_test.js");

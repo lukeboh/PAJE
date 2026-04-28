@@ -18,7 +18,7 @@ type FlatTreeItem = {
   label: string;
 };
 
-const buildBlessedTreeNode = (node: GitLabTreeNode): BlessedTreeNode => {
+export const buildBlessedTreeNode = (node: GitLabTreeNode): BlessedTreeNode => {
   const indicator = node.partiallySelected ? "[~]" : node.selected ? "[x]" : "[ ]";
   const label = `${indicator} ${node.label}`;
 

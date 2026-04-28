@@ -78,14 +78,14 @@ type SshKeyStoreCliOptions = {
   tokenExpiresAt?: string;
 };
 
-const normalizeBaseUrl = (url: string): string => url.trim().replace(/\/+$/, "");
+export const normalizeBaseUrl = (url: string): string => url.trim().replace(/\/+$/, "");
 
 type MergeResult = {
   servers: GitServerEntry[];
   updated: boolean;
 };
 
-const mergeServer = (servers: GitServerEntry[], server: GitServerEntry): MergeResult => {
+export const mergeServer = (servers: GitServerEntry[], server: GitServerEntry): MergeResult => {
   const normalized = normalizeBaseUrl(server.baseUrl);
   const existingIndex = servers.findIndex((item) => normalizeBaseUrl(item.baseUrl) === normalized);
   const sanitized = {
@@ -103,7 +103,7 @@ const mergeServer = (servers: GitServerEntry[], server: GitServerEntry): MergeRe
   return { servers: [...servers, sanitized], updated: false };
 };
 
-const promptGitServer = async (
+export const promptGitServer = async (
   session?: TuiSession,
   overrides?: Partial<GitServerEntry>
 ): Promise<GitServerEntry> => {
@@ -183,7 +183,7 @@ const promptGitServer = async (
   };
 };
 
-const promptBasicAuthPassword = async (
+export const promptBasicAuthPassword = async (
   username: string,
   session?: TuiSession,
   presetPassword?: string
@@ -212,7 +212,7 @@ const promptBasicAuthPassword = async (
   return answers.password;
 };
 
-const selectGitServer = async (session?: TuiSession, cli?: GitSyncCliOptions): Promise<GitServerEntry> => {
+export const selectGitServer = async (session?: TuiSession, cli?: GitSyncCliOptions): Promise<GitServerEntry> => {
   if (cli?.serverName && cli?.baseUrl) {
     const server: GitServerEntry = {
       id: cli.baseUrl,
@@ -667,7 +667,7 @@ const resolveEnvFileFromCli = (envFile?: string): string | undefined => {
   return defaultEnvPath;
 };
 
-const resolveEnvValue = <T extends EnvConfigValue>(
+export const resolveEnvValue = <T extends EnvConfigValue>(
   cliValue: T | undefined,
   env: EnvConfig,
   key: string
@@ -682,7 +682,7 @@ const resolveEnvValue = <T extends EnvConfigValue>(
   return value as T;
 };
 
-const resolveEnvString = (cliValue: string | undefined, env: EnvConfig, key: string): string | undefined => {
+export const resolveEnvString = (cliValue: string | undefined, env: EnvConfig, key: string): string | undefined => {
   const resolved = resolveEnvValue(cliValue, env, key);
   if (resolved === undefined) {
     return undefined;
@@ -690,7 +690,7 @@ const resolveEnvString = (cliValue: string | undefined, env: EnvConfig, key: str
   return String(resolved);
 };
 
-const resolveEnvBoolean = (cliValue: boolean | undefined, env: EnvConfig, key: string): boolean | undefined => {
+export const resolveEnvBoolean = (cliValue: boolean | undefined, env: EnvConfig, key: string): boolean | undefined => {
   if (cliValue !== undefined) {
     return cliValue;
   }
@@ -709,7 +709,7 @@ const resolveEnvBoolean = (cliValue: boolean | undefined, env: EnvConfig, key: s
   return undefined;
 };
 
-const resolveEnvNumber = (cliValue: number | undefined, env: EnvConfig, key: string): number | undefined => {
+export const resolveEnvNumber = (cliValue: number | undefined, env: EnvConfig, key: string): number | undefined => {
   if (cliValue !== undefined && !Number.isNaN(cliValue)) {
     return cliValue;
   }
@@ -726,7 +726,7 @@ const resolveEnvNumber = (cliValue: number | undefined, env: EnvConfig, key: str
   return undefined;
 };
 
-const resolveEnvStringArray = (cliValue: string | undefined, env: EnvConfig, key: string): string | undefined => {
+export const resolveEnvStringArray = (cliValue: string | undefined, env: EnvConfig, key: string): string | undefined => {
   if (cliValue && cliValue.trim()) {
     return cliValue;
   }

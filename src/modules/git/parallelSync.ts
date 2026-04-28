@@ -21,16 +21,16 @@ export const resolveConcurrency = (options?: ParallelSyncOptions): number => {
   return Math.max(1, options.concurrency);
 };
 
-const runGit = async (args: string[], cwd?: string): Promise<string> => {
+export const runGit = async (args: string[], cwd?: string): Promise<string> => {
   const { stdout } = await execFileAsync("git", args, { cwd });
   return stdout;
 };
 
-const ensureParentDir = async (targetPath: string): Promise<void> => {
+export const ensureParentDir = async (targetPath: string): Promise<void> => {
   await execFileAsync("mkdir", ["-p", path.dirname(targetPath)]);
 };
 
-const syncRepository = async (
+export const syncRepository = async (
   target: GitRepositoryTarget,
   options?: ParallelSyncOptions
 ): Promise<SyncResult> => {

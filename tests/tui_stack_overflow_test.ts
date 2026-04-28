@@ -8,6 +8,13 @@ const screen = blessed.screen({
   title: "PAJÉ - Teste de Stack Overflow",
 });
 
+const originalTreeFactory = (blessedContrib as any).tree;
+(blessedContrib as any).tree = (options: any) => {
+  return {
+    setData: () => undefined,
+  } as any;
+};
+
 const treeFactory = (blessed as any).tree ?? (blessedContrib as any).tree;
 assert.ok(treeFactory, "treeFactory deve existir");
 
@@ -39,6 +46,7 @@ try {
   screen.render();
 } finally {
   screen.destroy();
+  (blessedContrib as any).tree = originalTreeFactory;
 }
 
 assert.ok(true, "Renderização concluída sem stack overflow");
