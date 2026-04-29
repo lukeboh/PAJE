@@ -38,3 +38,26 @@ export const readLocalRepoInfo = async (repoPath: string): Promise<LocalGitRepoI
     currentBranch,
   };
 };
+
+export const getAheadBehind = async (
+  repoPath: string,
+  branch: string
+): Promise<{ ahead: number; behind: number }> => {
+  try {
+    const { stdout } = await execFileAsync("git", [
+      "-C",
+      repoPath,
+      "rev-list",
+      "--left-right",
+      "--count",
+      `origin/${branch}...${branch}`,
+    ]);
+    const [behindRaw, aheadRaw] = stdout.trim().split(/\s+/);
+    return {
+      behind: Number(behindRaw ?? 0),
+      ahead: Number(aheadRaw ?? 0),
+    };
+  } catch {
+    return { ahead: 0, behind: 0 };
+  }
+};

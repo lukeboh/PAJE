@@ -6,9 +6,10 @@ import { Command } from "commander";
 import { GitLabApi } from "./gitlabApi.js";
 import { buildGitLabTree, collectSelectedProjects, recomputeTreeSelection, toggleTreeNode } from "./treeBuilder.js";
 import { renderRepositoryTree } from "./tui.js";
+import { getAheadBehind, readLocalRepoInfo } from "./gitRepoScanner.js";
 import { TuiSession } from "./tuiSession.js";
 import { GitLabProject, GitLabTreeNode, GitRepositoryTarget, ParallelSyncOptions } from "./types.js";
-import { parallelSync } from "./parallelSync.js";
+import { parallelSync, runGit } from "./parallelSync.js";
 import { PajeLogger } from "./logger.js";
 import {
   addHostToKnownHosts,
@@ -59,6 +60,121 @@ type GitSyncCliOptions = {
   gitShowPulicRepos?: boolean;
   gitShowPublicRepos?: boolean;
   envFile?: string;
+  prepareLocalDirs?: boolean;
+};
+
+const parseBooleanFlag = (value?: string | boolean): boolean | undefined => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (value === undefined) {
+    return undefined;
+  }
+  return value.trim().toLowerCase() === "true";
+};
+
+export type RepoSyncStatus = {
+  branch: string;
+  state: "SYNCED" | "BEHIND" | "AHEAD" | "REMOTE";
+  delta?: string;
+};
+
+export type TreePrintNode = {
+  label: string;
+  status?: RepoSyncStatus;
+  children?: TreePrintNode[];
+};
+
+export const formatRepoStatus = (status: RepoSyncStatus): string => {
+  const state = status.state.toLowerCase();
+  const delta = status.delta ? ` ${status.delta}` : "";
+  return `[${status.branch}, ${state}${delta}]`;
+};
+
+export const renderTreeLines = (rootLabel: string, nodes: TreePrintNode[]): string[] => {
+  const lines: string[] = [rootLabel];
+  const walk = (items: TreePrintNode[], prefix: string): void => {
+    items.forEach((node) => {
+      const suffix = node.status ? ` ${formatRepoStatus(node.status)}` : "";
+      lines.push(`${prefix}+ ${node.label}${suffix}`);
+      if (node.children && node.children.length > 0) {
+        walk(node.children, `${prefix}| `);
+      }
+    });
+  };
+  walk(nodes, "");
+  return lines;
+};
+
+export const buildHierarchyTree = (
+  projects: GitLabProject[],
+  statuses: Record<number, RepoSyncStatus>
+): TreePrintNode[] => {
+  const root: TreePrintNode = { label: "__root__", children: [] };
+  const ensureChild = (parent: TreePrintNode, label: string): TreePrintNode => {
+    const existing = parent.children?.find((child) => child.label === label);
+    if (existing) {
+      return existing;
+    }
+    const created: TreePrintNode = { label, children: [] };
+    parent.children = parent.children ?? [];
+    parent.children.push(created);
+    return created;
+  };
+
+  projects.forEach((project) => {
+    const segments = project.path_with_namespace.split("/").filter(Boolean);
+    let cursor = root;
+    segments.forEach((segment, index) => {
+      const isLeaf = index === segments.length - 1;
+      const node = ensureChild(cursor, segment);
+      if (isLeaf) {
+        node.status = statuses[project.id];
+      }
+      cursor = node;
+    });
+  });
+
+  return root.children ?? [];
+};
+
+const ensureLocalDirsIfNeeded = async (
+  projects: GitLabProject[],
+  baseDir: string,
+  enabled: boolean
+): Promise<void> => {
+  if (!enabled) {
+    return;
+  }
+  await Promise.all(
+    projects.map(async (project) => {
+      const targetPath = path.join(baseDir, project.path_with_namespace);
+      await fs.promises.mkdir(targetPath, { recursive: true });
+    })
+  );
+};
+
+const resolveRepoStatus = async (options: {
+  targetPath: string;
+  defaultBranch?: string;
+}): Promise<RepoSyncStatus> => {
+  const repoInfo = await readLocalRepoInfo(options.targetPath);
+  if (!repoInfo.remoteUrl || !repoInfo.currentBranch) {
+    return { branch: options.defaultBranch ?? "main", state: "REMOTE" };
+  }
+  const branch = repoInfo.currentBranch ?? options.defaultBranch ?? "main";
+  await runGit(["-C", options.targetPath, "fetch", "--quiet"]).catch(() => undefined);
+  const { ahead, behind } = await getAheadBehind(options.targetPath, branch);
+  if (ahead === 0 && behind === 0) {
+    return { branch, state: "SYNCED" };
+  }
+  if (behind > 0 && ahead === 0) {
+    return { branch, state: "BEHIND", delta: `-${behind}` };
+  }
+  if (ahead > 0 && behind === 0) {
+    return { branch, state: "AHEAD", delta: `+${ahead}` };
+  }
+  return { branch, state: "AHEAD", delta: `+${ahead}/-${behind}` };
 };
 
 type SshKeyStoreCliOptions = {
@@ -1045,6 +1161,11 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
     .option("--public-key-path <path>", "Caminho para chave pública existente (.pub)")
     .option("--env-file <path>", "Caminho do arquivo de ambiente (yaml)")
     .option(
+      "--prepare-local-dirs [value]",
+      "Cria hierarquia de diretórios locais sem clonar repositórios",
+      false
+    )
+    .option(
       "--git-show-pulic-repos",
       "Permitir listagem de repositórios sem autenticação (apenas públicos)",
       false
@@ -1075,6 +1196,10 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         gitShowPublicRepos:
           resolveEnvBoolean(options.gitShowPublicRepos, envConfig, "gitShowPublicRepos") ?? options.gitShowPublicRepos,
         verbose: resolveEnvBoolean(options.verbose, envConfig, "verbose") ?? options.verbose,
+        prepareLocalDirs:
+          resolveEnvBoolean(options.prepareLocalDirs, envConfig, "prepareLocalDirs") ??
+          parseBooleanFlag(options.prepareLocalDirs) ??
+          false,
       };
 
       const server = await selectGitServer(session, mergedOptions);
@@ -1099,6 +1224,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       const api = new GitLabApi({
         baseUrl: server.baseUrl,
         basicAuth,
+        token: server.token,
         verbose: mergedOptions.verbose ?? false,
         logger: session
           ? (message) => {
@@ -1107,9 +1233,9 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
           : undefined,
       });
       const allowPublic = mergedOptions.gitShowPulicRepos || mergedOptions.gitShowPublicRepos;
-      if (!api.hasAuth() && !allowPublic && !hasSshAssociation) {
+      if (!api.hasAuth() && !allowPublic) {
         const message =
-          "Não há autenticação configurada. Para consultar repositórios sem autenticação, use --git-show-pulic-repos.";
+          "Não há autenticação configurada. Para consultar repositórios sem autenticação, use --git-show-public-repos.";
         if (session) {
           await session.showMessage({ title: "GitLab", message });
         } else {
@@ -1118,13 +1244,35 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         return;
       }
 
-      await ensureSshKey(api, session, mergedOptions.verbose ?? false, mergedOptions);
+      if (hasSshAssociation || api.hasAuth()) {
+        await ensureSshKey(api, session, mergedOptions.verbose ?? false, mergedOptions);
+      }
 
       const [groups, projects] = allowPublic && !api.hasAuth() && !hasSshAssociation
         ? await Promise.all([api.listPublicGroups(), api.listPublicProjects()])
         : await Promise.all([api.listGroups(), api.listUserProjects()]);
 
       const tree = buildGitLabTree(groups, projects);
+      if (!session) {
+        const defaultBaseDir = mergedOptions.baseDir ?? "repos";
+        await ensureLocalDirsIfNeeded(projects, defaultBaseDir, mergedOptions.prepareLocalDirs ?? false);
+        const statusEntries = await Promise.all(
+          projects.map(async (project) => {
+            const targetPath = path.join(defaultBaseDir, project.path_with_namespace);
+            const status = await resolveRepoStatus({
+              targetPath,
+              defaultBranch: project.default_branch,
+            });
+            return [project.id, status] as const;
+          })
+        );
+        const statusMap = Object.fromEntries(statusEntries) as Record<number, RepoSyncStatus>;
+        const treeNodes = buildHierarchyTree(projects, statusMap);
+        const header = `${server.name} (${server.baseUrl})`;
+        renderTreeLines(header, treeNodes).forEach((line) => console.log(line));
+        return;
+      }
+
       const tuiResult = await renderRepositoryTree(tree, (id) => toggleById(tree, id), session);
       if (!tuiResult.confirmed) {
         logger.warn("Sincronização cancelada pelo usuário");
@@ -1148,13 +1296,13 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
           logger.info(`${result.target.pathWithNamespace} ${result.status}`);
         }
       });
-
       if (session) {
         await session.showMessage({
           title: "Sincronização concluída",
           message: "Processo finalizado. Confira os logs em ~/.paje/logs",
         });
       }
+      return;
     });
 };
 

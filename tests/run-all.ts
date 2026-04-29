@@ -12,3 +12,4 @@ await import("./tui_stack_overflow_test.js");
 await import("./gitlab_web_key_test.js");
 await import("./git_sync_auth_guard_test.js");
 await import("./gitlab_personal_token_test.js");
+await import("./git_sync_tree_render_test.js");

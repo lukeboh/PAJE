@@ -11,6 +11,7 @@ export type GitLabProject = {
   path_with_namespace: string;
   ssh_url_to_repo: string;
   http_url_to_repo: string;
+  default_branch?: string;
   namespace?: {
     id: number;
     full_path: string;

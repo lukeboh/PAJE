@@ -7,6 +7,7 @@ export type GitLabApiOptions = {
     username: string;
     password: string;
   };
+  token?: string;
   verbose?: boolean;
   logger?: (message: string) => void;
 };
@@ -49,6 +50,7 @@ class CookieJar {
 export class GitLabApi {
   private readonly baseUrl: string;
   private readonly basicAuth?: { username: string; password: string };
+  private readonly token?: string;
   private sessionCookie?: string;
   private csrfToken?: string;
   private webAuthenticityToken?: string;
@@ -61,6 +63,7 @@ export class GitLabApi {
   constructor(options: GitLabApiOptions) {
     this.baseUrl = options.baseUrl.replace(/\/$/, "");
     this.basicAuth = options.basicAuth;
+    this.token = options.token;
     this.verbose = options.verbose ?? false;
     this.logger = options.logger;
   }
@@ -70,7 +73,7 @@ export class GitLabApi {
   }
 
   hasAuth(): boolean {
-    return Boolean(this.basicAuth);
+    return Boolean(this.basicAuth || this.token);
   }
 
   private updateCookies(response: Response): void {
@@ -99,6 +102,9 @@ export class GitLabApi {
     const redacted = { ...headers };
     if (redacted.Authorization) {
       redacted.Authorization = "Basic <REDACTED>";
+    }
+    if (redacted["PRIVATE-TOKEN"]) {
+      redacted["PRIVATE-TOKEN"] = "<REDACTED>";
     }
     if (redacted.Cookie) {
       redacted.Cookie = "<REDACTED>";
@@ -262,6 +268,7 @@ export class GitLabApi {
       "Content-Type": "application/json",
       ...(this.sessionCookie ? { Cookie: this.sessionCookie } : {}),
       ...(this.csrfToken ? { "X-CSRF-Token": this.csrfToken } : {}),
+      ...(this.token ? { "PRIVATE-TOKEN": this.token } : {}),
       ...(init.headers as Record<string, string> | undefined),
     };
     const verboseBody = typeof init.body === "string" ? init.body : init.body ? JSON.stringify(init.body) : "";
@@ -278,6 +285,7 @@ export class GitLabApi {
         "Content-Type": "application/json",
         ...(this.sessionCookie ? { Cookie: this.sessionCookie } : {}),
         ...(this.csrfToken ? { "X-CSRF-Token": this.csrfToken } : {}),
+        ...(this.token ? { "PRIVATE-TOKEN": this.token } : {}),
         ...(init.headers ?? {}),
       },
     });
@@ -302,28 +310,28 @@ export class GitLabApi {
   }
 
   async listGroups(): Promise<GitLabGroup[]> {
-    if (!this.basicAuth) {
+    if (!this.hasAuth()) {
       return [];
     }
     return this.request<GitLabGroup[]>("/api/v4/groups?per_page=100&all_available=true");
   }
 
   async listSubgroups(groupId: number): Promise<GitLabGroup[]> {
-    if (!this.basicAuth) {
+    if (!this.hasAuth()) {
       return [];
     }
     return this.request<GitLabGroup[]>(`/api/v4/groups/${groupId}/subgroups?per_page=100`);
   }
 
   async listGroupProjects(groupId: number): Promise<GitLabProject[]> {
-    if (!this.basicAuth) {
+    if (!this.hasAuth()) {
       return [];
     }
     return this.request<GitLabProject[]>(`/api/v4/groups/${groupId}/projects?per_page=100`);
   }
 
   async listUserProjects(): Promise<GitLabProject[]> {
-    return this.request<GitLabProject[]>("/api/v4/projects?membership=true&per_page=100");
+    return this.request<GitLabProject[]>("/api/v4/projects?membership=true&per_page=500");
   }
 
   async listPublicGroups(): Promise<GitLabGroup[]> {
