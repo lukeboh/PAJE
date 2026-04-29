@@ -6,7 +6,13 @@ import { Command } from "commander";
 import { GitLabApi } from "./gitlabApi.js";
 import { buildGitLabTree, collectSelectedProjects, recomputeTreeSelection, toggleTreeNode } from "./treeBuilder.js";
 import { renderRepositoryTree } from "./tui.js";
-import { getAheadBehind, readLocalRepoInfo } from "./gitRepoScanner.js";
+import {
+  getAheadBehind,
+  getStatusPorcelain,
+  hasGitDir,
+  listLocalDirectories,
+  readLocalRepoInfo,
+} from "./gitRepoScanner.js";
 import { TuiSession } from "./tuiSession.js";
 import { GitLabProject, GitLabTreeNode, GitRepositoryTarget, ParallelSyncOptions } from "./types.js";
 import { parallelSync, runGit } from "./parallelSync.js";
@@ -73,9 +79,11 @@ const parseBooleanFlag = (value?: string | boolean): boolean | undefined => {
   return value.trim().toLowerCase() === "true";
 };
 
+export type RepoSyncState = "SYNCED" | "BEHIND" | "AHEAD" | "REMOTE" | "EMPTY" | "LOCAL" | "UNCOMMITTED";
+
 export type RepoSyncStatus = {
   branch: string;
-  state: "SYNCED" | "BEHIND" | "AHEAD" | "REMOTE";
+  state: RepoSyncState;
   delta?: string;
 };
 
@@ -85,10 +93,67 @@ export type TreePrintNode = {
   children?: TreePrintNode[];
 };
 
+const STATUS_COLOR: Record<RepoSyncState, string> = {
+  SYNCED: "green",
+  BEHIND: "red",
+  AHEAD: "blue",
+  REMOTE: "orange",
+  EMPTY: "magenta",
+  LOCAL: "red",
+  UNCOMMITTED: "red",
+};
+
+const ANSI_COLOR: Record<string, string> = {
+  green: "\u001b[32m",
+  red: "\u001b[31m",
+  blue: "\u001b[34m",
+  orange: "\u001b[33m",
+  magenta: "\u001b[35m",
+  cyan: "\u001b[36m",
+  white: "\u001b[37m",
+  yellow: "\u001b[33m",
+  reset: "\u001b[0m",
+};
+
+const BRANCH_COLOR: Record<string, string> = {
+  main: "cyan",
+  master: "magenta",
+  stable: "green",
+  develop: "yellow",
+};
+
+const colorize = (value: string, color?: string): string => {
+  if (!color) {
+    return value;
+  }
+  return `${ANSI_COLOR[color] ?? ""}${value}${ANSI_COLOR.reset}`;
+};
+
+const resolveBranchColor = (branch: string): string | undefined => {
+  const normalized = branch.trim().toLowerCase();
+  if (normalized.startsWith("develop")) {
+    return BRANCH_COLOR.develop;
+  }
+  if (normalized.startsWith("main")) {
+    return BRANCH_COLOR.main;
+  }
+  if (normalized.startsWith("master")) {
+    return BRANCH_COLOR.master;
+  }
+  if (normalized.startsWith("stable")) {
+    return BRANCH_COLOR.stable;
+  }
+  return undefined;
+};
+
 export const formatRepoStatus = (status: RepoSyncStatus): string => {
   const state = status.state.toLowerCase();
   const delta = status.delta ? ` ${status.delta}` : "";
-  return `[${status.branch}, ${state}${delta}]`;
+  const branchColor = resolveBranchColor(status.branch);
+  const stateColor = STATUS_COLOR[status.state];
+  const branchLabel = colorize(status.branch, branchColor);
+  const stateLabel = colorize(`${state}${delta}`, stateColor);
+  return `[${branchLabel}, ${stateLabel}]`;
 };
 
 export const renderTreeLines = (rootLabel: string, nodes: TreePrintNode[]): string[] => {
@@ -108,7 +173,9 @@ export const renderTreeLines = (rootLabel: string, nodes: TreePrintNode[]): stri
 
 export const buildHierarchyTree = (
   projects: GitLabProject[],
-  statuses: Record<number, RepoSyncStatus>
+  statuses: Record<number, RepoSyncStatus>,
+  localPaths: string[] = [],
+  localStatuses: Record<string, RepoSyncStatus> = {}
 ): TreePrintNode[] => {
   const root: TreePrintNode = { label: "__root__", children: [] };
   const ensureChild = (parent: TreePrintNode, label: string): TreePrintNode => {
@@ -135,6 +202,40 @@ export const buildHierarchyTree = (
     });
   });
 
+  localPaths.forEach((localPath) => {
+    const segments = localPath.split("/").filter(Boolean);
+    let cursor = root;
+    segments.forEach((segment, index) => {
+      const isLeaf = index === segments.length - 1;
+      const node = ensureChild(cursor, segment);
+      if (isLeaf) {
+        node.status = localStatuses[localPath];
+      }
+      cursor = node;
+    });
+  });
+
+  const clearNonLeafStatus = (nodes: TreePrintNode[]): void => {
+    nodes.forEach((node) => {
+      if (node.children && node.children.length > 0) {
+        node.status = undefined;
+        clearNonLeafStatus(node.children);
+      }
+    });
+  };
+
+  const sortNodes = (nodes: TreePrintNode[]): void => {
+    nodes.sort((a, b) => a.label.localeCompare(b.label, "pt-BR", { sensitivity: "base" }));
+    nodes.forEach((node) => {
+      if (node.children && node.children.length > 0) {
+        sortNodes(node.children);
+      }
+    });
+  };
+
+  clearNonLeafStatus(root.children ?? []);
+  sortNodes(root.children ?? []);
+
   return root.children ?? [];
 };
 
@@ -157,12 +258,31 @@ const ensureLocalDirsIfNeeded = async (
 const resolveRepoStatus = async (options: {
   targetPath: string;
   defaultBranch?: string;
+  knownRemote: boolean;
 }): Promise<RepoSyncStatus> => {
-  const repoInfo = await readLocalRepoInfo(options.targetPath);
-  if (!repoInfo.remoteUrl || !repoInfo.currentBranch) {
-    return { branch: options.defaultBranch ?? "main", state: "REMOTE" };
+  const branchFallback = options.defaultBranch ?? "main";
+  const hasRepo = await hasGitDir(options.targetPath);
+  if (!hasRepo) {
+    return {
+      branch: branchFallback,
+      state: options.knownRemote ? "EMPTY" : "LOCAL",
+    };
   }
-  const branch = repoInfo.currentBranch ?? options.defaultBranch ?? "main";
+
+  const repoInfo = await readLocalRepoInfo(options.targetPath);
+  const branch = repoInfo.currentBranch ?? branchFallback;
+  if (!repoInfo.remoteUrl) {
+    return {
+      branch,
+      state: options.knownRemote ? "REMOTE" : "LOCAL",
+    };
+  }
+
+  const pendingChanges = await getStatusPorcelain(options.targetPath);
+  if (pendingChanges) {
+    return { branch, state: "UNCOMMITTED" };
+  }
+
   await runGit(["-C", options.targetPath, "fetch", "--quiet"]).catch(() => undefined);
   const { ahead, behind } = await getAheadBehind(options.targetPath, branch);
   if (ahead === 0 && behind === 0) {
@@ -175,6 +295,30 @@ const resolveRepoStatus = async (options: {
     return { branch, state: "AHEAD", delta: `+${ahead}` };
   }
   return { branch, state: "AHEAD", delta: `+${ahead}/-${behind}` };
+};
+
+const buildLocalStatusMap = async (
+  baseDir: string,
+  knownPaths: Set<string>
+): Promise<{ localPaths: string[]; statusMap: Record<string, RepoSyncStatus> }> => {
+  const allDirs = await listLocalDirectories(baseDir);
+  const localPaths = allDirs
+    .filter((dir) => !knownPaths.has(dir))
+    .map((dir) => path.relative(baseDir, dir));
+  const statusEntries = await Promise.all(
+    localPaths.map(async (relativePath) => {
+      const targetPath = path.join(baseDir, relativePath);
+      const status = await resolveRepoStatus({
+        targetPath,
+        knownRemote: false,
+      });
+      return [relativePath, status] as const;
+    })
+  );
+  return {
+    localPaths,
+    statusMap: Object.fromEntries(statusEntries),
+  };
 };
 
 type SshKeyStoreCliOptions = {
@@ -1262,12 +1406,17 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             const status = await resolveRepoStatus({
               targetPath,
               defaultBranch: project.default_branch,
+              knownRemote: true,
             });
             return [project.id, status] as const;
           })
         );
         const statusMap = Object.fromEntries(statusEntries) as Record<number, RepoSyncStatus>;
-        const treeNodes = buildHierarchyTree(projects, statusMap);
+        const knownPaths = new Set(
+          projects.map((project) => path.join(defaultBaseDir, project.path_with_namespace))
+        );
+        const localScan = await buildLocalStatusMap(defaultBaseDir, knownPaths);
+        const treeNodes = buildHierarchyTree(projects, statusMap, localScan.localPaths, localScan.statusMap);
         const header = `${server.name} (${server.baseUrl})`;
         renderTreeLines(header, treeNodes).forEach((line) => console.log(line));
         return;

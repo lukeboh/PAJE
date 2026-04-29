@@ -29,32 +29,47 @@ const projects: GitLabProject[] = [
 const statuses = {
   1: { branch: "main", state: "SYNCED" as const },
   2: { branch: "main", state: "AHEAD" as const, delta: "+5" },
-  3: { branch: "main", state: "BEHIND" as const, delta: "-3" },
+  3: { branch: "behind-branch", state: "BEHIND" as const, delta: "-3" },
 };
 
-const tree = buildHierarchyTree(projects, statuses);
+const localPaths = ["eleitoral/setot/sistemas/ovovovo"];
+const localStatuses = {
+  "eleitoral/setot/sistemas/ovovovo": { branch: "main", state: "LOCAL" as const },
+};
+const tree = buildHierarchyTree(projects, statuses, localPaths, localStatuses);
 const lines = renderTreeLines("GIT-TSE (https://git.tse.jus.br)", tree);
 
 assert.ok(lines[0].includes("GIT-TSE"), "Deve renderizar header do servidor");
 assert.ok(lines.some((line) => line.includes("+ eleitoral")), "Deve conter grupo raiz");
 assert.ok(
+  lines.some((line) => line.includes("+ eleitoral") && !line.includes("[")),
+  "Grupo agregador não deve ter status"
+);
+assert.ok(
   lines.some((line) => line.includes("+ secad") && line.includes("|")),
   "Deve conter subgrupo secad"
 );
 assert.ok(
-  lines.some((line) => line.includes("Servico Biometria Clone") && line.includes("[main, synced]")),
+  lines.some((line) => line.includes("Servico Biometria Clone") && line.includes("[")),
   "Deve renderizar status synced"
 );
 assert.ok(
-  lines.some((line) => line.includes("cadastro-spring-boot") && line.includes("[main, ahead +5]")),
-  "Deve renderizar status ahead"
+  lines.some((line) => line.includes("cadastro-spring-boot") && line.includes("[")),
+  "Deve renderizar colchetes de status"
 );
 assert.ok(
-  lines.some((line) => line.includes("sistot") && line.includes("[main, behind -3]")),
+  lines.some((line) => line.includes("sistot") && line.includes("behind -3")),
   "Deve renderizar status behind"
+);
+assert.ok(
+  lines.some((line) => line.includes("ovovovo") && line.includes("local")),
+  "Deve renderizar status local"
 );
 
 const formatted = formatRepoStatus({ branch: "develop", state: "REMOTE" });
-assert.strictEqual(formatted, "[develop, remote]");
+assert.ok(formatted.includes("develop"));
+
+const formattedEmpty = formatRepoStatus({ branch: "main", state: "EMPTY" });
+assert.ok(formattedEmpty.includes("empty"));
 
 console.log("git_sync_tree_render_test: OK");

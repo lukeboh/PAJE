@@ -1,4 +1,6 @@
 import { execFile } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -39,6 +41,24 @@ export const readLocalRepoInfo = async (repoPath: string): Promise<LocalGitRepoI
   };
 };
 
+export const hasGitDir = async (repoPath: string): Promise<boolean> => {
+  try {
+    const stat = await fs.promises.stat(path.join(repoPath, ".git"));
+    return stat.isDirectory();
+  } catch {
+    return false;
+  }
+};
+
+export const getStatusPorcelain = async (repoPath: string): Promise<string> => {
+  try {
+    const { stdout } = await execFileAsync("git", ["-C", repoPath, "status", "--porcelain"]);
+    return stdout.trim();
+  } catch {
+    return "";
+  }
+};
+
 export const getAheadBehind = async (
   repoPath: string,
   branch: string
@@ -60,4 +80,21 @@ export const getAheadBehind = async (
   } catch {
     return { ahead: 0, behind: 0 };
   }
+};
+
+export const listLocalDirectories = async (baseDir: string): Promise<string[]> => {
+  const entries = await fs.promises.readdir(baseDir, { withFileTypes: true }).catch(() => []);
+  const results: string[] = [];
+  await Promise.all(
+    entries.map(async (entry) => {
+      if (!entry.isDirectory()) {
+        return;
+      }
+      const fullPath = path.join(baseDir, entry.name);
+      results.push(fullPath);
+      const nested = await listLocalDirectories(fullPath);
+      results.push(...nested);
+    })
+  );
+  return results;
 };
