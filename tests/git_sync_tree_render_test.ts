@@ -45,10 +45,7 @@ assert.ok(
   lines.some((line) => line.includes("+ eleitoral") && !line.includes("[")),
   "Grupo agregador não deve ter status"
 );
-assert.ok(
-  lines.some((line) => line.includes("+ secad") && line.includes("|")),
-  "Deve conter subgrupo secad"
-);
+assert.ok(lines.some((line) => line.includes("+ secad")), "Deve conter subgrupo secad");
 assert.ok(
   lines.some((line) => line.includes("Servico Biometria Clone") && line.includes("[")),
   "Deve renderizar status synced"

@@ -67,6 +67,9 @@ type GitSyncCliOptions = {
   gitShowPublicRepos?: boolean;
   envFile?: string;
   prepareLocalDirs?: boolean;
+  noSummary?: boolean;
+  publicRepos?: boolean;
+  archivedRepos?: boolean;
 };
 
 const parseBooleanFlag = (value?: string | boolean): boolean | undefined => {
@@ -76,7 +79,11 @@ const parseBooleanFlag = (value?: string | boolean): boolean | undefined => {
   if (value === undefined) {
     return undefined;
   }
-  return value.trim().toLowerCase() === "true";
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return true;
+  }
+  return normalized === "true";
 };
 
 export type RepoSyncState = "SYNCED" | "BEHIND" | "AHEAD" | "REMOTE" | "EMPTY" | "LOCAL" | "UNCOMMITTED";
@@ -85,6 +92,13 @@ export type RepoSyncStatus = {
   branch: string;
   state: RepoSyncState;
   delta?: string;
+};
+
+type RepoSummary = {
+  total: number;
+  publicCount: number;
+  archivedCount: number;
+  byStatus: Record<RepoSyncState, number>;
 };
 
 export type TreePrintNode = {
@@ -146,6 +160,42 @@ const resolveBranchColor = (branch: string): string | undefined => {
   return undefined;
 };
 
+const createSummary = (): RepoSummary => ({
+  total: 0,
+  publicCount: 0,
+  archivedCount: 0,
+  byStatus: {
+    SYNCED: 0,
+    BEHIND: 0,
+    AHEAD: 0,
+    REMOTE: 0,
+    EMPTY: 0,
+    LOCAL: 0,
+    UNCOMMITTED: 0,
+  },
+});
+
+const renderSummaryLines = (summary: RepoSummary): string[] => {
+  const entries: Array<[string, number]> = [
+    ["Repositórios identificados:", summary.total],
+    ["Públicos", summary.publicCount],
+    ["Arquivados:", summary.archivedCount],
+    ["SYNCED:", summary.byStatus.SYNCED],
+    ["BEHIND:", summary.byStatus.BEHIND],
+    ["AHEAD:", summary.byStatus.AHEAD],
+    ["REMOTE:", summary.byStatus.REMOTE],
+    ["EMPTY:", summary.byStatus.EMPTY],
+    ["LOCAL:", summary.byStatus.LOCAL],
+    ["UNCOMMITTED:", summary.byStatus.UNCOMMITTED],
+  ];
+  const labelWidth = Math.max(...entries.map(([label]) => label.length)) + 2;
+  const formatLine = (label: string, value: number): string => `${label.padEnd(labelWidth)}${value}`;
+  return [
+    "*********** Resumo ************",
+    ...entries.map(([label, value]) => formatLine(label, value)),
+  ];
+};
+
 export const formatRepoStatus = (status: RepoSyncStatus): string => {
   const state = status.state.toLowerCase();
   const delta = status.delta ? ` ${status.delta}` : "";
@@ -159,11 +209,13 @@ export const formatRepoStatus = (status: RepoSyncStatus): string => {
 export const renderTreeLines = (rootLabel: string, nodes: TreePrintNode[]): string[] => {
   const lines: string[] = [rootLabel];
   const walk = (items: TreePrintNode[], prefix: string): void => {
-    items.forEach((node) => {
+    items.forEach((node, index) => {
+      const isLast = index === items.length - 1;
       const suffix = node.status ? ` ${formatRepoStatus(node.status)}` : "";
       lines.push(`${prefix}+ ${node.label}${suffix}`);
       if (node.children && node.children.length > 0) {
-        walk(node.children, `${prefix}| `);
+        const nextPrefix = `${prefix}${isLast ? "  " : "| "}`;
+        walk(node.children, nextPrefix);
       }
     });
   };
@@ -1309,6 +1361,9 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       "Cria hierarquia de diretórios locais sem clonar repositórios",
       false
     )
+    .option("--no-summary [value]", "Oculta o resumo final", false)
+    .option("--public-repos [value]", "Oculta repositórios públicos", false)
+    .option("--archived-repos [value]", "Oculta repositórios arquivados", false)
     .option(
       "--git-show-pulic-repos",
       "Permitir listagem de repositórios sem autenticação (apenas públicos)",
@@ -1324,6 +1379,8 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       logger.info("Iniciando sincronização GitLab");
 
       const envConfig = loadEnvConfig({ envFile: resolveEnvFileFromCli(options.envFile) });
+      const rawNoSummary = options.noSummary;
+      const cliNoSummary = rawNoSummary !== undefined ? parseBooleanFlag(rawNoSummary) : undefined;
       const mergedOptions: GitSyncCliOptions = {
         ...options,
         baseDir: resolveEnvString(options.baseDir, envConfig, "baseDir") ?? options.baseDir,
@@ -1343,6 +1400,18 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         prepareLocalDirs:
           resolveEnvBoolean(options.prepareLocalDirs, envConfig, "prepareLocalDirs") ??
           parseBooleanFlag(options.prepareLocalDirs) ??
+          false,
+        noSummary:
+          resolveEnvBoolean(cliNoSummary, envConfig, "noSummary") ??
+          cliNoSummary ??
+          false,
+        publicRepos:
+          parseBooleanFlag(options.publicRepos) ??
+          resolveEnvBoolean(options.publicRepos, envConfig, "publicRepos") ??
+          false,
+        archivedRepos:
+          parseBooleanFlag(options.archivedRepos) ??
+          resolveEnvBoolean(options.archivedRepos, envConfig, "archivedRepos") ??
           false,
       };
 
@@ -1396,12 +1465,34 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         ? await Promise.all([api.listPublicGroups(), api.listPublicProjects()])
         : await Promise.all([api.listGroups(), api.listUserProjects()]);
 
-      const tree = buildGitLabTree(groups, projects);
+      const summary = createSummary();
+      projects.forEach((project) => {
+        summary.total += 1;
+        if (project.visibility === "public") {
+          summary.publicCount += 1;
+        }
+        if (project.archived) {
+          summary.archivedCount += 1;
+        }
+      });
+
+      const filteredProjects = projects.filter((project) => {
+        if (mergedOptions.publicRepos && project.visibility === "public") {
+          return false;
+        }
+        if (mergedOptions.archivedRepos && project.archived) {
+          return false;
+        }
+        return true;
+      });
+
+
+      const tree = buildGitLabTree(groups, filteredProjects);
       if (!session) {
         const defaultBaseDir = mergedOptions.baseDir ?? "repos";
-        await ensureLocalDirsIfNeeded(projects, defaultBaseDir, mergedOptions.prepareLocalDirs ?? false);
+        await ensureLocalDirsIfNeeded(filteredProjects, defaultBaseDir, mergedOptions.prepareLocalDirs ?? false);
         const statusEntries = await Promise.all(
-          projects.map(async (project) => {
+          filteredProjects.map(async (project) => {
             const targetPath = path.join(defaultBaseDir, project.path_with_namespace);
             const status = await resolveRepoStatus({
               targetPath,
@@ -1413,12 +1504,23 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         );
         const statusMap = Object.fromEntries(statusEntries) as Record<number, RepoSyncStatus>;
         const knownPaths = new Set(
-          projects.map((project) => path.join(defaultBaseDir, project.path_with_namespace))
+          filteredProjects.map((project) => path.join(defaultBaseDir, project.path_with_namespace))
         );
         const localScan = await buildLocalStatusMap(defaultBaseDir, knownPaths);
-        const treeNodes = buildHierarchyTree(projects, statusMap, localScan.localPaths, localScan.statusMap);
+        const treeNodes = buildHierarchyTree(filteredProjects, statusMap, localScan.localPaths, localScan.statusMap);
         const header = `${server.name} (${server.baseUrl})`;
         renderTreeLines(header, treeNodes).forEach((line) => console.log(line));
+        Object.values(statusMap).forEach((status) => {
+          summary.byStatus[status.state] += 1;
+        });
+        if (!mergedOptions.noSummary) {
+          Object.values(localScan.statusMap).forEach((status) => {
+            summary.byStatus[status.state] += 1;
+          });
+        }
+        if (!mergedOptions.noSummary) {
+          renderSummaryLines(summary).forEach((line) => console.log(line));
+        }
         return;
       }
 

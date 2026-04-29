@@ -12,6 +12,8 @@ export type GitLabProject = {
   ssh_url_to_repo: string;
   http_url_to_repo: string;
   default_branch?: string;
+  visibility?: "public" | "internal" | "private";
+  archived?: boolean;
   namespace?: {
     id: number;
     full_path: string;
