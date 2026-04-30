@@ -259,7 +259,7 @@ export class GitLabApi {
     return `curl -i -X ${method} ${headerArgs} ${bodyArg} ${JSON.stringify(url)}`.replace(/\s+/g, " ").trim();
   }
 
-  private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  private async requestWithHeaders<T>(path: string, init: RequestInit = {}): Promise<{ data: T; headers: Headers }> {
     const url = `${this.baseUrl}${path}`;
     if (this.basicAuth) {
       await this.ensureWebSession();
@@ -306,40 +306,77 @@ export class GitLabApi {
       throw error;
     }
 
-    return (await response.json()) as T;
+    return { data: (await response.json()) as T, headers: response.headers };
+  }
+
+  private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
+    const { data } = await this.requestWithHeaders<T>(path, init);
+    return data;
+  }
+
+  private buildPagedPath(path: string, perPage: number, page: number): string {
+    const separator = path.includes("?") ? "&" : "?";
+    return `${path}${separator}per_page=${perPage}&page=${page}`;
+  }
+
+  private async paginate<T>(path: string, init: RequestInit = {}): Promise<T[]> {
+    const perPage = 100;
+    const results: T[] = [];
+    let page = 1;
+
+    while (true) {
+      const pagePath = this.buildPagedPath(path, perPage, page);
+      const { data, headers } = await this.requestWithHeaders<T[]>(pagePath, init);
+      if (data.length === 0) {
+        break;
+      }
+      results.push(...data);
+      const nextHeader = headers.get("x-next-page") ?? headers.get("X-Next-Page") ?? "";
+      const nextPage = Number(nextHeader);
+      if (Number.isFinite(nextPage) && nextPage > page) {
+        page = nextPage;
+        continue;
+      }
+      if (data.length < perPage) {
+        break;
+      }
+      page += 1;
+    }
+
+    return results;
   }
 
   async listGroups(): Promise<GitLabGroup[]> {
     if (!this.hasAuth()) {
       return [];
     }
-    return this.request<GitLabGroup[]>("/api/v4/groups?per_page=100&all_available=true");
+    return this.paginate<GitLabGroup>("/api/v4/groups?all_available=true");
   }
 
   async listSubgroups(groupId: number): Promise<GitLabGroup[]> {
     if (!this.hasAuth()) {
       return [];
     }
-    return this.request<GitLabGroup[]>(`/api/v4/groups/${groupId}/subgroups?per_page=100`);
+    return this.paginate<GitLabGroup>(`/api/v4/groups/${groupId}/subgroups`);
   }
 
   async listGroupProjects(groupId: number): Promise<GitLabProject[]> {
     if (!this.hasAuth()) {
       return [];
     }
-    return this.request<GitLabProject[]>(`/api/v4/groups/${groupId}/projects?per_page=100`);
+    return this.paginate<GitLabProject>(`/api/v4/groups/${groupId}/projects`);
   }
 
   async listUserProjects(): Promise<GitLabProject[]> {
-    return this.request<GitLabProject[]>("/api/v4/projects?membership=true&per_page=500");
+    return this.paginate<GitLabProject>("/api/v4/projects?membership=true");
   }
 
   async listPublicGroups(): Promise<GitLabGroup[]> {
-    return this.request<GitLabGroup[]>("/api/v4/groups?per_page=100&visibility=public");
+    return this.paginate<GitLabGroup>("/api/v4/groups?visibility=public");
   }
 
   async listPublicProjects(): Promise<GitLabProject[]> {
-    return this.request<GitLabProject[]>("/api/v4/projects?per_page=100&visibility=public");
+    return this.paginate<GitLabProject>("/api/v4/projects?visibility=public");
   }
 
   async createSshKey(title: string, key: string): Promise<{ id: number }> {

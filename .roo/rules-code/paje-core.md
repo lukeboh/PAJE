@@ -13,6 +13,7 @@ Você é um Arquiteto de Software Sênior e Desenvolvedor Full-stack. O PAJÉ é
 - **Segurança:** NUNCA salvar senhas em texto plano. Usar variáveis de ambiente seguras ou gerenciadores de chaves (como keytar).
 - **Testes:** Todo novo recurso deve incluir testes automatizados. A tarefa só é considerada concluída após a verificação de sucesso dos testes.
 - **Agnosticismo:** A ferramenta deve funcionar com GitLab corporativo ou GitHub.
+- **Documentação:** A cada criação ou mudança de comportamento de funcionalidade, criação ou mudanças em parâmetros e comportamentos, deve ser atualizado o arquivo [README.md](../../README.md)
 
 ## Regras de Implementação
 1. **Verificação de Instalação:** O script inicial (`install_paje.sh`) deve apenas baixar o repositório do PAJE e realizar um health-check. Se o usuário desejar, já deve iniciar o PAJE (`paje.sh`)

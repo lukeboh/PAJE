@@ -95,15 +95,13 @@ paje git-sync --base-dir repos --server-name "GitLab" --base-url https://gitlab.
 | `--env-file <path>` | não | `~/.paje/env.yaml` | Caminho do arquivo de ambiente | YAML |
 | `--prepare-local-dirs [value]` | não | `false` | Cria diretórios sem clonar | `true`/`false` |
 | `--no-summary [value]` | não | `false` | Oculta resumo final | `true`/`false` |
-| `--public-repos [value]` | não | `false` | Oculta repositórios públicos | `true`/`false` |
-| `--archived-repos [value]` | não | `false` | Oculta repositórios arquivados | `true`/`false` |
-| `--git-show-public-repos` | não | `false` | Permite listar apenas repositórios públicos sem autenticação | somente públicos |
-
-> Observação: `--git-show-pulic-repos` (com typo) também é aceito por compatibilidade interna.
+| `--no-public-repos [value]` | não | `false` | Oculta repositórios públicos | `true`/`false` |
+| `--no-archived-repos [value]` | não | `false` | Oculta repositórios arquivados | `true`/`false` |
+| `--git-show-public-repos` | — | — | Removido | Use autenticação ou `--public-repos` para filtros locais. |
 
 **Comportamento relevante:**
 
-- Sem autenticação, somente repositórios públicos podem ser listados (use `--git-show-public-repos`).
+- Sem autenticação, somente repositórios públicos podem ser listados.
 - Se houver associação SSH válida (`~/.ssh/config`), o fluxo prioriza SSH.
 - O resumo final mostra estados: `SYNCED`, `BEHIND`, `AHEAD`, `REMOTE`, `EMPTY`, `LOCAL`, `UNCOMMITTED`.
 

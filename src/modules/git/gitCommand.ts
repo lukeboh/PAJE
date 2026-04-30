@@ -63,13 +63,11 @@ type GitSyncCliOptions = {
   keyLabel?: string;
   passphrase?: string;
   publicKeyPath?: string;
-  gitShowPulicRepos?: boolean;
-  gitShowPublicRepos?: boolean;
   envFile?: string;
   prepareLocalDirs?: boolean;
   noSummary?: boolean;
-  publicRepos?: boolean;
-  archivedRepos?: boolean;
+  noPublicRepos?: boolean;
+  noArchivedRepos?: boolean;
 };
 
 const parseBooleanFlag = (value?: string | boolean): boolean | undefined => {
@@ -1362,56 +1360,65 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       false
     )
     .option("--no-summary [value]", "Oculta o resumo final", false)
-    .option("--public-repos [value]", "Oculta repositórios públicos", false)
-    .option("--archived-repos [value]", "Oculta repositórios arquivados", false)
-    .option(
-      "--git-show-pulic-repos",
-      "Permitir listagem de repositórios sem autenticação (apenas públicos)",
-      false
-    )
-    .option(
-      "--git-show-public-repos",
-      "Permitir listagem de repositórios sem autenticação (apenas públicos)",
-      false
-    )
-    .action(async (options: GitSyncCliOptions) => {
+    .option("--no-public-repos [value]", "Oculta repositórios públicos", false)
+    .option("--no-archived-repos [value]", "Oculta repositórios arquivados", false)
+    .action(async function (this: Command, options: GitSyncCliOptions) {
       const logger = new PajeLogger();
       logger.info("Iniciando sincronização GitLab");
 
-      const envConfig = loadEnvConfig({ envFile: resolveEnvFileFromCli(options.envFile) });
-      const rawNoSummary = options.noSummary;
-      const cliNoSummary = rawNoSummary !== undefined ? parseBooleanFlag(rawNoSummary) : undefined;
+      const cliOptions = options;
+      const envConfig = loadEnvConfig({ envFile: resolveEnvFileFromCli(cliOptions.envFile) });
+      const resolveCliBoolean = (flag: string): boolean | undefined => {
+        const dashed = `--${flag}`;
+        const args = process.argv;
+        for (let index = 0; index < args.length; index += 1) {
+          const arg = args[index];
+          if (arg === dashed) {
+            const next = args[index + 1];
+            if (!next || next.startsWith("--")) {
+              return true;
+            }
+            return parseBooleanFlag(next);
+          }
+          if (arg.startsWith(`${dashed}=`)) {
+            const value = arg.slice(dashed.length + 1);
+            return parseBooleanFlag(value);
+          }
+        }
+        return undefined;
+      };
+      const cliNoSummary = resolveCliBoolean("no-summary");
+      const cliPrepareLocalDirs = resolveCliBoolean("prepare-local-dirs");
+      const cliNoPublicRepos = resolveCliBoolean("no-public-repos");
+      const cliNoArchivedRepos = resolveCliBoolean("no-archived-repos");
+      const cliVerbose = resolveCliBoolean("verbose");
       const mergedOptions: GitSyncCliOptions = {
-        ...options,
-        baseDir: resolveEnvString(options.baseDir, envConfig, "baseDir") ?? options.baseDir,
-        serverName: resolveEnvString(options.serverName, envConfig, "serverName") ?? options.serverName,
-        baseUrl: resolveEnvString(options.baseUrl, envConfig, "baseUrl") ?? options.baseUrl,
-        useBasicAuth: resolveEnvBoolean(options.useBasicAuth, envConfig, "useBasicAuth") ?? options.useBasicAuth,
-        username: resolveEnvString(options.username, envConfig, "username") ?? options.username,
-        password: resolveEnvString(options.password, envConfig, "password") ?? options.password,
-        keyLabel: resolveEnvString(options.keyLabel, envConfig, "keyLabel") ?? options.keyLabel,
-        passphrase: resolveEnvString(options.passphrase, envConfig, "passphrase") ?? options.passphrase,
-        publicKeyPath: resolveEnvString(options.publicKeyPath, envConfig, "publicKeyPath") ?? options.publicKeyPath,
-        gitShowPulicRepos:
-          resolveEnvBoolean(options.gitShowPulicRepos, envConfig, "gitShowPulicRepos") ?? options.gitShowPulicRepos,
-        gitShowPublicRepos:
-          resolveEnvBoolean(options.gitShowPublicRepos, envConfig, "gitShowPublicRepos") ?? options.gitShowPublicRepos,
-        verbose: resolveEnvBoolean(options.verbose, envConfig, "verbose") ?? options.verbose,
+        ...cliOptions,
+        baseDir: resolveEnvString(cliOptions.baseDir, envConfig, "baseDir") ?? cliOptions.baseDir,
+        serverName: resolveEnvString(cliOptions.serverName, envConfig, "serverName") ?? cliOptions.serverName,
+        baseUrl: resolveEnvString(cliOptions.baseUrl, envConfig, "baseUrl") ?? cliOptions.baseUrl,
+        useBasicAuth: resolveEnvBoolean(cliOptions.useBasicAuth, envConfig, "useBasicAuth") ?? cliOptions.useBasicAuth,
+        username: resolveEnvString(cliOptions.username, envConfig, "username") ?? cliOptions.username,
+        password: resolveEnvString(cliOptions.password, envConfig, "password") ?? cliOptions.password,
+        keyLabel: resolveEnvString(cliOptions.keyLabel, envConfig, "keyLabel") ?? cliOptions.keyLabel,
+        passphrase: resolveEnvString(cliOptions.passphrase, envConfig, "passphrase") ?? cliOptions.passphrase,
+        publicKeyPath: resolveEnvString(cliOptions.publicKeyPath, envConfig, "publicKeyPath") ?? cliOptions.publicKeyPath,
+        verbose: resolveEnvBoolean(cliVerbose, envConfig, "verbose") ?? cliVerbose ?? cliOptions.verbose,
         prepareLocalDirs:
-          resolveEnvBoolean(options.prepareLocalDirs, envConfig, "prepareLocalDirs") ??
-          parseBooleanFlag(options.prepareLocalDirs) ??
+          resolveEnvBoolean(cliPrepareLocalDirs, envConfig, "prepareLocalDirs") ??
+          cliPrepareLocalDirs ??
           false,
         noSummary:
           resolveEnvBoolean(cliNoSummary, envConfig, "noSummary") ??
           cliNoSummary ??
           false,
-        publicRepos:
-          parseBooleanFlag(options.publicRepos) ??
-          resolveEnvBoolean(options.publicRepos, envConfig, "publicRepos") ??
+        noPublicRepos:
+          resolveEnvBoolean(cliNoPublicRepos, envConfig, "noPublicRepos") ??
+          cliNoPublicRepos ??
           false,
-        archivedRepos:
-          parseBooleanFlag(options.archivedRepos) ??
-          resolveEnvBoolean(options.archivedRepos, envConfig, "archivedRepos") ??
+        noArchivedRepos:
+          resolveEnvBoolean(cliNoArchivedRepos, envConfig, "noArchivedRepos") ??
+          cliNoArchivedRepos ??
           false,
       };
 
@@ -1445,10 +1452,9 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             }
           : undefined,
       });
-      const allowPublic = mergedOptions.gitShowPulicRepos || mergedOptions.gitShowPublicRepos;
-      if (!api.hasAuth() && !allowPublic) {
+      if (!api.hasAuth()) {
         const message =
-          "Não há autenticação configurada. Para consultar repositórios sem autenticação, use --git-show-public-repos.";
+          "Não há autenticação configurada. Configure um token ou autenticação básica para continuar.";
         if (session) {
           await session.showMessage({ title: "GitLab", message });
         } else {
@@ -1461,9 +1467,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         await ensureSshKey(api, session, mergedOptions.verbose ?? false, mergedOptions);
       }
 
-      const [groups, projects] = allowPublic && !api.hasAuth() && !hasSshAssociation
-        ? await Promise.all([api.listPublicGroups(), api.listPublicProjects()])
-        : await Promise.all([api.listGroups(), api.listUserProjects()]);
+      const [groups, projects] = await Promise.all([api.listGroups(), api.listUserProjects()]);
 
       const summary = createSummary();
       projects.forEach((project) => {
@@ -1477,10 +1481,10 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       });
 
       const filteredProjects = projects.filter((project) => {
-        if (mergedOptions.publicRepos && project.visibility === "public") {
+        if (mergedOptions.noPublicRepos && project.visibility === "public") {
           return false;
         }
-        if (mergedOptions.archivedRepos && project.archived) {
+        if (mergedOptions.noArchivedRepos && project.archived) {
           return false;
         }
         return true;

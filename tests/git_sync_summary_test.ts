@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { Command } from "commander";
 import { configureGitSyncCommand } from "../src/modules/git/gitCommand.js";
+import { writeGitServers } from "../src/modules/git/persistence.js";
 
 const originalFetch = globalThis.fetch;
 
@@ -61,13 +64,39 @@ console.log = (message?: unknown) => {
 };
 
 const originalHome = process.env.HOME;
+const originalArgv = process.argv;
 process.env.HOME = "/tmp/paje-tests";
+const homeDir = process.env.HOME;
+const sshDir = path.join(homeDir, ".ssh");
+fs.mkdirSync(sshDir, { recursive: true });
+const keyPath = path.join(sshDir, "paje");
+fs.writeFileSync(keyPath, "dummy-private-key", "utf-8");
+const sshConfigPath = path.join(sshDir, "config");
+fs.writeFileSync(
+  sshConfigPath,
+  "Host git.tse.jus.br\n  HostName git.tse.jus.br\n  User git\n  IdentityFile ~/.ssh/paje\n  IdentitiesOnly yes\n",
+  "utf-8"
+);
+const knownHostsPath = path.join(sshDir, "known_hosts");
+fs.writeFileSync(knownHostsPath, "git.tse.jus.br ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD\n", "utf-8");
+const envPath = path.join(homeDir, "env-test.yaml");
+fs.writeFileSync(envPath, "", "utf-8");
 
 const program = new Command();
 configureGitSyncCommand(program);
-await program.parseAsync([
-  "node",
-  "cli.ts",
+const runCli = async (args: string[]): Promise<void> => {
+  process.argv = ["node", "cli.ts", ...args];
+  await program.parseAsync(["node", "cli.ts", ...args]);
+};
+writeGitServers([
+  {
+    id: "https://git.tse.jus.br",
+    name: "TSE-GIT",
+    baseUrl: "https://git.tse.jus.br",
+    token: "glpat-test-token",
+  },
+]);
+await runCli([
   "git-sync",
   "--server-name",
   "TSE-GIT",
@@ -75,15 +104,15 @@ await program.parseAsync([
   "https://git.tse.jus.br",
   "--base-dir",
   "repos",
-  "--no-summary",
+  "--env-file",
+  envPath,
+  "--no-summary=true",
 ]);
 
 assert.ok(!output.includes("Resumo"), "Não deve exibir resumo quando --no-summary=true");
 
 output = "";
-await program.parseAsync([
-  "node",
-  "cli.ts",
+await runCli([
   "git-sync",
   "--server-name",
   "TSE-GIT",
@@ -91,7 +120,8 @@ await program.parseAsync([
   "https://git.tse.jus.br",
   "--base-dir",
   "repos",
-  "--git-show-public-repos",
+  "--env-file",
+  envPath,
 ]);
 assert.ok(output.includes("Resumo"), "Deve exibir resumo por padrão");
 assert.ok(output.includes("Repositórios identificados"), "Deve contar todos os repositórios");
@@ -99,9 +129,7 @@ assert.ok(output.includes("Públicos"), "Deve contar repositórios públicos");
 assert.ok(output.includes("Arquivados"), "Deve contar repositórios arquivados");
 
 output = "";
-await program.parseAsync([
-  "node",
-  "cli.ts",
+await runCli([
   "git-sync",
   "--server-name",
   "TSE-GIT",
@@ -109,15 +137,14 @@ await program.parseAsync([
   "https://git.tse.jus.br",
   "--base-dir",
   "repos",
-  "--git-show-public-repos",
-  "--public-repos=true",
+  "--env-file",
+  envPath,
+  "--no-public-repos=true",
 ]);
 assert.ok(!output.includes("public-repo"), "Não deve listar repositórios públicos");
 
 output = "";
-await program.parseAsync([
-  "node",
-  "cli.ts",
+await runCli([
   "git-sync",
   "--server-name",
   "TSE-GIT",
@@ -125,13 +152,15 @@ await program.parseAsync([
   "https://git.tse.jus.br",
   "--base-dir",
   "repos",
-  "--git-show-public-repos",
-  "--archived-repos=true",
+  "--env-file",
+  envPath,
+  "--no-archived-repos=true",
 ]);
 assert.ok(!output.includes("archived-repo"), "Não deve listar repositórios arquivados");
 
 console.log = originalLog;
 process.env.HOME = originalHome;
+process.argv = originalArgv;
 globalThis.fetch = originalFetch as typeof fetch;
 
 console.log("git_sync_summary_test: OK");
