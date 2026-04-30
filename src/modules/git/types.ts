@@ -39,11 +39,14 @@ export type GitRepositoryTarget = {
   pathWithNamespace: string;
   sshUrl: string;
   localPath: string;
+  defaultBranch?: string;
+  branch?: string;
 };
 
 export type ParallelSyncOptions = {
   concurrency?: number | "auto";
   shallow?: boolean;
+  dryRun?: boolean;
 };
 
 export type GitLabServerConfig = {

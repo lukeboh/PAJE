@@ -17,7 +17,7 @@ import { TuiSession } from "./tuiSession.js";
 import { GitLabProject, GitLabTreeNode, GitRepositoryTarget, ParallelSyncOptions } from "./types.js";
 import { parallelSync, runGit } from "./parallelSync.js";
 import { PajeLogger } from "./logger.js";
-import { compileAntPatterns, matchesAntPatterns } from "./patternFilter.js";
+import { antPatternToRegex, compileAntPatterns, matchesAntPatterns, splitFilterPatterns } from "./patternFilter.js";
 import {
   addHostToKnownHosts,
   getIdentityFileForHost,
@@ -70,6 +70,8 @@ type GitSyncCliOptions = {
   noPublicRepos?: boolean;
   noArchivedRepos?: boolean;
   filter?: string;
+  syncRepos?: string;
+  dryRun?: boolean;
 };
 
 const parseBooleanFlag = (value?: string | boolean): boolean | undefined => {
@@ -305,6 +307,84 @@ const ensureLocalDirsIfNeeded = async (
       await fs.promises.mkdir(targetPath, { recursive: true });
     })
   );
+};
+
+type SyncRepoSpec = {
+  projectPath: string;
+  branch?: string;
+};
+
+const extractSyncRepoSpec = (pattern: string): SyncRepoSpec => {
+  const trimmed = pattern.trim();
+  if (!trimmed) {
+    return { projectPath: "" };
+  }
+  const [pathPart, branchPart] = trimmed.split("#");
+  let projectPath = pathPart.trim();
+  if (projectPath.endsWith(".git")) {
+    projectPath = projectPath.slice(0, -4);
+  }
+  const branch = branchPart?.trim();
+  return {
+    projectPath,
+    branch: branch && branch.length > 0 ? branch : undefined,
+  };
+};
+
+const resolveProjectMatchPath = (project: GitLabProject): string => {
+  return project.path_with_namespace;
+};
+
+const resolveSyncReposSpecs = (rawPatterns?: string): SyncRepoSpec[] => {
+  const specs: SyncRepoSpec[] = [];
+  splitFilterPatterns(rawPatterns).forEach((rawPattern: string) => {
+    const spec = extractSyncRepoSpec(rawPattern);
+    if (!spec.projectPath) {
+      return;
+    }
+    specs.push(spec);
+  });
+  return specs;
+};
+
+const buildSyncPattern = (spec: SyncRepoSpec): RegExp => {
+  return antPatternToRegex(spec.projectPath);
+};
+
+const resolveSyncTargets = (projects: GitLabProject[], specs: SyncRepoSpec[]): GitRepositoryTarget[] => {
+  if (specs.length === 0) {
+    return [];
+  }
+  const normalizedProjects = projects.map((project) => ({
+    project,
+    matchPath: resolveProjectMatchPath(project),
+  }));
+  const matches: GitRepositoryTarget[] = [];
+  specs.forEach((spec) => {
+    const pattern = buildSyncPattern(spec);
+    normalizedProjects.forEach(({ project, matchPath }) => {
+      if (!pattern.test(matchPath)) {
+        return;
+      }
+      matches.push({
+        id: project.id,
+        name: project.name,
+        pathWithNamespace: project.path_with_namespace,
+        sshUrl: project.ssh_url_to_repo,
+        localPath: "",
+        defaultBranch: project.default_branch,
+        branch: spec.branch,
+      });
+    });
+  });
+  const uniqueByPath = new Map<string, GitRepositoryTarget>();
+  matches.forEach((target) => {
+    const key = `${target.pathWithNamespace}#${target.branch ?? ""}`;
+    if (!uniqueByPath.has(key)) {
+      uniqueByPath.set(key, target);
+    }
+  });
+  return Array.from(uniqueByPath.values());
 };
 
 const resolveRepoStatus = async (options: {
@@ -1365,6 +1445,8 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
     .option("--no-public-repos [value]", "Oculta repositórios públicos", false)
     .option("--no-archived-repos [value]", "Oculta repositórios arquivados", false)
     .option("-f, --filter <pattern>", "Filtro Ant/Glob para path_with_namespace (separe por ;)")
+    .option("--sync-repos <pattern>", "Repos/branchs para sincronizar (separe por ;)")
+    .option("--dry-run", "Simula operações sem persistir", false)
     .action(async function (this: Command, options: GitSyncCliOptions) {
       const logger = new PajeLogger();
       logger.info("Iniciando sincronização GitLab");
@@ -1395,6 +1477,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       const cliNoPublicRepos = resolveCliBoolean("no-public-repos");
       const cliNoArchivedRepos = resolveCliBoolean("no-archived-repos");
       const cliVerbose = resolveCliBoolean("verbose");
+      const cliDryRun = resolveCliBoolean("dry-run");
       const mergedOptions: GitSyncCliOptions = {
         ...cliOptions,
         baseDir: resolveEnvString(cliOptions.baseDir, envConfig, "baseDir") ?? cliOptions.baseDir,
@@ -1424,6 +1507,8 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
           cliNoArchivedRepos ??
           false,
         filter: resolveEnvString(cliOptions.filter, envConfig, "filter") ?? cliOptions.filter,
+        syncRepos: resolveEnvString(cliOptions.syncRepos, envConfig, "syncRepos") ?? cliOptions.syncRepos,
+        dryRun: resolveEnvBoolean(cliDryRun, envConfig, "dryRun") ?? cliDryRun ?? cliOptions.dryRun,
       };
 
       const server = await selectGitServer(session, mergedOptions);
@@ -1539,6 +1624,70 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         }
         if (!mergedOptions.noSummary) {
           renderSummaryLines(summary).forEach((line) => console.log(line));
+        }
+
+        const syncSpecs = resolveSyncReposSpecs(mergedOptions.syncRepos);
+        if (syncSpecs.length > 0) {
+          const syncTargets = resolveSyncTargets(filteredProjects, syncSpecs)
+            .map((target) => ({
+              ...target,
+              localPath: path.join(defaultBaseDir, target.pathWithNamespace),
+            }))
+            .sort((a, b) =>
+              `${a.pathWithNamespace}#${a.branch ?? ""}`.localeCompare(
+                `${b.pathWithNamespace}#${b.branch ?? ""}`,
+                "pt-BR",
+                { sensitivity: "base" }
+              )
+            );
+          if (syncTargets.length === 0) {
+            console.log("Nenhum repositório corresponde ao sync-repos informado.");
+            return;
+          }
+          console.log(`Sincronizando ${syncTargets.length} repositórios (sync-repos).`);
+          let completedCount = 0;
+          const totalCount = syncTargets.length;
+          const renderProgressBar = (current: number, total: number): string => {
+            const width = 20;
+            const ratio = total === 0 ? 1 : current / total;
+            const filled = Math.round(ratio * width);
+            const empty = Math.max(0, width - filled);
+            return `[${"#".repeat(filled)}${"-".repeat(empty)}]`;
+          };
+          const syncResults = await parallelSync(
+            syncTargets,
+            {
+              concurrency: "auto",
+              shallow: false,
+              dryRun: mergedOptions.dryRun ?? false,
+            },
+            (result) => {
+              completedCount += 1;
+              const branchLabel = result.target.branch ? `#${result.target.branch}` : "";
+              const actionLabel = result.status === "skipped" ? "ignorado" : result.status;
+              const message = result.message ? ` (${result.message})` : "";
+              const prefix = mergedOptions.dryRun ? "[dry-run] " : "";
+              const bar = renderProgressBar(completedCount, totalCount);
+              console.log(
+                `${bar} ${completedCount}/${totalCount} ${prefix}${result.target.pathWithNamespace}${branchLabel} ${actionLabel}${message}`
+              );
+            }
+          );
+          const orderedResults = [...syncResults].sort((a, b) =>
+            `${a.target.pathWithNamespace}#${a.target.branch ?? ""}`.localeCompare(
+              `${b.target.pathWithNamespace}#${b.target.branch ?? ""}`,
+              "pt-BR",
+              { sensitivity: "base" }
+            )
+          );
+          console.log("Resumo ordenado:");
+          orderedResults.forEach((result) => {
+            const branchLabel = result.target.branch ? `#${result.target.branch}` : "";
+            const actionLabel = result.status === "skipped" ? "ignorado" : result.status;
+            const message = result.message ? ` (${result.message})` : "";
+            const prefix = mergedOptions.dryRun ? "[dry-run] " : "";
+            console.log(`${prefix}${result.target.pathWithNamespace}${branchLabel} ${actionLabel}${message}`);
+          });
         }
         return;
       }

@@ -82,6 +82,16 @@ export const getAheadBehind = async (
   }
 };
 
+const shouldSkipDir = (dirName: string): boolean => {
+  if (!dirName) {
+    return false;
+  }
+  if (dirName === ".git") {
+    return true;
+  }
+  return false;
+};
+
 export const listLocalDirectories = async (baseDir: string): Promise<string[]> => {
   const entries = await fs.promises.readdir(baseDir, { withFileTypes: true }).catch(() => []);
   const results: string[] = [];
@@ -90,8 +100,15 @@ export const listLocalDirectories = async (baseDir: string): Promise<string[]> =
       if (!entry.isDirectory()) {
         return;
       }
+      if (shouldSkipDir(entry.name)) {
+        return;
+      }
       const fullPath = path.join(baseDir, entry.name);
-      results.push(fullPath);
+      const gitDirExists = await hasGitDir(fullPath);
+      if (gitDirExists) {
+        results.push(fullPath);
+        return;
+      }
       const nested = await listLocalDirectories(fullPath);
       results.push(...nested);
     })

@@ -8,8 +8,16 @@ const execFileAsync = promisify(execFile);
 
 export type SyncResult = {
   target: GitRepositoryTarget;
-  status: "cloned" | "pulled" | "failed";
+  status: "cloned" | "pulled" | "pushed" | "skipped" | "failed";
   message?: string;
+};
+
+type RepoStatusSnapshot = {
+  branch: string;
+  ahead: number;
+  behind: number;
+  hasRemote: boolean;
+  hasRepo: boolean;
 };
 
 export const resolveConcurrency = (options?: ParallelSyncOptions): number => {
@@ -26,8 +34,73 @@ export const runGit = async (args: string[], cwd?: string): Promise<string> => {
   return stdout;
 };
 
+const runGitQuiet = async (args: string[], cwd?: string): Promise<string> => {
+  return runGit(args, cwd).catch(() => "");
+};
+
 export const ensureParentDir = async (targetPath: string): Promise<void> => {
   await execFileAsync("mkdir", ["-p", path.dirname(targetPath)]);
+};
+
+const hasGitDir = async (targetPath: string): Promise<boolean> => {
+  const gitDir = path.join(targetPath, ".git");
+  const exists = await execFileAsync("test", ["-d", gitDir]).then(
+    () => true,
+    () => false
+  );
+  return exists;
+};
+
+const readRepoStatus = async (target: GitRepositoryTarget): Promise<RepoStatusSnapshot> => {
+  const hasRepo = await hasGitDir(target.localPath);
+  const branchFallback = target.branch ?? target.defaultBranch ?? "main";
+  if (!hasRepo) {
+    return {
+      branch: branchFallback,
+      ahead: 0,
+      behind: 0,
+      hasRemote: true,
+      hasRepo: false,
+    };
+  }
+
+  const currentBranch = (await runGitQuiet(["-C", target.localPath, "rev-parse", "--abbrev-ref", "HEAD"]))
+    .trim();
+  const branch = currentBranch || branchFallback;
+  const remoteUrl = (await runGitQuiet(["-C", target.localPath, "remote", "get-url", "origin"]))
+    .trim();
+  const hasRemote = Boolean(remoteUrl);
+
+  if (!hasRemote) {
+    return {
+      branch,
+      ahead: 0,
+      behind: 0,
+      hasRemote,
+      hasRepo: true,
+    };
+  }
+
+  await runGitQuiet(["-C", target.localPath, "fetch", "--quiet"]);
+  const revList = await runGitQuiet([
+    "-C",
+    target.localPath,
+    "rev-list",
+    "--left-right",
+    "--count",
+    `origin/${branch}...${branch}`,
+  ]);
+  const [behindRaw, aheadRaw] = revList.trim().split(/\s+/);
+  const behind = Number(behindRaw ?? 0);
+  const ahead = Number(aheadRaw ?? 0);
+
+  return {
+    branch,
+    ahead: Number.isNaN(ahead) ? 0 : ahead,
+    behind: Number.isNaN(behind) ? 0 : behind,
+    hasRemote,
+    hasRepo: true,
+  };
 };
 
 export const syncRepository = async (
@@ -36,23 +109,42 @@ export const syncRepository = async (
 ): Promise<SyncResult> => {
   try {
     await ensureParentDir(target.localPath);
-    const gitDir = path.join(target.localPath, ".git");
-    const exists = await execFileAsync("test", ["-d", gitDir]).then(
-      () => true,
-      () => false
-    );
+    const snapshot = await readRepoStatus(target);
+    const dryRun = options?.dryRun ?? false;
 
-    if (!exists) {
+    if (!snapshot.hasRepo) {
       const args = ["clone", target.sshUrl, target.localPath];
+      if (target.branch) {
+        args.splice(1, 0, "--branch", target.branch);
+      }
       if (options?.shallow) {
         args.splice(1, 0, "--depth", "1");
       }
-      await runGit(args);
+      if (!dryRun) {
+        await runGit(args);
+      }
       return { target, status: "cloned" };
     }
 
-    await runGit(["-C", target.localPath, "pull", "--rebase"]);
-    return { target, status: "pulled" };
+    if (!snapshot.hasRemote) {
+      return { target, status: "skipped", message: "Repositório local sem remoto configurado." };
+    }
+
+    if (snapshot.behind > 0 && snapshot.ahead === 0) {
+      if (!dryRun) {
+        await runGit(["-C", target.localPath, "pull", "--rebase"]);
+      }
+      return { target, status: "pulled" };
+    }
+
+    if (snapshot.ahead > 0 && snapshot.behind === 0) {
+      if (!dryRun) {
+        await runGit(["-C", target.localPath, "push", "origin", snapshot.branch]);
+      }
+      return { target, status: "pushed" };
+    }
+
+    return { target, status: "skipped" };
   } catch (error) {
     return {
       target,
