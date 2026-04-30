@@ -48,8 +48,17 @@ globalThis.fetch = (async (url: string): Promise<Response> => {
   if (url.includes("/api/v4/groups")) {
     return new Response(JSON.stringify(groups), { status: 200, headers: { "content-type": "application/json" } });
   }
+  if (url.includes("/api/v4/projects?visibility=public")) {
+    return new Response(
+      JSON.stringify(projects.filter((project) => project.visibility === "public")),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
+  }
   if (url.includes("/api/v4/projects")) {
-    return new Response(JSON.stringify(projects), { status: 200, headers: { "content-type": "application/json" } });
+    return new Response(
+      JSON.stringify(projects.filter((project) => project.visibility !== "public")),
+      { status: 200, headers: { "content-type": "application/json" } }
+    );
   }
   return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
 }) as typeof fetch;
@@ -125,6 +134,8 @@ await runCli([
 ]);
 assert.ok(output.includes("Resumo"), "Deve exibir resumo por padrão");
 assert.ok(output.includes("Repositórios identificados"), "Deve contar todos os repositórios");
+assert.ok(output.includes("Repositórios identificados:  3"), "Deve contar todos os repositórios no resumo");
+assert.ok(output.includes("Públicos                     1"), "Deve contar repositórios públicos");
 assert.ok(output.includes("Públicos"), "Deve contar repositórios públicos");
 assert.ok(output.includes("Arquivados"), "Deve contar repositórios arquivados");
 
@@ -142,6 +153,7 @@ await runCli([
   "--no-public-repos=true",
 ]);
 assert.ok(!output.includes("public-repo"), "Não deve listar repositórios públicos");
+assert.ok(output.includes("Repositórios identificados:  2"), "Resumo deve respeitar filtros de público");
 
 output = "";
 await runCli([
@@ -157,6 +169,22 @@ await runCli([
   "--no-archived-repos=true",
 ]);
 assert.ok(!output.includes("archived-repo"), "Não deve listar repositórios arquivados");
+assert.ok(output.includes("Repositórios identificados:  2"), "Resumo deve respeitar filtros de arquivados");
+
+output = "";
+await runCli([
+  "git-sync",
+  "--server-name",
+  "TSE-GIT",
+  "--base-url",
+  "https://git.tse.jus.br",
+  "--base-dir",
+  "repos",
+  "--env-file",
+  envPath,
+  "--filter=grupo/public-repo",
+]);
+assert.ok(output.includes("Repositórios identificados:  1"), "Resumo deve respeitar filtro por padrão");
 
 console.log = originalLog;
 process.env.HOME = originalHome;

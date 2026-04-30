@@ -17,6 +17,7 @@ import { TuiSession } from "./tuiSession.js";
 import { GitLabProject, GitLabTreeNode, GitRepositoryTarget, ParallelSyncOptions } from "./types.js";
 import { parallelSync, runGit } from "./parallelSync.js";
 import { PajeLogger } from "./logger.js";
+import { compileAntPatterns, matchesAntPatterns } from "./patternFilter.js";
 import {
   addHostToKnownHosts,
   getIdentityFileForHost,
@@ -68,6 +69,7 @@ type GitSyncCliOptions = {
   noSummary?: boolean;
   noPublicRepos?: boolean;
   noArchivedRepos?: boolean;
+  filter?: string;
 };
 
 const parseBooleanFlag = (value?: string | boolean): boolean | undefined => {
@@ -1362,6 +1364,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
     .option("--no-summary [value]", "Oculta o resumo final", false)
     .option("--no-public-repos [value]", "Oculta repositórios públicos", false)
     .option("--no-archived-repos [value]", "Oculta repositórios arquivados", false)
+    .option("-f, --filter <pattern>", "Filtro Ant/Glob para path_with_namespace (separe por ;)")
     .action(async function (this: Command, options: GitSyncCliOptions) {
       const logger = new PajeLogger();
       logger.info("Iniciando sincronização GitLab");
@@ -1420,6 +1423,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
           resolveEnvBoolean(cliNoArchivedRepos, envConfig, "noArchivedRepos") ??
           cliNoArchivedRepos ??
           false,
+        filter: resolveEnvString(cliOptions.filter, envConfig, "filter") ?? cliOptions.filter,
       };
 
       const server = await selectGitServer(session, mergedOptions);
@@ -1467,19 +1471,16 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         await ensureSshKey(api, session, mergedOptions.verbose ?? false, mergedOptions);
       }
 
-      const [groups, projects] = await Promise.all([api.listGroups(), api.listUserProjects()]);
-
-      const summary = createSummary();
-      projects.forEach((project) => {
-        summary.total += 1;
-        if (project.visibility === "public") {
-          summary.publicCount += 1;
-        }
-        if (project.archived) {
-          summary.archivedCount += 1;
-        }
+      const [groups, userProjects, publicProjects] = await Promise.all([
+        api.listGroups(),
+        api.listUserProjects(),
+        mergedOptions.noPublicRepos ? Promise.resolve([]) : api.listPublicProjects(),
+      ]);
+      const projects = [...userProjects, ...publicProjects].filter((project, index, all) => {
+        return all.findIndex((item) => item.id === project.id) === index;
       });
 
+      const filterPatterns = compileAntPatterns(mergedOptions.filter);
       const filteredProjects = projects.filter((project) => {
         if (mergedOptions.noPublicRepos && project.visibility === "public") {
           return false;
@@ -1487,7 +1488,21 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         if (mergedOptions.noArchivedRepos && project.archived) {
           return false;
         }
+        if (!matchesAntPatterns(project.path_with_namespace, filterPatterns)) {
+          return false;
+        }
         return true;
+      });
+
+      const summary = createSummary();
+      filteredProjects.forEach((project) => {
+        summary.total += 1;
+        if (project.visibility === "public") {
+          summary.publicCount += 1;
+        }
+        if (project.archived) {
+          summary.archivedCount += 1;
+        }
       });
 
 

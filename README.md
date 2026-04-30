@@ -97,6 +97,7 @@ paje git-sync --base-dir repos --server-name "GitLab" --base-url https://gitlab.
 | `--no-summary [value]` | não | `false` | Oculta resumo final | `true`/`false` |
 | `--no-public-repos [value]` | não | `false` | Oculta repositórios públicos | `true`/`false` |
 | `--no-archived-repos [value]` | não | `false` | Oculta repositórios arquivados | `true`/`false` |
+| `-f`, `--filter <pattern>` | não | — | Filtro Ant/Glob por caminho (`path_with_namespace`) | separado por `;` |
 | `--git-show-public-repos` | — | — | Removido | Use autenticação ou `--public-repos` para filtros locais. |
 
 **Comportamento relevante:**
@@ -104,6 +105,13 @@ paje git-sync --base-dir repos --server-name "GitLab" --base-url https://gitlab.
 - Sem autenticação, somente repositórios públicos podem ser listados.
 - Se houver associação SSH válida (`~/.ssh/config`), o fluxo prioriza SSH.
 - O resumo final mostra estados: `SYNCED`, `BEHIND`, `AHEAD`, `REMOTE`, `EMPTY`, `LOCAL`, `UNCOMMITTED`.
+- O filtro suporta padrões Ant/Glob: `?` (um caractere), `*` (qualquer trecho no mesmo diretório), `**` (qualquer profundidade), e múltiplos padrões separados por `;` (com espaços ignorados).
+
+**Exemplo com filtro:**
+
+```bash
+npm run dev -- git-sync --env-file=env-test.yaml --verbose --filter="**/setot/**/*"
+```
 
 ### 2) `git-server-store` — registrar SSH e token no GitLab
 
