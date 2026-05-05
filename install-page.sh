@@ -6,7 +6,7 @@
 set -Eeuo pipefail
 
 PAJE_DEFAULT_REPO="https://github.com/lukeboh/paje.git"
-PAJE_DIR_DEFAULT="PAJE"
+PAJE_DIR_DEFAULT="paje"
 PAJE_BASE_DIR_DEFAULT="${HOME}/git"
 
 # Cores (ANSI) para melhorar transparência no terminal
