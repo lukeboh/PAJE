@@ -8,6 +8,8 @@ if [[ ! -f "$ROOT_DIR/package.json" ]]; then
   exit 1
 fi
 
+cd "$ROOT_DIR"
+
 if [[ ! -d "$ROOT_DIR/node_modules" ]]; then
   echo "[INFO] Instalando dependencias..."
   npm install

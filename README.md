@@ -53,6 +53,8 @@ Sem parâmetros, o PAJÉ abre o menu TUI:
 paje
 ```
 
+> Observação: o `paje.sh` ajusta o diretório de trabalho apenas dentro do próprio processo para localizar o `package.json`. Isso não altera o diretório do seu terminal e permite chamar o comando de qualquer local.
+
 ### Execução via CLI
 
 ```bash

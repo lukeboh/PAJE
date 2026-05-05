@@ -29,3 +29,35 @@ run_final_verification_success() {
 
 run_final_verification_success
 echo "[OK] final_verification passou com binários no PATH e permissões corretas."
+
+run_paje_from_outside_dir() {
+  local temp_dir
+  temp_dir="$(mktemp -d)"
+  trap 'rm -rf "$temp_dir"' RETURN
+
+  local original_dir
+  original_dir="$PWD"
+
+  cp "$ROOT_DIR/paje.sh" "$temp_dir/paje.sh"
+  cp "$ROOT_DIR/package.json" "$temp_dir/package.json"
+  chmod +x "$temp_dir/paje.sh"
+
+  cd /tmp
+
+  local output
+  if output="$(PATH="$temp_dir:$PATH" bash "$temp_dir/paje.sh" --help 2>&1)"; then
+    :
+  fi
+
+  cd "$original_dir"
+
+  if grep -q "package.json nao encontrado" <<<"$output"; then
+    echo "[ERRO] paje.sh falhou ao executar fora do diretório raiz" >&2
+    echo "$output" >&2
+    exit 1
+  fi
+
+  echo "[OK] paje.sh executou fora do diretório raiz sem erro de package.json."
+}
+
+run_paje_from_outside_dir
