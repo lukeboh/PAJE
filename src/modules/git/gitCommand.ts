@@ -1556,6 +1556,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         await ensureSshKey(api, session, mergedOptions.verbose ?? false, mergedOptions);
       }
 
+      const listStartAt = Date.now();
       const [groups, userProjects, publicProjects] = await Promise.all([
         api.listGroups(),
         api.listUserProjects(),
@@ -1564,6 +1565,10 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       const projects = [...userProjects, ...publicProjects].filter((project, index, all) => {
         return all.findIndex((item) => item.id === project.id) === index;
       });
+      const listDurationMs = Date.now() - listStartAt;
+      if (!session) {
+        console.log(`Tempo de recuperação da listagem: ${(listDurationMs / 1000).toFixed(2)}s`);
+      }
 
       const filterPatterns = compileAntPatterns(mergedOptions.filter);
       const filteredProjects = projects.filter((project) => {
@@ -1654,6 +1659,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             const empty = Math.max(0, width - filled);
             return `[${"#".repeat(filled)}${"-".repeat(empty)}]`;
           };
+          const syncStartAt = Date.now();
           const syncResults = await parallelSync(
             syncTargets,
             {
@@ -1672,6 +1678,29 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
                 `${bar} ${completedCount}/${totalCount} ${prefix}${result.target.pathWithNamespace}${branchLabel} ${actionLabel}${message}`
               );
             }
+          );
+          const syncDurationMs = Date.now() - syncStartAt;
+          const counts = syncResults.reduce(
+            (acc, result) => {
+              acc.total += 1;
+              if (result.status === "cloned") {
+                acc.cloned += 1;
+              } else if (result.status === "pulled") {
+                acc.pulled += 1;
+              } else if (result.status === "pushed") {
+                acc.pushed += 1;
+              } else if (result.status === "skipped") {
+                acc.skipped += 1;
+              } else if (result.status === "failed") {
+                acc.failed += 1;
+              }
+              return acc;
+            },
+            { total: 0, cloned: 0, pulled: 0, pushed: 0, skipped: 0, failed: 0 }
+          );
+          console.log(`Tempo de sincronização: ${(syncDurationMs / 1000).toFixed(2)}s`);
+          console.log(
+            `Resumo da sincronização: total=${counts.total}, clonados=${counts.cloned}, pull=${counts.pulled}, push=${counts.pushed}, sem-ação=${counts.skipped}, falhas=${counts.failed}`
           );
           const orderedResults = [...syncResults].sort((a, b) =>
             `${a.target.pathWithNamespace}#${a.target.branch ?? ""}`.localeCompare(
