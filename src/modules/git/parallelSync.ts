@@ -12,7 +12,7 @@ export type SyncResult = {
   message?: string;
 };
 
-export type ProgressPhase = "clone" | "pull" | "push";
+export type ProgressPhase = "clone" | "pull" | "push" | "check";
 
 export type ProgressEvent = {
   workerId: number;
@@ -195,6 +195,23 @@ export const syncRepository = async (
     await ensureParentDir(target.localPath);
     const snapshot = await readRepoStatus(target);
     const dryRun = options?.dryRun ?? false;
+    let intendedPhase: ProgressPhase = "check";
+    if (!snapshot.hasRepo) {
+      intendedPhase = "clone";
+    } else if (snapshot.hasRemote && snapshot.behind > 0 && snapshot.ahead === 0) {
+      intendedPhase = "pull";
+    } else if (snapshot.hasRemote && snapshot.ahead > 0 && snapshot.behind === 0) {
+      intendedPhase = "push";
+    }
+    onProgress?.({
+      workerId,
+      target,
+      phase: intendedPhase,
+      percent: 0,
+      objectsReceived: 0,
+      objectsTotal: undefined,
+      raw: "start",
+    });
 
     if (!snapshot.hasRepo) {
       const args = ["clone", target.sshUrl, target.localPath];

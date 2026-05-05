@@ -1712,6 +1712,9 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
           const completedTargets = new Set<string>();
           const lastPrinted = new Map<number, { percent?: number; objectsReceived?: number; line?: string }>();
           const historyLines: string[] = [];
+          const targetLastUpdateAt = new Map<string, number>();
+          const targetLastLine = new Map<string, string>();
+          const startedTargets = new Set<string>();
           const targetProgress = new Map<
             string,
             {
@@ -1722,7 +1725,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             }
           >();
           let overallLine = "";
-          const useTty = Boolean(process.stdout.isTTY);
+          const useTty = false;
           const progressLineCount =
             concurrency === "auto" ? Math.min(syncTargets.length, resolveConcurrency()) : Number(concurrency ?? 1);
           const progressWidth = 20;
@@ -1761,14 +1764,17 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
               overallLine = nextOverallLine;
             }
             restoreCursor();
-            process.stdout.write(`\u001b[${blockLines}A`);
+            const moveUp = Math.max(0, blockLines - 1);
+            if (moveUp > 0) {
+              process.stdout.write(`\u001b[${moveUp}A`);
+            }
             historyLines.forEach((content) => {
-              process.stdout.write(`\u001b[2K${content}\n`);
+              process.stdout.write(`\r\u001b[2K${content}\n`);
             });
             workerLines.forEach((content) => {
-              process.stdout.write(`\u001b[2K${content}\n`);
+              process.stdout.write(`\r\u001b[2K${content}\n`);
             });
-            process.stdout.write(`\u001b[2K${overallLine}\n`);
+            process.stdout.write(`\r\u001b[2K${overallLine}\n`);
             blockLines = historyLines.length + workerLines.size + 1;
             saveCursor();
           };
@@ -1915,6 +1921,11 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
               const bar = renderProgressBar(completedCount, totalCount);
               const counter = colorize(`${completedCount}/${totalCount}`, "white");
               const targetKey = `${result.target.pathWithNamespace}${branchLabel}`;
+              const progressSnapshot = targetProgress.get(targetKey);
+              if (progressSnapshot?.objectsTotal && (progressSnapshot.objectsReceived ?? 0) < progressSnapshot.objectsTotal) {
+                progressSnapshot.objectsReceived = progressSnapshot.objectsTotal;
+                targetProgress.set(targetKey, progressSnapshot);
+              }
               const detail = formatTransferDetail({
                 progress: targetProgress.get(targetKey),
                 status: result.status,
@@ -1922,14 +1933,14 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
               });
               const workerId = targetWorkerMap.get(targetKey);
               if (workerId) {
-                const workerLabel = colorize(`Worker ${workerId.toString().padStart(2, "0")}`, "white");
-                const doneLabel = colorize("100%", "cyan");
-                const doneLine = `${workerLabel} [${"#".repeat(progressWidth)}] ${doneLabel} -- -- ${actionLabel} ${result.target.pathWithNamespace}${detail}`;
-                if (!completedTargets.has(targetKey)) {
-                  completedTargets.add(targetKey);
-                  appendHistoryLine(doneLine);
-                }
                 if (useTty) {
+                  const workerLabel = colorize(`Worker ${workerId.toString().padStart(2, "0")}`, "white");
+                  const doneLabel = colorize("100%", "cyan");
+                  const doneLine = `${workerLabel} [${"#".repeat(progressWidth)}] ${doneLabel} -- -- ${actionLabel} ${result.target.pathWithNamespace}${detail}`;
+                  if (!completedTargets.has(targetKey)) {
+                    completedTargets.add(targetKey);
+                    appendHistoryLine(doneLine);
+                  }
                   const placeholder = buildWorkerPlaceholder(workerId);
                   workerLines.set(workerId, placeholder);
                   workerStates.set(workerId, { line: placeholder });
@@ -1972,6 +1983,32 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
                 transferred: event.transferred ?? previousProgress?.transferred,
                 speed: event.speed ?? previousProgress?.speed,
               });
+              if (!useTty) {
+                const now = Date.now();
+                if (!startedTargets.has(targetKey)) {
+                  startedTargets.add(targetKey);
+                  const startPhase = event.phase === "check" ? "ANALISE" : event.phase.toUpperCase();
+                  const startLine = `${colorize("INÍCIO", "yellow")} ${startPhase} ${event.target.pathWithNamespace}${branchLabel}`;
+                  console.log(startLine);
+                  targetLastUpdateAt.set(targetKey, now);
+                  targetLastLine.set(targetKey, startLine);
+                }
+                if (event.percent !== undefined && event.percent >= 100) {
+                  return;
+                }
+                const lastAt = targetLastUpdateAt.get(targetKey) ?? 0;
+                if (now - lastAt < 2000) {
+                  return;
+                }
+                const line = renderWorkerLine(event, progressWidth);
+                if (targetLastLine.get(targetKey) === line) {
+                  return;
+                }
+                targetLastLine.set(targetKey, line);
+                targetLastUpdateAt.set(targetKey, now);
+                console.log(line);
+                return;
+              }
               const line = `${workerLabel} ${renderWorkerLine(event, progressWidth)}`;
               const currentState = workerStates.get(event.workerId);
               if (currentState?.line === line) {
@@ -1999,17 +2036,17 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
                 objectsReceived,
               });
               workerLines.set(event.workerId, line);
-              if (useTty) {
-                renderBlock();
-              } else {
-                if (shouldPrintProgress(event.workerId, percent, objectsReceived, line)) {
-                  console.log(line);
-                }
-              }
+              renderBlock();
             }
           );
           if (useTty) {
-            workerLines.clear();
+            workerLines.forEach((line, workerId) => {
+              const placeholder = buildWorkerPlaceholder(workerId);
+              if (line === placeholder) {
+                return;
+              }
+              workerLines.set(workerId, placeholder);
+            });
             overallLine = "";
             renderBlock("");
           }
@@ -2083,6 +2120,12 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
               writeLine(`   ${colorize("erro:", "red")} ${errorMessage}`);
             }
           });
+          if (process.stdout.isTTY) {
+            process.stdout.write("\r\u001b[2K");
+          }
+          if (process.stderr.isTTY) {
+            process.stderr.write("\r\u001b[2K");
+          }
         }
         return;
       }
