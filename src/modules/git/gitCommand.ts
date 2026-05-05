@@ -1772,6 +1772,13 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             blockLines = historyLines.length + workerLines.size + 1;
             saveCursor();
           };
+          const writeLine = (line: string): void => {
+            if (useTty) {
+              console.log(line);
+              return;
+            }
+            console.log(line);
+          };
           const appendHistoryLine = (line: string): void => {
             if (!useTty) {
               const last = lastPrinted.get(-1);
@@ -1842,6 +1849,44 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
               return "";
             }
             return ` ${parts.join(", ")}`;
+          };
+          const parseMiB = (value?: string, isSpeed = false): string => {
+            if (!value) {
+              return "--";
+            }
+            const trimmed = value.trim();
+            const cleaned = isSpeed ? trimmed.replace("/s", "") : trimmed;
+            const match = cleaned.match(/^([\d.,]+)\s*(KiB|MiB|GiB)$/i);
+            if (!match) {
+              return "--";
+            }
+            const raw = Number(match[1].replace(",", "."));
+            if (Number.isNaN(raw)) {
+              return "--";
+            }
+            const unit = match[2].toLowerCase();
+            const inMiB =
+              unit === "kib" ? raw / 1024 : unit === "gib" ? raw * 1024 : raw;
+            const label = inMiB.toFixed(2);
+            return isSpeed ? `${label} MiB/s` : `${label} MiB`;
+          };
+          const formatObjects = (progress?: { objectsReceived?: number; objectsTotal?: number }): string => {
+            if (!progress) {
+              return "--";
+            }
+            if (progress.objectsTotal) {
+              return `${progress.objectsReceived ?? 0}/${progress.objectsTotal}`;
+            }
+            if (progress.objectsReceived) {
+              return String(progress.objectsReceived);
+            }
+            return "--";
+          };
+          const formatRepoLabel = (value: string, width: number): string => {
+            if (value.length <= width) {
+              return value.padEnd(width, " ");
+            }
+            return `${value.slice(0, Math.max(0, width - 1))}…`;
           };
           const syncStartAt = Date.now();
           const syncResults = await parallelSync(
@@ -1965,7 +2010,6 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
           );
           if (useTty) {
             workerLines.clear();
-            workerStates.clear();
             overallLine = "";
             renderBlock("");
           }
@@ -1989,10 +2033,10 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             { total: 0, cloned: 0, pulled: 0, pushed: 0, skipped: 0, failed: 0 }
           );
           const tempoSync = colorize(`${(syncDurationMs / 1000).toFixed(2)}s`, "cyan");
-          console.log(`${colorize("TEMPO", "yellow")} · Sincronização: ${tempoSync}`);
+          writeLine(`${colorize("TEMPO", "yellow")} · Sincronização: ${tempoSync}`);
           const resumoTitulo = colorize("RESUMO SINCRONIZAÇÃO", "yellow");
-          console.log(`${resumoTitulo}`);
-          console.log(
+          writeLine(`${resumoTitulo}`);
+          writeLine(
             `  ${colorize("TOTAL", "white")} ${colorize(String(counts.total), "cyan")}  ` +
               `${colorize("CLONE", "green")} ${colorize(String(counts.cloned), "green")}  ` +
               `${colorize("PULL", "cyan")} ${colorize(String(counts.pulled), "cyan")}  ` +
@@ -2000,6 +2044,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
               `${colorize("SEM AÇÃO", "yellow")} ${colorize(String(counts.skipped), "yellow")}  ` +
               `${colorize("FALHAS", "red")} ${colorize(String(counts.failed), "red")}`
           );
+          writeLine("");
           const orderedResults = [...syncResults].sort((a, b) =>
             `${a.target.pathWithNamespace}#${a.target.branch ?? ""}`.localeCompare(
               `${b.target.pathWithNamespace}#${b.target.branch ?? ""}`,
@@ -2007,28 +2052,36 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
               { sensitivity: "base" }
             )
           );
-          console.log(`${colorize("RESUMO ORDENADO", "yellow")}`);
-          orderedResults.forEach((result) => {
+          writeLine(`${colorize("RESUMO ORDENADO", "yellow")}`);
+          const repoWidth = Math.min(
+            64,
+            Math.max(12, ...orderedResults.map((result) => result.target.pathWithNamespace.length))
+          );
+          writeLine(
+            `  ${colorize("#", "white")}  ` +
+              `${colorize("Repositorio".padEnd(repoWidth, " "), "white")}  ` +
+              `${colorize("STATUS".padEnd(8, " "), "white")}  ` +
+              `${colorize("Qtd Objetos".padEnd(14, " "), "white")}  ` +
+              `${colorize("Volume (MiB)".padEnd(13, " "), "white")}  ` +
+              `${colorize("Velocidade (MiB/s)", "white")}`
+          );
+          orderedResults.forEach((result, index) => {
             const branchLabel = result.target.branch ? `#${result.target.branch}` : "";
             const actionLabelRaw = result.status === "skipped" ? "SEM AÇÃO" : result.status.toUpperCase();
-            const actionColor =
-              result.status === "cloned"
-                ? "green"
-                : result.status === "pulled"
-                ? "cyan"
-                : result.status === "pushed"
-                ? "blue"
-                : result.status === "failed"
-                ? "red"
-                : "yellow";
-            const actionLabel = colorize(actionLabelRaw, actionColor);
-            const detail = formatTransferDetail({
-              progress: targetProgress.get(`${result.target.pathWithNamespace}${branchLabel}`),
-              status: result.status,
-              message: result.message,
-            });
+            const progress = targetProgress.get(`${result.target.pathWithNamespace}${branchLabel}`);
+            const objectsLabel = formatObjects(progress).padEnd(14, " ");
+            const volumeLabel = parseMiB(progress?.transferred).padEnd(13, " ");
+            const speedLabel = parseMiB(progress?.speed, true);
             const prefix = mergedOptions.dryRun ? `${colorize("DRY-RUN", "magenta")} ` : "";
-            console.log(`${prefix}${result.target.pathWithNamespace}${branchLabel} ${actionLabel}${detail}`);
+            const repoLabel = formatRepoLabel(`${result.target.pathWithNamespace}${branchLabel}`, repoWidth);
+            const rowNumber = String(index + 1).padStart(2, " ");
+            writeLine(
+              `${prefix}${rowNumber}  ${repoLabel}  ${actionLabelRaw.padEnd(8, " ")}  ${objectsLabel}  ${volumeLabel}  ${speedLabel}`
+            );
+            if (result.status === "failed") {
+              const errorMessage = result.message ?? "Erro desconhecido";
+              writeLine(`   ${colorize("erro:", "red")} ${errorMessage}`);
+            }
           });
         }
         return;
