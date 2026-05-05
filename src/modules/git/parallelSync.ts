@@ -185,6 +185,22 @@ const readRepoStatus = async (target: GitRepositoryTarget): Promise<RepoStatusSn
   };
 };
 
+const applyGitLocalConfig = async (target: GitRepositoryTarget): Promise<void> => {
+  const userName = target.gitUserName?.trim();
+  const userEmail = target.gitUserEmail?.trim();
+  if (!userName && !userEmail) {
+    return;
+  }
+  const currentName = (await runGitQuiet(["-C", target.localPath, "config", "user.name"]).catch(() => "")).trim();
+  const currentEmail = (await runGitQuiet(["-C", target.localPath, "config", "user.email"]).catch(() => "")).trim();
+  if (userName && !currentName) {
+    await runGit(["-C", target.localPath, "config", "user.name", userName]);
+  }
+  if (userEmail && !currentEmail) {
+    await runGit(["-C", target.localPath, "config", "user.email", userEmail]);
+  }
+};
+
 export const syncRepository = async (
   target: GitRepositoryTarget,
   options?: ParallelSyncOptions,
@@ -230,11 +246,15 @@ export const syncRepository = async (
           phase: "clone",
           onProgress,
         });
+        await applyGitLocalConfig(target);
       }
       return { target, status: "cloned" };
     }
 
     if (!snapshot.hasRemote) {
+      if (!dryRun) {
+        await applyGitLocalConfig(target);
+      }
       return { target, status: "skipped", message: "Repositório local sem remoto configurado." };
     }
 
@@ -248,6 +268,7 @@ export const syncRepository = async (
           phase: "pull",
           onProgress,
         });
+        await applyGitLocalConfig(target);
       }
       return { target, status: "pulled" };
     }
@@ -262,10 +283,14 @@ export const syncRepository = async (
           phase: "push",
           onProgress,
         });
+        await applyGitLocalConfig(target);
       }
       return { target, status: "pushed" };
     }
 
+    if (!dryRun) {
+      await applyGitLocalConfig(target);
+    }
     return { target, status: "skipped" };
   } catch (error) {
     return {

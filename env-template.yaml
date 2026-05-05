@@ -5,6 +5,8 @@
 # --- Parâmetros comuns ---
 # Usuário do GitLab para autenticação básica (obrigatório para ssh-key-store; opcional para git-sync)
 username: ""
+# Email do Git para configurar nos repositórios clonados (opcional; usado no git-sync)
+user-email: ""
 # Senha do GitLab para autenticação básica (obrigatório para ssh-key-store; opcional para git-sync)
 password: ""
 # Nome amigável do servidor GitLab (opcional; default: GitLab)

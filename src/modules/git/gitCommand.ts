@@ -61,6 +61,7 @@ type GitSyncCliOptions = {
   useBasicAuth?: boolean;
   username?: string;
   password?: string;
+  userEmail?: string;
   keyLabel?: string;
   passphrase?: string;
   publicKeyPath?: string;
@@ -1376,13 +1377,20 @@ const storeSshKeyOnly = async (
   writeGitServers(mergedServers.servers);
 };
 
-const prepareTargets = (projects: GitLabProject[], baseDir: string): GitRepositoryTarget[] => {
+const prepareTargets = (
+  projects: GitLabProject[],
+  baseDir: string,
+  gitUserName?: string,
+  gitUserEmail?: string
+): GitRepositoryTarget[] => {
   return projects.map((project) => ({
     id: project.id,
     name: project.name,
     pathWithNamespace: project.path_with_namespace,
     sshUrl: project.ssh_url_to_repo,
     localPath: path.join(baseDir, project.path_with_namespace),
+    gitUserName,
+    gitUserEmail,
   }));
 };
 
@@ -1509,6 +1517,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
     .option("--base-url <url>", "URL base do GitLab")
     .option("--use-basic-auth", "Usar autenticação básica", false)
     .option("--username <username>", "Usuário do GitLab para autenticação básica")
+    .option("--user-email <email>", "Email do Git para configurar nos repositórios clonados")
     .option("--password <password>", "Senha do GitLab para autenticação básica")
     .option("--key-label <label>", "Nome da chave SSH a ser gerada")
     .option("--passphrase <passphrase>", "Passphrase da chave SSH")
@@ -1589,6 +1598,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         baseUrl: resolveEnvOrCliString(cliOptions.baseUrl, "baseUrl", "base-url"),
         useBasicAuth: resolveEnvOrCliBoolean(cliOptions.useBasicAuth, "useBasicAuth", "use-basic-auth"),
         username: resolveEnvOrCliString(cliOptions.username, "username", "username"),
+        userEmail: resolveEnvOrCliString(cliOptions.userEmail, "userEmail", "user-email"),
         password: resolveEnvOrCliString(cliOptions.password, "password", "password"),
         keyLabel: resolveEnvOrCliString(cliOptions.keyLabel, "keyLabel", "key-label"),
         passphrase: resolveEnvOrCliString(cliOptions.passphrase, "passphrase", "passphrase"),
@@ -1702,6 +1712,8 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       const tree = buildGitLabTree(groups, filteredProjects);
       if (!session) {
         const defaultBaseDir = mergedOptions.baseDir ?? "repos";
+        const resolvedUserName = mergedOptions.username?.trim() || undefined;
+        const resolvedUserEmail = mergedOptions.userEmail?.trim() || undefined;
         await ensureLocalDirsIfNeeded(filteredProjects, defaultBaseDir, mergedOptions.prepareLocalDirs ?? false);
         const statusEntries = await Promise.all(
           filteredProjects.map(async (project) => {
@@ -1740,6 +1752,8 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             .map((target) => ({
               ...target,
               localPath: path.join(defaultBaseDir, target.pathWithNamespace),
+              gitUserName: resolvedUserName,
+              gitUserEmail: resolvedUserEmail,
             }))
             .sort((a, b) =>
               `${a.pathWithNamespace}#${a.branch ?? ""}`.localeCompare(
@@ -2201,7 +2215,14 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       }
 
       const parallelOptions = await resolveParallelOptions(session);
-      const targets = prepareTargets(selected, mergedOptions.baseDir ?? "repos");
+      const resolvedUserName = mergedOptions.username?.trim() || undefined;
+      const resolvedUserEmail = mergedOptions.userEmail?.trim() || undefined;
+      const targets = prepareTargets(
+        selected,
+        mergedOptions.baseDir ?? "repos",
+        resolvedUserName,
+        resolvedUserEmail
+      );
 
       logger.info(`Sincronizando ${targets.length} repositórios`);
       await parallelSync(targets, parallelOptions, (result) => {

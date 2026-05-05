@@ -41,6 +41,8 @@ export type GitRepositoryTarget = {
   localPath: string;
   defaultBranch?: string;
   branch?: string;
+  gitUserName?: string;
+  gitUserEmail?: string;
 };
 
 export type ParallelSyncOptions = {

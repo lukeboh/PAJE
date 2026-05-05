@@ -91,6 +91,7 @@ paje git-sync --base-dir repos --server-name "GitLab" --base-url https://gitlab.
 | `--use-basic-auth` | não | `false` | Usar autenticação básica | requer `--username` |
 | `--username <username>` | não | — | Usuário para autenticação básica | obrigatório se `--use-basic-auth` |
 | `--password <password>` | não | — | Senha para autenticação básica | solicitado se necessário |
+| `--user-email <email>` | não | — | Email do Git para configurar nos repositórios sincronizados | ex: `nome@empresa.com` |
 | `--key-label <label>` | não | — | Nome da chave SSH a gerar | ex: `paje` |
 | `--passphrase <passphrase>` | não | — | Passphrase da chave SSH | opcional |
 | `--public-key-path <path>` | não | — | Caminho para chave pública existente | deve terminar com `.pub` |
@@ -167,6 +168,7 @@ baseUrl: https://gitlab.com
 useBasicAuth: false
 username: meu.usuario
 password: "minha-senha"
+userEmail: "nome@empresa.com"
 keyLabel: paje
 passphrase: ""
 publicKeyPath: /home/user/.ssh/paje.pub

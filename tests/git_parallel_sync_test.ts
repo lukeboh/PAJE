@@ -13,9 +13,11 @@ const targetPath = path.join(tempDir, "grupo", "repo");
 const binDir = path.join(tempDir, "bin");
 fs.mkdirSync(binDir, { recursive: true });
 const fakeGitPath = path.join(binDir, "git");
+const gitLogPath = path.join(tempDir, "git.log");
 fs.writeFileSync(
   fakeGitPath,
   "#!/usr/bin/env bash\n" +
+    "echo \"$*\" >> \"${GIT_LOG_PATH:-/dev/null}\"\n" +
     "args=\"$*\"\n" +
     "if [[ \"$args\" == *\"remote get-url origin\"* ]]; then\n" +
     "  if [[ -n \"$NO_REMOTE\" ]]; then\n" +
@@ -38,6 +40,7 @@ fs.writeFileSync(
 fs.chmodSync(fakeGitPath, 0o755);
 const originalPath = process.env.PATH;
 process.env.PATH = `${binDir}:${originalPath}`;
+process.env.GIT_LOG_PATH = gitLogPath;
 await ensureParentDir(targetPath);
 assert.ok(fs.existsSync(path.dirname(targetPath)), "Deve criar diretório pai");
 
@@ -49,6 +52,8 @@ const result = await syncRepository(
     pathWithNamespace: "grupo/repo",
     sshUrl: "git@exemplo.com:grupo/repo.git",
     localPath: targetPath,
+    gitUserName: "Usuario Teste",
+    gitUserEmail: "usuario@exemplo.com",
   },
   undefined,
   1,
@@ -58,6 +63,9 @@ const result = await syncRepository(
 );
 assert.ok(result.status === "cloned" || result.status === "failed", "Deve tentar clonar repositório");
 assert.ok(progressEvents.length >= 0, "Deve aceitar callback de progresso");
+const gitLog = fs.existsSync(gitLogPath) ? fs.readFileSync(gitLogPath, "utf-8") : "";
+assert.ok(gitLog.includes("config user.name Usuario Teste"), "Deve configurar user.name após clone");
+assert.ok(gitLog.includes("config user.email usuario@exemplo.com"), "Deve configurar user.email após clone");
 
 const gitDir = path.join(targetPath, ".git");
 fs.mkdirSync(gitDir, { recursive: true });
@@ -68,8 +76,13 @@ const resultSkip = await syncRepository({
   pathWithNamespace: "grupo/repo",
   sshUrl: "git@exemplo.com:grupo/repo.git",
   localPath: targetPath,
+  gitUserName: "Usuario Teste",
+  gitUserEmail: "usuario@exemplo.com",
 });
 assert.ok(resultSkip.status === "skipped", "Deve ignorar repositório sem remoto configurado");
+const gitLogAfterSkip = fs.existsSync(gitLogPath) ? fs.readFileSync(gitLogPath, "utf-8") : "";
+assert.ok(gitLogAfterSkip.includes("config user.name Usuario Teste"), "Deve configurar user.name quando ausente");
+assert.ok(gitLogAfterSkip.includes("config user.email usuario@exemplo.com"), "Deve configurar user.email quando ausente");
 
 delete process.env.NO_REMOTE;
 process.env.REV_LIST_OUTPUT = "2 0";
@@ -103,6 +116,7 @@ const resultSynced = await syncRepository({
 assert.ok(resultSynced.status === "skipped", "Deve ignorar quando não há diferenças");
 
 process.env.PATH = originalPath;
+delete process.env.GIT_LOG_PATH;
 delete process.env.NO_REMOTE;
 delete process.env.REV_LIST_OUTPUT;
 delete process.env.CURRENT_BRANCH;
