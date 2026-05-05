@@ -1,0 +1,58 @@
+# Parâmetros do PAJÉ (git-sync e ssh-key-store)
+# CLI sempre tem prioridade. Quando ausente, usa este arquivo.
+# Se continuar ausente e obrigatório, o PAJÉ perguntará interativamente.
+
+# --- Parâmetros comuns ---
+# Usuário do GitLab para autenticação básica (obrigatório para ssh-key-store; opcional para git-sync)
+username: ""
+# Senha do GitLab para autenticação básica (obrigatório para ssh-key-store; opcional para git-sync)
+password: ""
+# Nome amigável do servidor GitLab (opcional; default: GitLab)
+server-name: ""
+# URL base do GitLab (opcional; default: https://gitlab.com)
+base-url: ""
+
+# --- Parâmetros do git-sync ---
+# Diretório base para clonagem (opcional; default: repos)
+base-dir: "repos"
+# Usar autenticação básica (opcional; default: false)
+use-basic-auth: false
+# Exibir logs detalhados (opcional; default: false)
+verbose: false
+# Nome da chave SSH a ser gerada (opcional; default: paje)
+key-label: "paje"
+# Passphrase da chave SSH (opcional)
+passphrase: ""
+# Caminho para chave pública existente (.pub) (opcional)
+public-key-path: ""
+# Criar diretórios locais sem clonar repositórios (opcional; default: false)
+prepare-local-dirs: false
+# Ocultar resumo final (opcional; default: false)
+no-summary: false
+# Ocultar repositórios públicos (opcional; default: false)
+no-public-repos: false
+# Ocultar repositórios arquivados (opcional; default: false)
+no-archived-repos: false
+# Filtro Ant/Glob por caminho (path_with_namespace) (opcional; separado por ;)
+filter: ""
+# Repos/branchs para sincronizar (opcional; separado por ;) (default: vazio)
+# Exemplo: "grupo/projeto.git#main;grupo/outro-projeto"
+sync-repos: ""
+# Número de processos/threads para sincronização (AUTO|0|1..N) (opcional; default: 1)
+parallels: "1"
+# Simular operações sem persistir (opcional; default: false)
+dry-run: false
+
+# --- Parâmetros do ssh-key-store ---
+# Sobrescrever chave existente, salvando .bak (opcional; default: false)
+key-overwrite: false
+# Intervalo de retry em ms (opcional; default: 4000)
+retry-delay-ms: 4000
+# Número máximo de tentativas (opcional; default: 1)
+max-attempts: 1
+# Nome do token pessoal no GitLab (obrigatório)
+token-name: ""
+# Escopos do token pessoal (opcional; default: [read_repository, read_api, read_virtual_registry, self_rotate])
+token-scopes: ["read_repository", "read_api", "read_virtual_registry", "self_rotate"]
+# Data de expiração do token (YYYY-MM-DD) (opcional)
+token-expires-at: ""
