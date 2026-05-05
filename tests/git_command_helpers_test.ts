@@ -9,6 +9,7 @@ import {
   resolveEnvBoolean,
   resolveEnvNumber,
   resolveEnvStringArray,
+  resolveHomePath,
 } from "../src/modules/git/gitCommand.js";
 
 const envConfig = {
@@ -29,6 +30,13 @@ assert.strictEqual(resolveEnvNumber(undefined, envConfig, "num"), 5);
 assert.strictEqual(resolveEnvNumber(undefined, envConfig, "raw"), 10);
 assert.strictEqual(resolveEnvStringArray(undefined, envConfig, "list"), "a,b");
 assert.strictEqual(resolveEnvStringArray("x,y", envConfig, "list"), "x,y");
+
+const originalHome = process.env.HOME;
+process.env.HOME = "/tmp/paje-tests-home";
+assert.strictEqual(resolveHomePath("~"), "/tmp/paje-tests-home");
+assert.strictEqual(resolveHomePath("~/repos"), "/tmp/paje-tests-home/repos");
+assert.strictEqual(resolveHomePath("/var/repos"), "/var/repos");
+process.env.HOME = originalHome;
 
 const emptyEnv = {} as Record<string, string | number | boolean | string[]>;
 assert.strictEqual(resolveEnvString(undefined, emptyEnv, "missing"), undefined);

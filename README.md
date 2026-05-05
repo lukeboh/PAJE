@@ -85,7 +85,7 @@ paje git-sync --base-dir repos --server-name "GitLab" --base-url https://gitlab.
 | Parâmetro | Obrigatório | Padrão | Descrição | Valores/Observações |
 | --- | --- | --- | --- | --- |
 | `-v`, `--verbose` | não | `false` | Exibe logs detalhados | `true`/`false` |
-| `--base-dir <dir>` | não | `repos` | Diretório base de clonagem | caminho local |
+| `--base-dir <dir>` | não | `repos` | Diretório base de clonagem | caminho local (aceita `~`) |
 | `--server-name <name>` | não | — | Nome do servidor GitLab | ex: `GitLab` |
 | `--base-url <url>` | não | — | URL base do GitLab | ex: `https://gitlab.com` |
 | `--use-basic-auth` | não | `false` | Usar autenticação básica | requer `--username` |
@@ -161,7 +161,7 @@ O PAJÉ lê parâmetros de `~/.paje/env.yaml` (padrão), ou de um arquivo inform
 **Exemplo de `~/.paje/env.yaml`:**
 
 ```yaml
-baseDir: repos
+baseDir: ~/repos
 serverName: GitLab
 baseUrl: https://gitlab.com
 useBasicAuth: false

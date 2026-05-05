@@ -1133,6 +1133,23 @@ export const resolveEnvStringArray = (cliValue: string | undefined, env: EnvConf
   return undefined;
 };
 
+export const resolveHomePath = (value?: string): string | undefined => {
+  if (!value) {
+    return value;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+  if (trimmed === "~") {
+    return os.homedir();
+  }
+  if (trimmed.startsWith("~/")) {
+    return path.join(os.homedir(), trimmed.slice(2));
+  }
+  return value;
+};
+
 const storeSshKeyOnly = async (
   server: GitServerEntry,
   session?: TuiSession,
@@ -1567,7 +1584,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       const cliDryRun = resolveCliBoolean("dry-run");
       const mergedOptions: GitSyncCliOptions = {
         ...cliOptions,
-        baseDir: resolveEnvOrCliString(cliOptions.baseDir, "baseDir", "base-dir"),
+        baseDir: resolveHomePath(resolveEnvOrCliString(cliOptions.baseDir, "baseDir", "base-dir")),
         serverName: resolveEnvOrCliString(cliOptions.serverName, "serverName", "server-name"),
         baseUrl: resolveEnvOrCliString(cliOptions.baseUrl, "baseUrl", "base-url"),
         useBasicAuth: resolveEnvOrCliBoolean(cliOptions.useBasicAuth, "useBasicAuth", "use-basic-auth"),
