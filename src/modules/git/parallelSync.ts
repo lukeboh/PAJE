@@ -1,5 +1,5 @@
 import os from "node:os";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
 import { GitRepositoryTarget, ParallelSyncOptions } from "./types.js";
@@ -10,6 +10,20 @@ export type SyncResult = {
   target: GitRepositoryTarget;
   status: "cloned" | "pulled" | "pushed" | "skipped" | "failed";
   message?: string;
+};
+
+export type ProgressPhase = "clone" | "pull" | "push";
+
+export type ProgressEvent = {
+  workerId: number;
+  target: GitRepositoryTarget;
+  phase: ProgressPhase;
+  percent?: number;
+  transferred?: string;
+  speed?: string;
+  objectsReceived?: number;
+  objectsTotal?: number;
+  raw?: string;
 };
 
 type RepoStatusSnapshot = {
@@ -36,6 +50,74 @@ export const runGit = async (args: string[], cwd?: string): Promise<string> => {
 
 const runGitQuiet = async (args: string[], cwd?: string): Promise<string> => {
   return runGit(args, cwd).catch(() => "");
+};
+
+const parseProgressLine = (line: string): {
+  percent?: number;
+  transferred?: string;
+  speed?: string;
+  objectsReceived?: number;
+  objectsTotal?: number;
+} => {
+  const percentMatch = line.match(/(\d{1,3})%/);
+  const percent = percentMatch ? Number(percentMatch[1]) : undefined;
+  const sizeMatch = line.match(/(\d+(?:\.\d+)?\s*(?:KiB|MiB|GiB|KB|MB|GB))/i);
+  const speedMatch = line.match(/(\d+(?:\.\d+)?\s*(?:KiB|MiB|GiB|KB|MB|GB)\/s)/i);
+  const objectsMatch = line.match(/\((\d+)\/(\d+)\)/);
+  const objectsReceived = objectsMatch ? Number(objectsMatch[1]) : undefined;
+  const objectsTotal = objectsMatch ? Number(objectsMatch[2]) : undefined;
+  return {
+    percent: Number.isNaN(percent) ? undefined : percent,
+    transferred: sizeMatch?.[1],
+    speed: speedMatch?.[1],
+    objectsReceived: Number.isNaN(objectsReceived ?? NaN) ? undefined : objectsReceived,
+    objectsTotal: Number.isNaN(objectsTotal ?? NaN) ? undefined : objectsTotal,
+  };
+};
+
+const runGitWithProgress = async (options: {
+  args: string[];
+  cwd?: string;
+  workerId: number;
+  target: GitRepositoryTarget;
+  phase: ProgressPhase;
+  onProgress?: (event: ProgressEvent) => void;
+}): Promise<void> => {
+  const { args, cwd, workerId, target, phase, onProgress } = options;
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn("git", args, { cwd });
+    const handleChunk = (chunk: Buffer): void => {
+      const text = chunk.toString("utf-8");
+      text.split(/\r?\n/).forEach((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return;
+        }
+        const parsed = parseProgressLine(trimmed);
+        onProgress?.({
+          workerId,
+          target,
+          phase,
+          raw: trimmed,
+          percent: parsed.percent,
+          transferred: parsed.transferred,
+          speed: parsed.speed,
+          objectsReceived: parsed.objectsReceived,
+          objectsTotal: parsed.objectsTotal,
+        });
+      });
+    };
+    child.stdout.on("data", handleChunk);
+    child.stderr.on("data", handleChunk);
+    child.on("error", (error) => reject(error));
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(`Git falhou (code ${code ?? "?"}).`));
+    });
+  });
 };
 
 export const ensureParentDir = async (targetPath: string): Promise<void> => {
@@ -105,7 +187,9 @@ const readRepoStatus = async (target: GitRepositoryTarget): Promise<RepoStatusSn
 
 export const syncRepository = async (
   target: GitRepositoryTarget,
-  options?: ParallelSyncOptions
+  options?: ParallelSyncOptions,
+  workerId = 0,
+  onProgress?: (event: ProgressEvent) => void
 ): Promise<SyncResult> => {
   try {
     await ensureParentDir(target.localPath);
@@ -121,7 +205,14 @@ export const syncRepository = async (
         args.splice(1, 0, "--depth", "1");
       }
       if (!dryRun) {
-        await runGit(args);
+        await runGitWithProgress({
+          args: ["clone", "--progress", ...args.slice(1)],
+          cwd: undefined,
+          workerId,
+          target,
+          phase: "clone",
+          onProgress,
+        });
       }
       return { target, status: "cloned" };
     }
@@ -132,14 +223,28 @@ export const syncRepository = async (
 
     if (snapshot.behind > 0 && snapshot.ahead === 0) {
       if (!dryRun) {
-        await runGit(["-C", target.localPath, "pull", "--rebase"]);
+        await runGitWithProgress({
+          args: ["-C", target.localPath, "pull", "--rebase", "--progress"],
+          cwd: undefined,
+          workerId,
+          target,
+          phase: "pull",
+          onProgress,
+        });
       }
       return { target, status: "pulled" };
     }
 
     if (snapshot.ahead > 0 && snapshot.behind === 0) {
       if (!dryRun) {
-        await runGit(["-C", target.localPath, "push", "origin", snapshot.branch]);
+        await runGitWithProgress({
+          args: ["-C", target.localPath, "push", "--progress", "origin", snapshot.branch],
+          cwd: undefined,
+          workerId,
+          target,
+          phase: "push",
+          onProgress,
+        });
       }
       return { target, status: "pushed" };
     }
@@ -157,19 +262,21 @@ export const syncRepository = async (
 export const parallelSync = async (
   targets: GitRepositoryTarget[],
   options?: ParallelSyncOptions,
-  onProgress?: (result: SyncResult) => void
+  onProgress?: (result: SyncResult) => void,
+  onProgressUpdate?: (event: ProgressEvent) => void
 ): Promise<SyncResult[]> => {
   const concurrency = resolveConcurrency(options);
   const queue = [...targets];
   const results: SyncResult[] = [];
 
-  const workers = Array.from({ length: concurrency }).map(async () => {
+  const workers = Array.from({ length: concurrency }).map(async (_, index) => {
+    const workerId = index + 1;
     while (queue.length > 0) {
       const target = queue.shift();
       if (!target) {
         return;
       }
-      const result = await syncRepository(target, options);
+      const result = await syncRepository(target, options, workerId, onProgressUpdate);
       results.push(result);
       onProgress?.(result);
     }

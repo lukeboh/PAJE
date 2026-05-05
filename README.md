@@ -99,6 +99,7 @@ paje git-sync --base-dir repos --server-name "GitLab" --base-url https://gitlab.
 | `--no-archived-repos [value]` | não | `false` | Oculta repositórios arquivados | `true`/`false` |
 | `-f`, `--filter <pattern>` | não | — | Filtro Ant/Glob por caminho (`path_with_namespace`) | separado por `;` |
 | `--sync-repos <pattern>` | não | — | Repositórios/branches para sincronizar | Ant/Glob com branch opcional via `#` |
+| `--parallels <value>` | não | `1` | Paralelismo na sincronização | `AUTO`, `0` ou número ≥ 1 |
 | `--dry-run` | não | `false` | Simula ações sem persistir | não executa clone/pull/push |
 | `--git-show-public-repos` | — | — | Removido | Use autenticação ou `--public-repos` para filtros locais. |
 
@@ -109,6 +110,7 @@ paje git-sync --base-dir repos --server-name "GitLab" --base-url https://gitlab.
 - O resumo final mostra estados: `SYNCED`, `BEHIND`, `AHEAD`, `REMOTE`, `EMPTY`, `LOCAL`, `UNCOMMITTED`.
 - O filtro suporta padrões Ant/Glob: `?` (um caractere), `*` (qualquer trecho no mesmo diretório), `**` (qualquer profundidade), e múltiplos padrões separados por `;` (com espaços ignorados).
 - `--sync-repos` aceita padrões Ant/Glob no formato `path_with_namespace[.git]#branch`. A `#branch` é opcional. Exemplo: `grupo/projeto.git#main`.
+- `--parallels` controla o número de workers na sincronização. Use `AUTO` ou `0` para ajuste automático.
 - Quando `--dry-run` é usado, o comando apenas informa o que faria (clone/pull/push) sem executar.
 
 **Exemplo com filtro:**
@@ -171,8 +173,9 @@ noSummary: false
 publicRepos: false
 archivedRepos: false
 gitShowPublicRepos: false
-syncRepos: "grupo/projeto.git#main;grupo/outro-projeto"
-dryRun: false
+  syncRepos: "grupo/projeto.git#main;grupo/outro-projeto"
+  parallels: "1"
+  dryRun: false
 tokenName: paje-token
 tokenScopes: [read_repository, read_api, read_virtual_registry, self_rotate]
 tokenExpiresAt: 2026-04-30

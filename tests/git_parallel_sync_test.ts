@@ -41,14 +41,23 @@ process.env.PATH = `${binDir}:${originalPath}`;
 await ensureParentDir(targetPath);
 assert.ok(fs.existsSync(path.dirname(targetPath)), "Deve criar diretório pai");
 
-const result = await syncRepository({
-  id: 1,
-  name: "Repo",
-  pathWithNamespace: "grupo/repo",
-  sshUrl: "git@exemplo.com:grupo/repo.git",
-  localPath: targetPath,
-});
+const progressEvents: Array<{ percent?: number }> = [];
+const result = await syncRepository(
+  {
+    id: 1,
+    name: "Repo",
+    pathWithNamespace: "grupo/repo",
+    sshUrl: "git@exemplo.com:grupo/repo.git",
+    localPath: targetPath,
+  },
+  undefined,
+  1,
+  (event) => {
+    progressEvents.push({ percent: event.percent });
+  }
+);
 assert.ok(result.status === "cloned" || result.status === "failed", "Deve tentar clonar repositório");
+assert.ok(progressEvents.length >= 0, "Deve aceitar callback de progresso");
 
 const gitDir = path.join(targetPath, ".git");
 fs.mkdirSync(gitDir, { recursive: true });
