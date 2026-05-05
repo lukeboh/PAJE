@@ -445,6 +445,9 @@ const parseYamlValue = (rawValue: string): EnvConfigValue | undefined => {
   return unquoted;
 };
 
+const normalizeEnvKey = (key: string): string =>
+  key.includes("-") ? key.replace(/-([a-zA-Z0-9])/g, (_, char) => char.toUpperCase()) : key;
+
 const parseYamlContent = (contents: string): EnvConfig => {
   const result: EnvConfig = {};
   contents
@@ -457,7 +460,8 @@ const parseYamlContent = (contents: string): EnvConfig => {
       if (separatorIndex <= 0) {
         return;
       }
-      const key = line.slice(0, separatorIndex).trim();
+      const rawKey = line.slice(0, separatorIndex).trim();
+      const key = normalizeEnvKey(rawKey);
       if (!key) {
         return;
       }
@@ -482,7 +486,7 @@ const parseEnvContent = (contents: string): Record<string, string> => {
       if (!rawKey || rawValueParts.length === 0) {
         return;
       }
-      const key = rawKey.trim();
+      const key = normalizeEnvKey(rawKey.trim());
       const rawValue = rawValueParts.join("=").trim();
       const value = rawValue.replace(/^['\"]|['\"]$/g, "");
       result[key] = value;

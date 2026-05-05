@@ -170,12 +170,11 @@ passphrase: ""
 publicKeyPath: /home/user/.ssh/paje.pub
 prepareLocalDirs: false
 noSummary: false
-publicRepos: false
-archivedRepos: false
-gitShowPublicRepos: false
-  syncRepos: "grupo/projeto.git#main;grupo/outro-projeto"
-  parallels: "1"
-  dryRun: false
+noPublicRepos: false
+noArchivedRepos: false
+syncRepos: "grupo/projeto.git#main;grupo/outro-projeto"
+parallels: "1"
+dryRun: false
 tokenName: paje-token
 tokenScopes: [read_repository, read_api, read_virtual_registry, self_rotate]
 tokenExpiresAt: 2026-04-30

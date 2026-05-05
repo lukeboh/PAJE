@@ -1146,8 +1146,24 @@ const storeSshKeyOnly = async (
   const serverHost = new URL(server.baseUrl).hostname;
 
   const envConfig = loadEnvConfig({ envFile: resolveEnvFileFromCli(cli?.envFile) });
+  const hasCliArg = (flag: string): boolean => {
+    const dashed = `--${flag}`;
+    return process.argv.some((arg) => arg === dashed || arg.startsWith(`${dashed}=`));
+  };
+  const resolveEnvOrCliString = (cliValue: string | undefined, key: string, flag: string): string | undefined => {
+    const resolvedCli = hasCliArg(flag) ? cliValue : undefined;
+    return resolveEnvString(resolvedCli, envConfig, key) ?? cliValue;
+  };
+  const resolveEnvOrCliBoolean = (cliValue: boolean | undefined, key: string, flag: string): boolean | undefined => {
+    const resolvedCli = hasCliArg(flag) ? cliValue : undefined;
+    return resolveEnvBoolean(resolvedCli, envConfig, key) ?? cliValue;
+  };
+  const resolveEnvOrCliNumber = (cliValue: number | undefined, key: string, flag: string): number | undefined => {
+    const resolvedCli = hasCliArg(flag) ? cliValue : undefined;
+    return resolveEnvNumber(resolvedCli, envConfig, key) ?? cliValue;
+  };
 
-  let resolvedUsername = resolveEnvString(cli?.username?.trim(), envConfig, "username");
+  let resolvedUsername = resolveEnvOrCliString(cli?.username?.trim(), "username", "username");
   if (!resolvedUsername) {
     if (session) {
       const form = await session.promptForm<{ username: string }>({
@@ -1169,7 +1185,7 @@ const storeSshKeyOnly = async (
     }
   }
 
-  const resolvedPublicKeyPath = resolveEnvString(cli?.publicKeyPath, envConfig, "publicKeyPath");
+  const resolvedPublicKeyPath = resolveEnvOrCliString(cli?.publicKeyPath, "publicKeyPath", "public-key-path");
   let keyInfo: SshKeyInfo | undefined;
   if (resolvedPublicKeyPath) {
     const selectedKey = resolvedPublicKeyPath;
@@ -1189,15 +1205,15 @@ const storeSshKeyOnly = async (
     };
   } else {
     keyInfo = await ensurePajeKeyPair({
-      keyLabel: resolveEnvString(cli?.keyLabel, envConfig, "keyLabel"),
-      passphrase: resolveEnvString(cli?.passphrase, envConfig, "passphrase"),
-      overwrite: resolveEnvBoolean(cli?.keyOverwrite, envConfig, "keyOverwrite") ?? false,
+      keyLabel: resolveEnvOrCliString(cli?.keyLabel, "keyLabel", "key-label"),
+      passphrase: resolveEnvOrCliString(cli?.passphrase, "passphrase", "passphrase"),
+      overwrite: resolveEnvOrCliBoolean(cli?.keyOverwrite, "keyOverwrite", "key-overwrite") ?? false,
       logger,
     });
   }
 
   upsertSshConfigHost(serverHost, keyInfo.privateKeyPath);
-  await ensureKnownHost(serverHost, session, resolveEnvBoolean(cli?.verbose, envConfig, "verbose"));
+  await ensureKnownHost(serverHost, session, resolveEnvOrCliBoolean(cli?.verbose, "verbose", "verbose"));
   await reportSshPersistenceStatus(serverHost, session);
 
   if (process.env.PAJE_SKIP_SSH_STORE === "1") {
@@ -1235,7 +1251,7 @@ const storeSshKeyOnly = async (
 
   await ensureGitLabSshKey({
     baseUrl: server.baseUrl,
-    title: resolveEnvString(cli?.keyLabel, envConfig, "keyLabel") ?? "paje",
+    title: resolveEnvOrCliString(cli?.keyLabel, "keyLabel", "key-label") ?? "paje",
     usageType: "auth_and_signing",
     credentials: {
       ...credentials,
@@ -1245,8 +1261,8 @@ const storeSshKeyOnly = async (
     keyInfo,
     fetchImpl: globalThis.fetch,
     logger,
-    maxAttempts: resolveEnvNumber(cli?.maxAttempts, envConfig, "maxAttempts"),
-    retryDelayMs: resolveEnvNumber(cli?.retryDelayMs, envConfig, "retryDelayMs"),
+    maxAttempts: resolveEnvOrCliNumber(cli?.maxAttempts, "maxAttempts", "max-attempts"),
+    retryDelayMs: resolveEnvOrCliNumber(cli?.retryDelayMs, "retryDelayMs", "retry-delay-ms"),
   });
 
   if (process.env.PAJE_SKIP_SSH_STORE === "1") {
@@ -1303,9 +1319,13 @@ const storeSshKeyOnly = async (
     }
   }
 
-  const resolvedTokenName = resolveEnvString(cli?.tokenName?.trim(), envConfig, "tokenName");
-  const resolvedTokenScopes = resolveEnvStringArray(cli?.tokenScopes, envConfig, "tokenScopes");
-  const resolvedTokenExpiresAt = resolveEnvString(cli?.tokenExpiresAt, envConfig, "tokenExpiresAt");
+  const resolvedTokenName = resolveEnvOrCliString(cli?.tokenName?.trim(), "tokenName", "token-name");
+  const resolvedTokenScopes = resolveEnvStringArray(
+    hasCliArg("token-scopes") ? cli?.tokenScopes : undefined,
+    envConfig,
+    "tokenScopes"
+  );
+  const resolvedTokenExpiresAt = resolveEnvOrCliString(cli?.tokenExpiresAt, "tokenExpiresAt", "token-expires-at");
   const tokenName = resolvedTokenName ?? "";
   const scopeList = resolvedTokenScopes
     ? resolvedTokenScopes.split(",").map((item) => item.trim()).filter(Boolean)
@@ -1327,8 +1347,8 @@ const storeSshKeyOnly = async (
     },
     fetchImpl: globalThis.fetch,
     logger,
-    maxAttempts: resolveEnvNumber(cli?.maxAttempts, envConfig, "maxAttempts"),
-    retryDelayMs: resolveEnvNumber(cli?.retryDelayMs, envConfig, "retryDelayMs"),
+    maxAttempts: resolveEnvOrCliNumber(cli?.maxAttempts, "maxAttempts", "max-attempts"),
+    retryDelayMs: resolveEnvOrCliNumber(cli?.retryDelayMs, "retryDelayMs", "retry-delay-ms"),
   });
 
   const serverWithToken: GitServerEntry = {
@@ -1514,6 +1534,31 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         }
         return undefined;
       };
+      const hasCliArg = (flag: string): boolean => {
+        const dashed = `--${flag}`;
+        return process.argv.some((arg) => arg === dashed || arg.startsWith(`${dashed}=`));
+      };
+      const resolveEnvOrCliString = (cliValue: string | undefined, key: string, flag: string): string | undefined => {
+        const resolvedCli = hasCliArg(flag) ? cliValue : undefined;
+        return resolveEnvString(resolvedCli, envConfig, key) ?? cliValue;
+      };
+      const resolveEnvOrCliBoolean = (
+        cliValue: boolean | undefined,
+        key: string,
+        flag: string,
+        resolvedFlag?: boolean
+      ): boolean | undefined => {
+        const resolvedCli = hasCliArg(flag) ? (resolvedFlag ?? cliValue) : undefined;
+        return resolveEnvBoolean(resolvedCli, envConfig, key) ?? resolvedFlag ?? cliValue;
+      };
+      const resolveEnvOrCliNumber = (
+        cliValue: number | undefined,
+        key: string,
+        flag: string
+      ): number | undefined => {
+        const resolvedCli = hasCliArg(flag) ? cliValue : undefined;
+        return resolveEnvNumber(resolvedCli, envConfig, key) ?? cliValue;
+      };
       const cliNoSummary = resolveCliBoolean("no-summary");
       const cliPrepareLocalDirs = resolveCliBoolean("prepare-local-dirs");
       const cliNoPublicRepos = resolveCliBoolean("no-public-repos");
@@ -1522,36 +1567,32 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       const cliDryRun = resolveCliBoolean("dry-run");
       const mergedOptions: GitSyncCliOptions = {
         ...cliOptions,
-        baseDir: resolveEnvString(cliOptions.baseDir, envConfig, "baseDir") ?? cliOptions.baseDir,
-        serverName: resolveEnvString(cliOptions.serverName, envConfig, "serverName") ?? cliOptions.serverName,
-        baseUrl: resolveEnvString(cliOptions.baseUrl, envConfig, "baseUrl") ?? cliOptions.baseUrl,
-        useBasicAuth: resolveEnvBoolean(cliOptions.useBasicAuth, envConfig, "useBasicAuth") ?? cliOptions.useBasicAuth,
-        username: resolveEnvString(cliOptions.username, envConfig, "username") ?? cliOptions.username,
-        password: resolveEnvString(cliOptions.password, envConfig, "password") ?? cliOptions.password,
-        keyLabel: resolveEnvString(cliOptions.keyLabel, envConfig, "keyLabel") ?? cliOptions.keyLabel,
-        passphrase: resolveEnvString(cliOptions.passphrase, envConfig, "passphrase") ?? cliOptions.passphrase,
-        publicKeyPath: resolveEnvString(cliOptions.publicKeyPath, envConfig, "publicKeyPath") ?? cliOptions.publicKeyPath,
-        verbose: resolveEnvBoolean(cliVerbose, envConfig, "verbose") ?? cliVerbose ?? cliOptions.verbose,
+        baseDir: resolveEnvOrCliString(cliOptions.baseDir, "baseDir", "base-dir"),
+        serverName: resolveEnvOrCliString(cliOptions.serverName, "serverName", "server-name"),
+        baseUrl: resolveEnvOrCliString(cliOptions.baseUrl, "baseUrl", "base-url"),
+        useBasicAuth: resolveEnvOrCliBoolean(cliOptions.useBasicAuth, "useBasicAuth", "use-basic-auth"),
+        username: resolveEnvOrCliString(cliOptions.username, "username", "username"),
+        password: resolveEnvOrCliString(cliOptions.password, "password", "password"),
+        keyLabel: resolveEnvOrCliString(cliOptions.keyLabel, "keyLabel", "key-label"),
+        passphrase: resolveEnvOrCliString(cliOptions.passphrase, "passphrase", "passphrase"),
+        publicKeyPath: resolveEnvOrCliString(cliOptions.publicKeyPath, "publicKeyPath", "public-key-path"),
+        verbose: resolveEnvOrCliBoolean(cliOptions.verbose, "verbose", "verbose", cliVerbose),
         prepareLocalDirs:
-          resolveEnvBoolean(cliPrepareLocalDirs, envConfig, "prepareLocalDirs") ??
-          cliPrepareLocalDirs ??
+          resolveEnvOrCliBoolean(cliOptions.prepareLocalDirs, "prepareLocalDirs", "prepare-local-dirs", cliPrepareLocalDirs) ??
           false,
         noSummary:
-          resolveEnvBoolean(cliNoSummary, envConfig, "noSummary") ??
-          cliNoSummary ??
+          resolveEnvOrCliBoolean(cliOptions.noSummary, "noSummary", "no-summary", cliNoSummary) ??
           false,
         noPublicRepos:
-          resolveEnvBoolean(cliNoPublicRepos, envConfig, "noPublicRepos") ??
-          cliNoPublicRepos ??
+          resolveEnvOrCliBoolean(cliOptions.noPublicRepos, "noPublicRepos", "no-public-repos", cliNoPublicRepos) ??
           false,
         noArchivedRepos:
-          resolveEnvBoolean(cliNoArchivedRepos, envConfig, "noArchivedRepos") ??
-          cliNoArchivedRepos ??
+          resolveEnvOrCliBoolean(cliOptions.noArchivedRepos, "noArchivedRepos", "no-archived-repos", cliNoArchivedRepos) ??
           false,
-        filter: resolveEnvString(cliOptions.filter, envConfig, "filter") ?? cliOptions.filter,
-        syncRepos: resolveEnvString(cliOptions.syncRepos, envConfig, "syncRepos") ?? cliOptions.syncRepos,
-        dryRun: resolveEnvBoolean(cliDryRun, envConfig, "dryRun") ?? cliDryRun ?? cliOptions.dryRun,
-        parallels: resolveEnvString(cliOptions.parallels, envConfig, "parallels") ?? cliOptions.parallels,
+        filter: resolveEnvOrCliString(cliOptions.filter, "filter", "filter"),
+        syncRepos: resolveEnvOrCliString(cliOptions.syncRepos, "syncRepos", "sync-repos"),
+        dryRun: resolveEnvOrCliBoolean(cliOptions.dryRun, "dryRun", "dry-run", cliDryRun) ?? false,
+        parallels: resolveEnvOrCliString(cliOptions.parallels, "parallels", "parallels"),
       };
 
       const server = await selectGitServer(session, mergedOptions);
@@ -2182,13 +2223,35 @@ export const configureSshKeyStoreCommand = (program: Command, session?: TuiSessi
     .option("--token-scopes <scopes>", "Escopos do token (ex: api,read_repository)")
     .option("--token-expires-at <date>", "Data de expiração do token (YYYY-MM-DD)")
     .action(async (options: SshKeyStoreCliOptions) => {
-      const baseUrl = options.baseUrl?.trim() ?? "https://git.tse.jus.br";
+      const envConfig = loadEnvConfig({ envFile: resolveEnvFileFromCli(options.envFile) });
+      const hasCliArg = (flag: string): boolean => {
+        const dashed = `--${flag}`;
+        return process.argv.some((arg) => arg === dashed || arg.startsWith(`${dashed}=`));
+      };
+      const resolveEnvOrCliString = (
+        cliValue: string | undefined,
+        key: string,
+        flag: string,
+        fallback?: string
+      ): string | undefined => {
+        const resolvedCli = hasCliArg(flag) ? cliValue : undefined;
+        return resolveEnvString(resolvedCli, envConfig, key) ?? cliValue ?? fallback;
+      };
+
+      const baseUrl = resolveEnvOrCliString(
+        options.baseUrl?.trim(),
+        "baseUrl",
+        "base-url",
+        "https://git.tse.jus.br"
+      ) as string;
+      const serverName = resolveEnvOrCliString(options.serverName, "serverName", "server-name", "GitLab") as string;
+      const username = resolveEnvOrCliString(options.username, "username", "username");
       const server: GitServerEntry = {
         id: baseUrl,
-        name: options.serverName ?? "GitLab",
+        name: serverName,
         baseUrl,
         useBasicAuth: true,
-        username: options.username,
+        username,
       };
 
       await storeSshKeyOnly(server, session, options);
