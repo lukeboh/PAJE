@@ -1567,7 +1567,9 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       });
       const listDurationMs = Date.now() - listStartAt;
       if (!session) {
-        console.log(`Tempo de recuperação da listagem: ${(listDurationMs / 1000).toFixed(2)}s`);
+        const tempoLabel = colorize("TEMPO", "yellow");
+        const tempoValor = colorize(`${(listDurationMs / 1000).toFixed(2)}s`, "cyan");
+        console.log(`${tempoLabel} · Listagem de repositórios: ${tempoValor}`);
       }
 
       const filterPatterns = compileAntPatterns(mergedOptions.filter);
@@ -1649,7 +1651,10 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             console.log("Nenhum repositório corresponde ao sync-repos informado.");
             return;
           }
-          console.log(`Sincronizando ${syncTargets.length} repositórios (sync-repos).`);
+          const tituloSync = colorize("SINCRONIZAÇÃO", "yellow");
+          const totalLabel = colorize(String(syncTargets.length), "cyan");
+          const dryRunBadge = mergedOptions.dryRun ? ` ${colorize("DRY-RUN", "magenta")}` : "";
+          console.log(`${tituloSync} · ${totalLabel} repositórios${dryRunBadge}`);
           let completedCount = 0;
           const totalCount = syncTargets.length;
           const renderProgressBar = (current: number, total: number): string => {
@@ -1670,12 +1675,24 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             (result) => {
               completedCount += 1;
               const branchLabel = result.target.branch ? `#${result.target.branch}` : "";
-              const actionLabel = result.status === "skipped" ? "ignorado" : result.status;
+              const actionLabelRaw = result.status === "skipped" ? "SEM AÇÃO" : result.status.toUpperCase();
+              const actionColor =
+                result.status === "cloned"
+                  ? "green"
+                  : result.status === "pulled"
+                  ? "cyan"
+                  : result.status === "pushed"
+                  ? "blue"
+                  : result.status === "failed"
+                  ? "red"
+                  : "yellow";
+              const actionLabel = colorize(actionLabelRaw, actionColor);
               const message = result.message ? ` (${result.message})` : "";
-              const prefix = mergedOptions.dryRun ? "[dry-run] " : "";
+              const prefix = mergedOptions.dryRun ? `${colorize("DRY-RUN", "magenta")} ` : "";
               const bar = renderProgressBar(completedCount, totalCount);
+              const counter = colorize(`${completedCount}/${totalCount}`, "white");
               console.log(
-                `${bar} ${completedCount}/${totalCount} ${prefix}${result.target.pathWithNamespace}${branchLabel} ${actionLabel}${message}`
+                `${bar} ${counter} ${prefix}${result.target.pathWithNamespace}${branchLabel} ${actionLabel}${message}`
               );
             }
           );
@@ -1698,9 +1715,17 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             },
             { total: 0, cloned: 0, pulled: 0, pushed: 0, skipped: 0, failed: 0 }
           );
-          console.log(`Tempo de sincronização: ${(syncDurationMs / 1000).toFixed(2)}s`);
+          const tempoSync = colorize(`${(syncDurationMs / 1000).toFixed(2)}s`, "cyan");
+          console.log(`${colorize("TEMPO", "yellow")} · Sincronização: ${tempoSync}`);
+          const resumoTitulo = colorize("RESUMO SINCRONIZAÇÃO", "yellow");
+          console.log(`${resumoTitulo}`);
           console.log(
-            `Resumo da sincronização: total=${counts.total}, clonados=${counts.cloned}, pull=${counts.pulled}, push=${counts.pushed}, sem-ação=${counts.skipped}, falhas=${counts.failed}`
+            `  ${colorize("TOTAL", "white")} ${colorize(String(counts.total), "cyan")}  ` +
+              `${colorize("CLONE", "green")} ${colorize(String(counts.cloned), "green")}  ` +
+              `${colorize("PULL", "cyan")} ${colorize(String(counts.pulled), "cyan")}  ` +
+              `${colorize("PUSH", "blue")} ${colorize(String(counts.pushed), "blue")}  ` +
+              `${colorize("SEM AÇÃO", "yellow")} ${colorize(String(counts.skipped), "yellow")}  ` +
+              `${colorize("FALHAS", "red")} ${colorize(String(counts.failed), "red")}`
           );
           const orderedResults = [...syncResults].sort((a, b) =>
             `${a.target.pathWithNamespace}#${a.target.branch ?? ""}`.localeCompare(
@@ -1709,12 +1734,23 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
               { sensitivity: "base" }
             )
           );
-          console.log("Resumo ordenado:");
+          console.log(`${colorize("RESUMO ORDENADO", "yellow")}`);
           orderedResults.forEach((result) => {
             const branchLabel = result.target.branch ? `#${result.target.branch}` : "";
-            const actionLabel = result.status === "skipped" ? "ignorado" : result.status;
+            const actionLabelRaw = result.status === "skipped" ? "SEM AÇÃO" : result.status.toUpperCase();
+            const actionColor =
+              result.status === "cloned"
+                ? "green"
+                : result.status === "pulled"
+                ? "cyan"
+                : result.status === "pushed"
+                ? "blue"
+                : result.status === "failed"
+                ? "red"
+                : "yellow";
+            const actionLabel = colorize(actionLabelRaw, actionColor);
             const message = result.message ? ` (${result.message})` : "";
-            const prefix = mergedOptions.dryRun ? "[dry-run] " : "";
+            const prefix = mergedOptions.dryRun ? `${colorize("DRY-RUN", "magenta")} ` : "";
             console.log(`${prefix}${result.target.pathWithNamespace}${branchLabel} ${actionLabel}${message}`);
           });
         }
