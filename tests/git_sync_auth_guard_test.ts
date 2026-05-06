@@ -42,7 +42,7 @@ await program.parseAsync(["node", "cli.ts", "git-sync", "--server-name", "TSE-GI
 
 assert.ok(
   capturedLogs.includes("Não há autenticação configurada") ||
-    capturedLogs.includes("N?o h? autentica??o configurada"),
+    capturedLogs.includes("Não há autenticação configurada"),
   "Deve avisar quando não há autenticação"
 );
 const gitlabCalls = calls.filter((call) => call.url.includes("gitlab.example.com"));

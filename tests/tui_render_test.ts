@@ -90,7 +90,7 @@ setTimeout(() => {
 }, 0);
 const result = await resultPromise;
 
-assert.ok(result.nodes.length === 3, "Deve retornar nós informados");
+assert.ok(result.nodes.length === 3, "Deve retornar nÃ³s informados");
 assert.ok(typeof result.confirmed === "boolean", "Deve retornar resultado confirmado");
 assert.ok(
   lastFooterContent === "" || lastFooterContent.includes("Enter"),
