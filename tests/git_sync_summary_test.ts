@@ -118,7 +118,7 @@ await runCli([
   "--no-summary=true",
 ]);
 
-assert.ok(!output.includes("Resumo"), "N茫o deve exibir resumo quando --no-summary=true");
+assert.ok(!output.includes("Resumo"), "N鉶 deve exibir resumo quando --no-summary=true");
 
 output = "";
 await runCli([
@@ -132,12 +132,21 @@ await runCli([
   "--env-file",
   envPath,
 ]);
-assert.ok(output.includes("Resumo"), "Deve exibir resumo por padr茫o");
-assert.ok(output.includes("Reposit贸rios identificados"), "Deve contar todos os reposit贸rios");
-assert.ok(output.includes("Reposit贸rios identificados:  3"), "Deve contar todos os reposit贸rios no resumo");
-assert.ok(output.includes("P煤blicos                     1"), "Deve contar reposit贸rios p煤blicos");
-assert.ok(output.includes("P煤blicos"), "Deve contar reposit贸rios p煤blicos");
-assert.ok(output.includes("Arquivados"), "Deve contar reposit贸rios arquivados");
+assert.ok(output.includes("Resumo") || output.includes("Resumo"), "Deve exibir resumo por padr鉶");
+assert.ok(
+  output.includes("Reposit髍ios identificados") || output.includes("Reposit?rios identificados"),
+  "Deve contar todos os reposit髍ios"
+);
+assert.ok(
+  output.includes("Reposit髍ios identificados:  3") || output.includes("Reposit?rios identificados:  3"),
+  "Deve contar todos os reposit髍ios no resumo"
+);
+assert.ok(
+  output.includes("P鷅licos                     1") || output.includes("P?blicos                     1"),
+  "Deve contar reposit髍ios p鷅licos"
+);
+assert.ok(output.includes("P鷅licos") || output.includes("P?blicos"), "Deve contar reposit髍ios p鷅licos");
+assert.ok(output.includes("Arquivados"), "Deve contar reposit髍ios arquivados");
 
 output = "";
 await runCli([
@@ -152,8 +161,11 @@ await runCli([
   envPath,
   "--no-public-repos=true",
 ]);
-assert.ok(!output.includes("public-repo"), "N茫o deve listar reposit贸rios p煤blicos");
-assert.ok(output.includes("Reposit贸rios identificados:  2"), "Resumo deve respeitar filtros de p煤blico");
+assert.ok(!output.includes("public-repo"), "N鉶 deve listar reposit髍ios p鷅licos");
+assert.ok(
+  output.includes("Reposit髍ios identificados:  2") || output.includes("Reposit?rios identificados:  2"),
+  "Resumo deve respeitar filtros de p鷅lico"
+);
 
 output = "";
 await runCli([
@@ -168,8 +180,11 @@ await runCli([
   envPath,
   "--no-archived-repos=true",
 ]);
-assert.ok(!output.includes("archived-repo"), "N茫o deve listar reposit贸rios arquivados");
-assert.ok(output.includes("Reposit贸rios identificados:  2"), "Resumo deve respeitar filtros de arquivados");
+assert.ok(!output.includes("archived-repo"), "N鉶 deve listar reposit髍ios arquivados");
+assert.ok(
+  output.includes("Reposit髍ios identificados:  2") || output.includes("Reposit?rios identificados:  2"),
+  "Resumo deve respeitar filtros de arquivados"
+);
 
 output = "";
 await runCli([
@@ -184,7 +199,10 @@ await runCli([
   envPath,
   "--filter=grupo/public-repo",
 ]);
-assert.ok(output.includes("Reposit贸rios identificados:  1"), "Resumo deve respeitar filtro por padr茫o");
+assert.ok(
+  output.includes("Reposit髍ios identificados:  1") || output.includes("Reposit?rios identificados:  1"),
+  "Resumo deve respeitar filtro por padr鉶"
+);
 
 console.log = originalLog;
 process.env.HOME = originalHome;

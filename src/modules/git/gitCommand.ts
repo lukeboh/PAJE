@@ -5,7 +5,7 @@ import path from "node:path";
 import { Command } from "commander";
 import { GitLabApi } from "./gitlabApi.js";
 import { buildGitLabTree, collectSelectedProjects, recomputeTreeSelection, toggleTreeNode } from "./treeBuilder.js";
-import { renderRepositoryTree } from "./tui.js";
+import { renderRepositoryTree, type TuiTreeProgress } from "./tui.js";
 import {
   getAheadBehind,
   getStatusPorcelain,
@@ -14,7 +14,14 @@ import {
   readLocalRepoInfo,
 } from "./gitRepoScanner.js";
 import { TuiSession } from "./tuiSession.js";
-import { GitLabProject, GitLabTreeNode, GitRepositoryTarget, ParallelSyncOptions } from "./types.js";
+import {
+  GitLabProject,
+  GitLabTreeNode,
+  GitRepositoryTarget,
+  ParallelSyncOptions,
+  RepoSyncStatus,
+  RepoSyncState,
+} from "./types.js";
 import { parallelSync, runGit, type ProgressEvent, resolveConcurrency } from "./parallelSync.js";
 import { PajeLogger } from "./logger.js";
 import { antPatternToRegex, compileAntPatterns, matchesAntPatterns, splitFilterPatterns } from "./patternFilter.js";
@@ -88,14 +95,6 @@ const parseBooleanFlag = (value?: string | boolean): boolean | undefined => {
     return true;
   }
   return normalized === "true";
-};
-
-export type RepoSyncState = "SYNCED" | "BEHIND" | "AHEAD" | "REMOTE" | "EMPTY" | "LOCAL" | "UNCOMMITTED";
-
-export type RepoSyncStatus = {
-  branch: string;
-  state: RepoSyncState;
-  delta?: string;
 };
 
 type RepoSummary = {
@@ -181,8 +180,8 @@ const createSummary = (): RepoSummary => ({
 
 const renderSummaryLines = (summary: RepoSummary): string[] => {
   const entries: Array<[string, number]> = [
-    ["Repositórios identificados:", summary.total],
-    ["Públicos", summary.publicCount],
+    ["Reposit?rios identificados:", summary.total],
+    ["P?blicos", summary.publicCount],
     ["Arquivados:", summary.archivedCount],
     ["SYNCED:", summary.byStatus.SYNCED],
     ["BEHIND:", summary.byStatus.BEHIND],
@@ -517,8 +516,8 @@ export const promptGitServer = async (
         },
         {
           name: "username",
-          label: "Usuário do GitLab (para autenticação básica)",
-          description: "Opcional. Preencha para usar autenticação básica.",
+          label: "Usu?rio do GitLab (para autentica??o b?sica)",
+          description: "Opcional. Preencha para usar autentica??o b?sica.",
           defaultValue: overrides?.username ?? "",
         },
       ],
@@ -527,7 +526,7 @@ export const promptGitServer = async (
       overrides?.useBasicAuth ??
       (await session.promptConfirm({
       title: "Servidor GitLab",
-      message: "Usar autenticação básica (usuário/senha)?",
+      message: "Usar autentica??o b?sica (usu?rio/senha)?",
       defaultValue: false,
     }));
 
@@ -556,13 +555,13 @@ export const promptGitServer = async (
     {
       type: "confirm",
       name: "useBasicAuth",
-      message: "Usar autenticação básica (usuário/senha)?",
+      message: "Usar autentica??o b?sica (usu?rio/senha)?",
       default: overrides?.useBasicAuth ?? false,
     },
     {
       type: "input",
       name: "username",
-      message: "Usuário do GitLab (para autenticação básica)",
+      message: "Usu?rio do GitLab (para autentica??o b?sica)",
       when: (answers) => Boolean(answers.useBasicAuth),
       default: overrides?.username ?? "",
     },
@@ -587,13 +586,13 @@ export const promptBasicAuthPassword = async (
   }
   if (session) {
     const form = await session.promptForm<{ password: string }>({
-      title: "GitLab - Autenticação Básica",
+      title: "GitLab - Autentica??o B?sica",
       fields: [
         {
           name: "password",
-          label: `Senha do usuário ${username}`,
+          label: `Senha do usu?rio ${username}`,
           secret: true,
-          description: "Senha do GitLab para autenticação básica.",
+          description: "Senha do GitLab para autentica??o b?sica.",
         },
       ],
     });
@@ -601,7 +600,7 @@ export const promptBasicAuthPassword = async (
   }
 
   const answers = (await inquirer.prompt([
-    { type: "password", name: "password", message: `Senha do usuário ${username}` },
+    { type: "password", name: "password", message: `Senha do usu?rio ${username}` },
   ])) as { password: string };
   return answers.password;
 };
@@ -648,12 +647,12 @@ export const selectGitServer = async (session?: TuiSession, cli?: GitSyncCliOpti
         ...servers.map((server) => ({
           label: `${server.name} (${server.baseUrl})`,
           value: server.id,
-          description: "Selecione para usar este servidor nas próximas etapas.",
+          description: "Selecione para usar este servidor nas pr?ximas etapas.",
         })),
         {
           label: "Adicionar novo servidor",
           value: "__new__",
-          description: "Crie um novo servidor GitLab informando nome, URL e autenticação básica (opcional).",
+          description: "Crie um novo servidor GitLab informando nome, URL e autentica??o b?sica (opcional).",
         },
       ],
     });
@@ -670,7 +669,7 @@ export const selectGitServer = async (session?: TuiSession, cli?: GitSyncCliOpti
       if (merge.updated && session) {
         await session.showMessage({
           title: "Servidor GitLab",
-          message: "Servidor já existente. Dados atualizados para a mesma URL.",
+          message: "Servidor j? existente. Dados atualizados para a mesma URL.",
         });
       }
       return (
@@ -704,7 +703,7 @@ export const selectGitServer = async (session?: TuiSession, cli?: GitSyncCliOpti
     const merge = mergeServer(servers, server);
     writeGitServers(merge.servers);
     if (merge.updated) {
-      console.log("Servidor já existente. Dados atualizados para a mesma URL.");
+      console.log("Servidor j? existente. Dados atualizados para a mesma URL.");
     }
     return (
       merge.servers.find((item) => normalizeBaseUrl(item.baseUrl) === normalizeBaseUrl(server.baseUrl)) ??
@@ -730,10 +729,10 @@ const ensureSshKey = async (
       if (session) {
         await session.showMessage({
           title: "Chave SSH",
-          message: `A chave vinculada em ~/.ssh/config para ${server} não existe (${associatedIdentityPath}).`,
+          message: `A chave vinculada em ~/.ssh/config para ${server} n?o existe (${associatedIdentityPath}).`,
         });
       } else {
-        console.log(`A chave vinculada em ~/.ssh/config para ${server} não existe (${associatedIdentityPath}).`);
+        console.log(`A chave vinculada em ~/.ssh/config para ${server} n?o existe (${associatedIdentityPath}).`);
       }
       associatedIdentityPath = null;
     }
@@ -749,7 +748,7 @@ const ensureSshKey = async (
     if (cli?.publicKeyPath) {
       const selectedKey = cli.publicKeyPath;
       if (!fs.existsSync(selectedKey)) {
-        const message = `Chave pública informada não existe: ${selectedKey}`;
+        const message = `Chave p?blica informada n?o existe: ${selectedKey}`;
         if (session) {
           await session.showMessage({ title: "Chave SSH", message });
         } else {
@@ -783,15 +782,15 @@ const ensureSshKey = async (
     if (session) {
       const selection = await session.promptList({
         title: "Chave SSH",
-        message: "Selecione uma opção",
+        message: "Selecione uma op??o",
         choices: [
           {
             label: "Usar chave existente",
             value: "existing",
-            description: "Seleciona uma chave pública já existente em ~/.ssh.",
+            description: "Seleciona uma chave p?blica j? existente em ~/.ssh.",
           },
           {
-            label: "Gerar nova chave SSH no diretório .ssh",
+            label: "Gerar nova chave SSH no diret?rio .ssh",
             value: "generate",
             description: "Cria uma nova chave ed25519 em ~/.ssh e registra no GitLab.",
           },
@@ -806,7 +805,7 @@ const ensureSshKey = async (
           message: "Chave SSH",
           choices: [
             { name: "Usar chave existente", value: "existing" },
-            { name: "Gerar nova chave para o PAJÉ", value: "generate" },
+            { name: "Gerar nova chave para o PAJ?", value: "generate" },
           ],
         },
       ])) as { choice: "existing" | "generate" };
@@ -818,11 +817,11 @@ const ensureSshKey = async (
       if (session) {
         selectedKey = await session.promptList({
           title: "Chave SSH",
-          message: "Selecione a chave pública",
+          message: "Selecione a chave p?blica",
           choices: existingKeys.map((key) => ({
             label: key,
             value: key,
-            description: "Confirme a chave pública que será registrada no GitLab.",
+            description: "Confirme a chave p?blica que ser? registrada no GitLab.",
           })),
         });
       } else {
@@ -830,7 +829,7 @@ const ensureSshKey = async (
           {
             name: "selectedKey",
             type: "list",
-            message: "Selecione a chave pública",
+            message: "Selecione a chave p?blica",
             choices: existingKeys,
           },
         ])) as { selectedKey: string };
@@ -875,7 +874,7 @@ const ensureSshKey = async (
       passphrase = cli.passphrase;
     }
     if (cli?.keyLabel || cli?.passphrase) {
-      // não abrir formulário se parâmetros foram fornecidos
+      // n?o abrir formul?rio se par?metros foram fornecidos
     } else {
     const form = await session.promptForm<{ keyLabel: string; passphrase: string }>({
       title: "Chave SSH",
@@ -884,7 +883,7 @@ const ensureSshKey = async (
           name: "keyLabel",
           label: "Nome/identificador da chave",
           defaultValue: "paje",
-          description: "Esse nome será usado no arquivo e comentário da chave SSH.",
+          description: "Esse nome ser? usado no arquivo e coment?rio da chave SSH.",
         },
         {
           name: "passphrase",
@@ -915,7 +914,7 @@ const ensureSshKey = async (
   let resolvedLabel = keyLabel || "paje";
   while (sshKeyExists(resolvedLabel)) {
     if (session) {
-      session.showInlineError(`Já existe uma chave com o nome "${resolvedLabel}". Escolha outro nome.`);
+      session.showInlineError(`J? existe uma chave com o nome "${resolvedLabel}". Escolha outro nome.`);
       const retryForm = await session.promptForm<{ keyLabel: string; passphrase: string }>({
         title: "Chave SSH",
         fields: [
@@ -923,7 +922,7 @@ const ensureSshKey = async (
             name: "keyLabel",
             label: "Nome/identificador da chave",
             defaultValue: resolvedLabel,
-            description: "Esse nome será usado no arquivo e comentário da chave SSH.",
+            description: "Esse nome ser? usado no arquivo e coment?rio da chave SSH.",
           },
           {
             name: "passphrase",
@@ -936,7 +935,7 @@ const ensureSshKey = async (
       resolvedLabel = retryForm?.keyLabel ?? resolvedLabel;
       passphrase = retryForm?.passphrase ?? passphrase;
     } else {
-      console.log(`Já existe uma chave com o nome "${resolvedLabel}". Escolha outro nome.`);
+      console.log(`J? existe uma chave com o nome "${resolvedLabel}". Escolha outro nome.`);
       break;
     }
   }
@@ -976,8 +975,8 @@ const ensureKnownHost = async (server: string, session?: TuiSession, verbose?: b
   if (session) {
     confirm =
       (await session.promptConfirm({
-        title: "Confiança SSH",
-        message: `Host ${server} não está em ~/.ssh/known_hosts. Adicionar via ssh-keyscan?`,
+        title: "Confian?a SSH",
+        message: `Host ${server} n?o est? em ~/.ssh/known_hosts. Adicionar via ssh-keyscan?`,
         defaultValue: true,
       })) ?? true;
   } else {
@@ -985,7 +984,7 @@ const ensureKnownHost = async (server: string, session?: TuiSession, verbose?: b
       {
         name: "confirm",
         type: "confirm",
-        message: `Host ${server} não está em ~/.ssh/known_hosts. Adicionar via ssh-keyscan?`,
+        message: `Host ${server} n?o est? em ~/.ssh/known_hosts. Adicionar via ssh-keyscan?`,
         default: true,
       },
     ])) as { confirm: boolean };
@@ -1005,9 +1004,9 @@ const ensureKnownHost = async (server: string, session?: TuiSession, verbose?: b
       : undefined,
   });
   if (!added) {
-    const message = `Não foi possível adicionar ${server} ao ~/.ssh/known_hosts via ssh-keyscan. Host inacessível: ${server}. Verifique conectividade/porte 22 e permissões.`;
+    const message = `N?o foi poss?vel adicionar ${server} ao ~/.ssh/known_hosts via ssh-keyscan. Host inacess?vel: ${server}. Verifique conectividade/porte 22 e permiss?es.`;
     if (session) {
-      await session.showMessage({ title: "Confiança SSH", message });
+      await session.showMessage({ title: "Confian?a SSH", message });
     } else {
       console.log(message);
     }
@@ -1037,7 +1036,7 @@ const reportSshPersistenceStatus = async (server: string, session?: TuiSession):
     configExists ? null : "~/.ssh/config",
     knownHostsExists ? null : "~/.ssh/known_hosts",
   ].filter(Boolean);
-  const message = `Não foi possível gravar ${missing.join(" e ")}. Verifique permissões de ~/.ssh (recomendado 700).`;
+  const message = `N?o foi poss?vel gravar ${missing.join(" e ")}. Verifique permiss?es de ~/.ssh (recomendado 700).`;
   if (session) {
     await session.showMessage({ title: "Chave SSH", message });
   } else {
@@ -1189,15 +1188,15 @@ const storeSshKeyOnly = async (
         fields: [
           {
             name: "username",
-            label: "Usuário do GitLab",
-            description: "Informe o usuário para autenticação básica.",
+            label: "Usu?rio do GitLab",
+            description: "Informe o usu?rio para autentica??o b?sica.",
           },
         ],
       });
       resolvedUsername = form?.username?.trim();
     } else {
       const promptUser = (await inquirer.prompt([
-        { name: "username", message: "Usuário do GitLab", type: "input" },
+        { name: "username", message: "Usu?rio do GitLab", type: "input" },
       ])) as { username?: string };
       resolvedUsername = promptUser.username?.trim();
     }
@@ -1208,7 +1207,7 @@ const storeSshKeyOnly = async (
   if (resolvedPublicKeyPath) {
     const selectedKey = resolvedPublicKeyPath;
     if (!fs.existsSync(selectedKey)) {
-      const message = `Chave pública informada não existe: ${selectedKey}`;
+      const message = `Chave p?blica informada n?o existe: ${selectedKey}`;
       if (session) {
         await session.showMessage({ title: "Chave SSH", message });
       } else {
@@ -1235,7 +1234,7 @@ const storeSshKeyOnly = async (
   await reportSshPersistenceStatus(serverHost, session);
 
   if (process.env.PAJE_SKIP_SSH_STORE === "1") {
-    logger?.("Execução de testes: etapa de armazenamento remoto ignorada.");
+    logger?.("Execu??o de testes: etapa de armazenamento remoto ignorada.");
     return;
   }
 
@@ -1249,7 +1248,7 @@ const storeSshKeyOnly = async (
             name: "password",
             label: "Senha do GitLab",
             secret: true,
-            description: "Informe a senha para autenticação básica.",
+            description: "Informe a senha para autentica??o b?sica.",
           },
         ],
       });
@@ -1284,7 +1283,7 @@ const storeSshKeyOnly = async (
   });
 
   if (process.env.PAJE_SKIP_SSH_STORE === "1") {
-    logger?.("Execução de testes: etapa de token remoto ignorada.");
+    logger?.("Execu??o de testes: etapa de token remoto ignorada.");
     return;
   }
 
@@ -1301,21 +1300,21 @@ const storeSshKeyOnly = async (
         logger,
       });
       if (tokenStatus.valid) {
-        const expiresAt = tokenStatus.expiresAt ?? "não informado";
-        const scopes = tokenStatus.scopes && tokenStatus.scopes.length > 0 ? tokenStatus.scopes.join(", ") : "não informado";
+        const expiresAt = tokenStatus.expiresAt ?? "n?o informado";
+        const scopes = tokenStatus.scopes && tokenStatus.scopes.length > 0 ? tokenStatus.scopes.join(", ") : "n?o informado";
         const active = tokenStatus.active ?? true;
-        logger?.(`Token já existe e está válido para ${normalizedBaseUrl}.`);
+        logger?.(`Token j? existe e est? v?lido para ${normalizedBaseUrl}.`);
         logger?.(`Detalhes do token: ativo=${active}, expira=${expiresAt}, escopos=${scopes}.`);
         logger?.("Reutilizando token existente.");
         return;
       }
-      logger?.("Token existente inválido/expirado. Status=401 ou expirado.");
+      logger?.("Token existente inv?lido/expirado. Status=401 ou expirado.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "erro desconhecido";
       logger?.(`Falha ao validar token existente (${message}). Tentando rotacionar.`);
     }
 
-    logger?.(`Token existente inválido/expirado para ${normalizedBaseUrl}. Tentando rotacionar.`);
+    logger?.(`Token existente inv?lido/expirado para ${normalizedBaseUrl}. Tentando rotacionar.`);
     try {
       const rotated = await rotatePersonalAccessToken({
         baseUrl: normalizedBaseUrl,
@@ -1349,7 +1348,7 @@ const storeSshKeyOnly = async (
     ? resolvedTokenScopes.split(",").map((item) => item.trim()).filter(Boolean)
     : ["read_repository", "read_api", "read_virtual_registry", "self_rotate"];
   if (!resolvedTokenName) {
-    logger?.("Nome do token não informado. Configure tokenName no env-test.yaml.");
+    logger?.("Nome do token n?o informado. Configure tokenName no env-test.yaml.");
     return;
   }
 
@@ -1422,13 +1421,13 @@ const resolveParallelOptions = async (session?: TuiSession): Promise<ParallelSyn
   if (session) {
     const concurrency = await session.promptList<number | "auto">({
       title: "Paralelismo",
-      message: "Nível de paralelismo",
+      message: "N?vel de paralelismo",
       choices: [
-        { label: "Automático", value: "auto", description: "Calcula o paralelismo com base nos recursos da máquina." },
-        { label: "1", value: 1, description: "Executa um repositório por vez." },
-        { label: "2", value: 2, description: "Executa dois repositórios em paralelo." },
-        { label: "4", value: 4, description: "Executa quatro repositórios em paralelo." },
-        { label: "8", value: 8, description: "Executa oito repositórios em paralelo." },
+        { label: "Autom?tico", value: "auto", description: "Calcula o paralelismo com base nos recursos da m?quina." },
+        { label: "1", value: 1, description: "Executa um reposit?rio por vez." },
+        { label: "2", value: 2, description: "Executa dois reposit?rios em paralelo." },
+        { label: "4", value: 4, description: "Executa quatro reposit?rios em paralelo." },
+        { label: "8", value: 8, description: "Executa oito reposit?rios em paralelo." },
       ],
     });
     const shallow = await session.promptConfirm({
@@ -1447,9 +1446,9 @@ const resolveParallelOptions = async (session?: TuiSession): Promise<ParallelSyn
     {
       name: "concurrency",
       type: "list",
-      message: "Nível de paralelismo",
+      message: "N?vel de paralelismo",
       choices: [
-        { name: "Automático", value: "auto" },
+        { name: "Autom?tico", value: "auto" },
         { name: "1", value: 1 },
         { name: "2", value: 2 },
         { name: "4", value: 4 },
@@ -1507,37 +1506,120 @@ const renderWorkerLine = (event: ProgressEvent, width: number): string => {
   return `${bar} ${percentLabel} ${sizeLabel} ${speedLabel} ${objectsLabel} ${phaseLabel} ${event.target.pathWithNamespace}`;
 };
 
+const renderProgressBar = (current: number, total: number): string => {
+  const width = 20;
+  const ratio = total === 0 ? 1 : current / total;
+  const filled = Math.round(ratio * width);
+  const empty = Math.max(0, width - filled);
+  return `[${"#".repeat(filled)}${"-".repeat(empty)}]`;
+};
+
+const formatTransferDetail = (options: {
+  progress?: {
+    objectsReceived?: number;
+    objectsTotal?: number;
+    transferred?: string;
+    speed?: string;
+  };
+  status: "cloned" | "pulled" | "pushed" | "skipped" | "failed";
+  message?: string;
+}): string => {
+  if (options.status === "failed") {
+    return options.message ? ` (${options.message})` : " (Erro desconhecido)";
+  }
+  const parts: string[] = [];
+  const received = options.progress?.objectsReceived;
+  const total = options.progress?.objectsTotal;
+  if (total || received) {
+    if (total) {
+      parts.push(`${received ?? 0}/${total} objetos copiados`);
+    } else {
+      parts.push(`${received ?? 0} objetos copiados`);
+    }
+  }
+  if (options.progress?.transferred) {
+    parts.push(options.progress.transferred);
+  }
+  if (options.progress?.speed) {
+    parts.push(`a ${options.progress.speed}`);
+  }
+  if (parts.length === 0) {
+    return "";
+  }
+  return ` ${parts.join(", ")}`;
+};
+
+const parseMiB = (value?: string, isSpeed = false): string => {
+  if (!value) {
+    return "--";
+  }
+  const trimmed = value.trim();
+  const cleaned = isSpeed ? trimmed.replace("/s", "") : trimmed;
+  const match = cleaned.match(/^([\d.,]+)\s*(KiB|MiB|GiB)$/i);
+  if (!match) {
+    return "--";
+  }
+  const raw = Number(match[1].replace(",", "."));
+  if (Number.isNaN(raw)) {
+    return "--";
+  }
+  const unit = match[2].toLowerCase();
+  const inMiB = unit === "kib" ? raw / 1024 : unit === "gib" ? raw * 1024 : raw;
+  const label = inMiB.toFixed(2);
+  return isSpeed ? `${label} MiB/s` : `${label} MiB`;
+};
+
+const formatObjects = (progress?: { objectsReceived?: number; objectsTotal?: number }): string => {
+  if (!progress) {
+    return "--";
+  }
+  if (progress.objectsTotal) {
+    return `${progress.objectsReceived ?? 0}/${progress.objectsTotal}`;
+  }
+  if (progress.objectsReceived) {
+    return String(progress.objectsReceived);
+  }
+  return "--";
+};
+
+const formatRepoLabel = (value: string, width: number): string => {
+  if (value.length <= width) {
+    return value.padEnd(width, " ");
+  }
+  return `${value.slice(0, Math.max(0, width - 1))}?`;
+};
+
 export const configureGitSyncCommand = (program: Command, session?: TuiSession): void => {
   program
     .command("git-sync")
-    .description("Sincronizar repositórios GitLab em paralelo")
-    .option("-v, --verbose", "Exibe detalhes das operações executadas", false)
-    .option("--base-dir <dir>", "Diretório base para clonagem", "repos")
+    .description("Sincronizar reposit?rios GitLab em paralelo")
+    .option("-v, --verbose", "Exibe detalhes das opera??es executadas", false)
+    .option("--base-dir <dir>", "Diret?rio base para clonagem", "repos")
     .option("--server-name <name>", "Nome do servidor GitLab")
     .option("--base-url <url>", "URL base do GitLab")
-    .option("--use-basic-auth", "Usar autenticação básica", false)
-    .option("--username <username>", "Usuário do GitLab para autenticação básica")
-    .option("--user-email <email>", "Email do Git para configurar nos repositórios clonados")
-    .option("--password <password>", "Senha do GitLab para autenticação básica")
+    .option("--use-basic-auth", "Usar autentica??o b?sica", false)
+    .option("--username <username>", "Usu?rio do GitLab para autentica??o b?sica")
+    .option("--user-email <email>", "Email do Git para configurar nos reposit?rios clonados")
+    .option("--password <password>", "Senha do GitLab para autentica??o b?sica")
     .option("--key-label <label>", "Nome da chave SSH a ser gerada")
     .option("--passphrase <passphrase>", "Passphrase da chave SSH")
-    .option("--public-key-path <path>", "Caminho para chave pública existente (.pub)")
+    .option("--public-key-path <path>", "Caminho para chave p?blica existente (.pub)")
     .option("--env-file <path>", "Caminho do arquivo de ambiente (yaml)")
     .option(
       "--prepare-local-dirs [value]",
-      "Cria hierarquia de diretórios locais sem clonar repositórios",
+      "Cria hierarquia de diret?rios locais sem clonar reposit?rios",
       false
     )
     .option("--no-summary [value]", "Oculta o resumo final", false)
-    .option("--no-public-repos [value]", "Oculta repositórios públicos", false)
-    .option("--no-archived-repos [value]", "Oculta repositórios arquivados", false)
+    .option("--no-public-repos [value]", "Oculta reposit?rios p?blicos", false)
+    .option("--no-archived-repos [value]", "Oculta reposit?rios arquivados", false)
     .option("-f, --filter <pattern>", "Filtro Ant/Glob para path_with_namespace (separe por ;)")
     .option("--sync-repos <pattern>", "Repos/branchs para sincronizar (separe por ;)")
-    .option("--parallels <value>", "Número de processos/threads para sincronização (AUTO|0|1..N)")
-    .option("--dry-run", "Simula operações sem persistir", false)
+    .option("--parallels <value>", "N?mero de processos/threads para sincroniza??o (AUTO|0|1..N)")
+    .option("--dry-run", "Simula opera??es sem persistir", false)
     .action(async function (this: Command, options: GitSyncCliOptions) {
       const logger = new PajeLogger();
-      logger.info("Iniciando sincronização GitLab");
+      logger.info("Iniciando sincroniza??o GitLab");
 
       const cliOptions = options;
       const envConfig = loadEnvConfig({ envFile: resolveEnvFileFromCli(cliOptions.envFile) });
@@ -1630,7 +1712,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         const username = server.username?.trim();
         const resolvedUsername = username && username.length > 0 ? username : "";
         if (!resolvedUsername) {
-          const message = "Usuário não informado para autenticação básica. Cadastre o servidor novamente informando o usuário.";
+          const message = "Usu?rio n?o informado para autentica??o b?sica. Cadastre o servidor novamente informando o usu?rio.";
           if (session) {
             await session.showMessage({ title: "GitLab", message });
           } else {
@@ -1654,7 +1736,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       });
       if (!api.hasAuth()) {
         const message =
-          "Não há autenticação configurada. Configure um token ou autenticação básica para continuar.";
+          "N?o h? autentica??o configurada. Configure um token ou autentica??o b?sica para continuar.";
         if (session) {
           await session.showMessage({ title: "GitLab", message });
         } else {
@@ -1668,10 +1750,29 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       }
 
       const listStartAt = Date.now();
+      let requestCount = 0;
+      let spinnerIndex = 0;
+      const spinnerFrames = ["/", "-", "\\", "|"];
+      const renderSpinner = (): void => {
+        if (!session) {
+          return;
+        }
+        const frame = spinnerFrames[spinnerIndex % spinnerFrames.length];
+        spinnerIndex += 1;
+        session.showMessage({
+          title: "GitLab",
+          message: `Acessando servidor e carregando repositórios ${frame} requisições: ${requestCount}`,
+        });
+      };
+      const wrapRequest = async <T,>(fn: () => Promise<T>): Promise<T> => {
+        requestCount += 1;
+        renderSpinner();
+        return fn();
+      };
       const [groups, userProjects, publicProjects] = await Promise.all([
-        api.listGroups(),
-        api.listUserProjects(),
-        mergedOptions.noPublicRepos ? Promise.resolve([]) : api.listPublicProjects(),
+        wrapRequest(() => api.listGroups()),
+        wrapRequest(() => api.listUserProjects()),
+        mergedOptions.noPublicRepos ? Promise.resolve([]) : wrapRequest(() => api.listPublicProjects()),
       ]);
       const projects = [...userProjects, ...publicProjects].filter((project, index, all) => {
         return all.findIndex((item) => item.id === project.id) === index;
@@ -1680,7 +1781,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       if (!session) {
         const tempoLabel = colorize("TEMPO", "yellow");
         const tempoValor = colorize(`${(listDurationMs / 1000).toFixed(2)}s`, "cyan");
-        console.log(`${tempoLabel} · Listagem de repositórios: ${tempoValor}`);
+        console.log(`${tempoLabel} ? Listagem de reposit?rios: ${tempoValor}`);
       }
 
       const filterPatterns = compileAntPatterns(mergedOptions.filter);
@@ -1763,16 +1864,16 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
               )
             );
           if (syncTargets.length === 0) {
-            console.log("Nenhum repositório corresponde ao sync-repos informado.");
+            console.log("Nenhum reposit?rio corresponde ao sync-repos informado.");
             return;
           }
-          const tituloSync = colorize("SINCRONIZAÇÃO", "yellow");
+          const tituloSync = colorize("SINCRONIZA??O", "yellow");
           const totalLabel = colorize(String(syncTargets.length), "cyan");
           const dryRunBadge = mergedOptions.dryRun ? ` ${colorize("DRY-RUN", "magenta")}` : "";
           const concurrency = resolveParallels(mergedOptions.parallels);
           const concurrencyLabel =
             concurrency === "auto" ? colorize("AUTO", "cyan") : colorize(String(concurrency), "cyan");
-          console.log(`${tituloSync} · ${totalLabel} repositórios · paralelos=${concurrencyLabel}${dryRunBadge}`);
+          console.log(`${tituloSync} ? ${totalLabel} reposit?rios ? paralelos=${concurrencyLabel}${dryRunBadge}`);
           let completedCount = 0;
           const totalCount = syncTargets.length;
           const workerLines = new Map<number, string>();
@@ -1964,7 +2065,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             if (value.length <= width) {
               return value.padEnd(width, " ");
             }
-            return `${value.slice(0, Math.max(0, width - 1))}…`;
+            return `${value.slice(0, Math.max(0, width - 1))}?`;
           };
           const syncStartAt = Date.now();
           const syncResults = await parallelSync(
@@ -1977,7 +2078,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             (result) => {
               completedCount += 1;
               const branchLabel = result.target.branch ? `#${result.target.branch}` : "";
-              const actionLabelRaw = result.status === "skipped" ? "SEM AÇÃO" : result.status.toUpperCase();
+              const actionLabelRaw = result.status === "skipped" ? "SEM A??O" : result.status.toUpperCase();
               const actionColor =
                 result.status === "cloned"
                   ? "green"
@@ -2060,7 +2161,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
                 if (!startedTargets.has(targetKey)) {
                   startedTargets.add(targetKey);
                   const startPhase = event.phase === "check" ? "ANALISE" : event.phase.toUpperCase();
-                  const startLine = `${colorize("INÍCIO", "yellow")} ${startPhase} ${event.target.pathWithNamespace}${branchLabel}`;
+                  const startLine = `${colorize("IN?CIO", "yellow")} ${startPhase} ${event.target.pathWithNamespace}${branchLabel}`;
                   console.log(startLine);
                   targetLastUpdateAt.set(targetKey, now);
                   targetLastLine.set(targetKey, startLine);
@@ -2142,15 +2243,15 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             { total: 0, cloned: 0, pulled: 0, pushed: 0, skipped: 0, failed: 0 }
           );
           const tempoSync = colorize(`${(syncDurationMs / 1000).toFixed(2)}s`, "cyan");
-          writeLine(`${colorize("TEMPO", "yellow")} · Sincronização: ${tempoSync}`);
-          const resumoTitulo = colorize("RESUMO SINCRONIZAÇÃO", "yellow");
+          writeLine(`${colorize("TEMPO", "yellow")} ? Sincroniza??o: ${tempoSync}`);
+          const resumoTitulo = colorize("RESUMO SINCRONIZA??O", "yellow");
           writeLine(`${resumoTitulo}`);
           writeLine(
             `  ${colorize("TOTAL", "white")} ${colorize(String(counts.total), "cyan")}  ` +
               `${colorize("CLONE", "green")} ${colorize(String(counts.cloned), "green")}  ` +
               `${colorize("PULL", "cyan")} ${colorize(String(counts.pulled), "cyan")}  ` +
               `${colorize("PUSH", "blue")} ${colorize(String(counts.pushed), "blue")}  ` +
-              `${colorize("SEM AÇÃO", "yellow")} ${colorize(String(counts.skipped), "yellow")}  ` +
+              `${colorize("SEM A??O", "yellow")} ${colorize(String(counts.skipped), "yellow")}  ` +
               `${colorize("FALHAS", "red")} ${colorize(String(counts.failed), "red")}`
           );
           writeLine("");
@@ -2176,7 +2277,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
           );
           orderedResults.forEach((result, index) => {
             const branchLabel = result.target.branch ? `#${result.target.branch}` : "";
-            const actionLabelRaw = result.status === "skipped" ? "SEM AÇÃO" : result.status.toUpperCase();
+            const actionLabelRaw = result.status === "skipped" ? "SEM A??O" : result.status.toUpperCase();
             const progress = targetProgress.get(`${result.target.pathWithNamespace}${branchLabel}`);
             const objectsLabel = formatObjects(progress).padEnd(14, " ");
             const volumeLabel = parseMiB(progress?.transferred).padEnd(13, " ");
@@ -2202,15 +2303,47 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         return;
       }
 
-      const tuiResult = await renderRepositoryTree(tree, (id) => toggleById(tree, id), session);
+      const defaultBaseDir = mergedOptions.baseDir ?? "repos";
+      await ensureLocalDirsIfNeeded(filteredProjects, defaultBaseDir, mergedOptions.prepareLocalDirs ?? false);
+      const statusEntries = await Promise.all(
+        filteredProjects.map(async (project) => {
+          const targetPath = path.join(defaultBaseDir, project.path_with_namespace);
+          const status = await resolveRepoStatus({
+            targetPath,
+            defaultBranch: project.default_branch,
+            knownRemote: true,
+          });
+          return [project.id, status] as const;
+        })
+      );
+      const statusMap = Object.fromEntries(statusEntries) as Record<number, RepoSyncStatus>;
+      const applyStatusToTree = (node: GitLabTreeNode): void => {
+        if (node.type === "project" && node.project) {
+          node.status = statusMap[node.project.id];
+          return;
+        }
+        node.children?.forEach((child) => applyStatusToTree(child));
+      };
+      tree.forEach((node) => applyStatusToTree(node));
+
+      let treeProgress: TuiTreeProgress | null = null;
+      const tuiResult = await renderRepositoryTree(tree, (id) => toggleById(tree, id), session, {
+        header: `${server.name} (${server.baseUrl})`,
+        footer:
+          "Use ?/? e PgUp/PgDn para navegar | Espa?o para selecionar | Enter para sincronizar | Esc para cancelar",
+        onReady: (handlers) => {
+          treeProgress = handlers.progress;
+          handlers.render();
+        },
+      });
       if (!tuiResult.confirmed) {
-        logger.warn("Sincronização cancelada pelo usuário");
+        logger.warn("Sincroniza??o cancelada pelo usu?rio");
         return;
       }
 
       const selected = collectSelectedProjects(tree);
       if (selected.length === 0) {
-        logger.warn("Nenhum repositório selecionado");
+        logger.warn("Nenhum reposit?rio selecionado");
         return;
       }
 
@@ -2224,18 +2357,121 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         resolvedUserEmail
       );
 
-      logger.info(`Sincronizando ${targets.length} repositórios`);
-      await parallelSync(targets, parallelOptions, (result) => {
-        if (result.status === "failed") {
-          logger.error(`${result.target.pathWithNamespace} falhou: ${result.message}`);
-        } else {
-          logger.info(`${result.target.pathWithNamespace} ${result.status}`);
+      logger.info(`Sincronizando ${targets.length} reposit?rios`);
+      const targetProgress = new Map<
+        string,
+        { objectsReceived?: number; objectsTotal?: number; transferred?: string; speed?: string }
+      >();
+      const syncStartAt = Date.now();
+      const syncResults = await parallelSync(
+        targets,
+        parallelOptions,
+        (result) => {
+          const branchLabel = result.target.branch ? `#${result.target.branch}` : "";
+          const targetKey = `${result.target.pathWithNamespace}${branchLabel}`;
+          const progressSnapshot = targetProgress.get(targetKey);
+          if (progressSnapshot?.objectsTotal && (progressSnapshot.objectsReceived ?? 0) < progressSnapshot.objectsTotal) {
+            progressSnapshot.objectsReceived = progressSnapshot.objectsTotal;
+            targetProgress.set(targetKey, progressSnapshot);
+          }
+          if (treeProgress) {
+            const actionLabel = result.status === "skipped" ? "SEM A??O" : result.status.toUpperCase();
+            const detail = formatTransferDetail({
+              progress: targetProgress.get(targetKey),
+              status: result.status,
+              message: result.message,
+            });
+            const line = `${renderProgressBar(1, 1)} 100% ${actionLabel}${detail}`;
+            const nodeId = `project-${result.target.id}`;
+            treeProgress.updateProgress(nodeId, line);
+          }
+          if (result.status === "failed") {
+            logger.error(`${result.target.pathWithNamespace} falhou: ${result.message}`);
+          } else {
+            logger.info(`${result.target.pathWithNamespace} ${result.status}`);
+          }
+        },
+        (event) => {
+          const branchLabel = event.target.branch ? `#${event.target.branch}` : "";
+          const targetKey = `${event.target.pathWithNamespace}${branchLabel}`;
+          const previousProgress = targetProgress.get(targetKey);
+          const nextObjectsReceived = Math.max(previousProgress?.objectsReceived ?? 0, event.objectsReceived ?? 0);
+          const nextObjectsTotal = Math.max(previousProgress?.objectsTotal ?? 0, event.objectsTotal ?? 0);
+          targetProgress.set(targetKey, {
+            objectsReceived: nextObjectsReceived || undefined,
+            objectsTotal: nextObjectsTotal || undefined,
+            transferred: event.transferred ?? previousProgress?.transferred,
+            speed: event.speed ?? previousProgress?.speed,
+          });
+          if (!treeProgress) {
+            return;
+          }
+          const line = renderWorkerLine(event, 20);
+          const nodeId = `project-${event.target.id}`;
+          treeProgress.updateProgress(nodeId, line);
         }
-      });
+      );
+      const syncDurationMs = Date.now() - syncStartAt;
+      const counts = syncResults.reduce(
+        (acc, result) => {
+          acc.total += 1;
+          if (result.status === "cloned") {
+            acc.cloned += 1;
+          } else if (result.status === "pulled") {
+            acc.pulled += 1;
+          } else if (result.status === "pushed") {
+            acc.pushed += 1;
+          } else if (result.status === "skipped") {
+            acc.skipped += 1;
+          } else if (result.status === "failed") {
+            acc.failed += 1;
+          }
+          return acc;
+        },
+        { total: 0, cloned: 0, pulled: 0, pushed: 0, skipped: 0, failed: 0 }
+      );
       if (session) {
+        const tempoSync = `${(syncDurationMs / 1000).toFixed(2)}s`;
+        const orderedResults = [...syncResults].sort((a, b) =>
+          `${a.target.pathWithNamespace}#${a.target.branch ?? ""}`.localeCompare(
+            `${b.target.pathWithNamespace}#${b.target.branch ?? ""}`,
+            "pt-BR",
+            { sensitivity: "base" }
+          )
+        );
+        const repoWidth = Math.min(
+          64,
+          Math.max(12, ...orderedResults.map((result) => result.target.pathWithNamespace.length))
+        );
+        const summaryLines: string[] = [];
+        summaryLines.push(`Tempo: ${tempoSync}`);
+        summaryLines.push(
+          `TOTAL ${counts.total} | CLONE ${counts.cloned} | PULL ${counts.pulled} | PUSH ${counts.pushed} | ` +
+            `SEM A??O ${counts.skipped} | FALHAS ${counts.failed}`
+        );
+        summaryLines.push("");
+        summaryLines.push(
+          `#  ${"Repositorio".padEnd(repoWidth, " ")}  STATUS    Qtd Objetos    Volume (MiB)   Velocidade (MiB/s)`
+        );
+        orderedResults.forEach((result, index) => {
+          const branchLabel = result.target.branch ? `#${result.target.branch}` : "";
+          const progress = targetProgress.get(`${result.target.pathWithNamespace}${branchLabel}`);
+          const objectsLabel = formatObjects(progress).padEnd(14, " ");
+          const volumeLabel = parseMiB(progress?.transferred).padEnd(13, " ");
+          const speedLabel = parseMiB(progress?.speed, true);
+          const repoLabel = formatRepoLabel(`${result.target.pathWithNamespace}${branchLabel}`, repoWidth);
+          const rowNumber = String(index + 1).padStart(2, " ");
+          const actionLabelRaw = result.status === "skipped" ? "SEM A??O" : result.status.toUpperCase();
+          summaryLines.push(
+            `${rowNumber}  ${repoLabel}  ${actionLabelRaw.padEnd(8, " ")}  ${objectsLabel}  ${volumeLabel}  ${speedLabel}`
+          );
+          if (result.status === "failed") {
+            summaryLines.push(`   erro: ${result.message ?? "Erro desconhecido"}`);
+          }
+        });
         await session.showMessage({
-          title: "Sincronização concluída",
-          message: "Processo finalizado. Confira os logs em ~/.paje/logs",
+          title: "Resumo da sincroniza??o",
+          message: summaryLines.join("\n"),
         });
       }
       return;
@@ -2245,21 +2481,21 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
 export const configureSshKeyStoreCommand = (program: Command, session?: TuiSession): void => {
   program
     .command("git-server-store")
-    .description("Gerar e armazenar chave SSH e token no GitLab sem sincronizar repositórios")
-    .option("-v, --verbose", "Exibe detalhes das operações executadas", false)
+    .description("Gerar e armazenar chave SSH e token no GitLab sem sincronizar reposit?rios")
+    .option("-v, --verbose", "Exibe detalhes das opera??es executadas", false)
     .option("--server-name <name>", "Nome do servidor GitLab")
     .option("--base-url <url>", "URL base do GitLab")
-    .option("--username <username>", "Usuário do GitLab")
+    .option("--username <username>", "Usu?rio do GitLab")
     .option("--key-label <label>", "Nome da chave SSH a ser gerada", "paje")
     .option("--passphrase <passphrase>", "Passphrase da chave SSH")
-    .option("--public-key-path <path>", "Caminho para chave pública existente (.pub)")
+    .option("--public-key-path <path>", "Caminho para chave p?blica existente (.pub)")
     .option("--key-overwrite", "Sobrescrever chave existente, salvando .bak", false)
     .option("--retry-delay-ms <ms>", "Intervalo de retry em ms", (value) => Number(value))
-    .option("--max-attempts <count>", "Número máximo de tentativas", (value) => Number(value))
+    .option("--max-attempts <count>", "N?mero m?ximo de tentativas", (value) => Number(value))
     .option("--env-file <path>", "Caminho do arquivo de credenciais (env.test)")
     .option("--token-name <name>", "Nome do token pessoal no GitLab")
     .option("--token-scopes <scopes>", "Escopos do token (ex: api,read_repository)")
-    .option("--token-expires-at <date>", "Data de expiração do token (YYYY-MM-DD)")
+    .option("--token-expires-at <date>", "Data de expira??o do token (YYYY-MM-DD)")
     .action(async (options: SshKeyStoreCliOptions) => {
       const envConfig = loadEnvConfig({ envFile: resolveEnvFileFromCli(options.envFile) });
       const hasCliArg = (flag: string): boolean => {

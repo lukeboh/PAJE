@@ -20,6 +20,14 @@ export type GitLabProject = {
   };
 };
 
+export type RepoSyncState = "SYNCED" | "BEHIND" | "AHEAD" | "REMOTE" | "EMPTY" | "LOCAL" | "UNCOMMITTED";
+
+export type RepoSyncStatus = {
+  branch: string;
+  state: RepoSyncState;
+  delta?: string;
+};
+
 export type GitLabTreeNodeType = "group" | "project";
 
 export type GitLabTreeNode = {
@@ -31,6 +39,7 @@ export type GitLabTreeNode = {
   children?: GitLabTreeNode[];
   selected?: boolean;
   partiallySelected?: boolean;
+  status?: RepoSyncStatus;
 };
 
 export type GitRepositoryTarget = {
