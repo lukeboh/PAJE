@@ -41,12 +41,11 @@ configureGitSyncCommand(program);
 await program.parseAsync(["node", "cli.ts", "git-sync", "--server-name", "TSE-GIT"]);
 
 assert.ok(
-  capturedLogs.includes("Não há autenticação configurada") ||
-    capturedLogs.includes("Não há autenticação configurada"),
-  "Deve avisar quando não há autenticação"
+  capturedLogs.includes("NÃ£o hÃ¡ autenticaÃ§Ã£o configurada"),
+  "Deve avisar quando nÃ£o hÃ¡ autenticaÃ§Ã£o"
 );
 const gitlabCalls = calls.filter((call) => call.url.includes("gitlab.example.com"));
-assert.strictEqual(gitlabCalls.length, 0, "Não deve chamar API sem autenticação");
+assert.strictEqual(gitlabCalls.length, 0, "NÃ£o deve chamar API sem autenticaÃ§Ã£o");
 
 console.log = originalLog;
 globalThis.fetch = originalFetch as typeof fetch;

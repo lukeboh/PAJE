@@ -1621,6 +1621,20 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       const logger = new PajeLogger();
       logger.info("Iniciando sincronização GitLab");
 
+      let tuiLogState = {
+        append: (_message: string, _level?: "info" | "warn" | "error") => {},
+        setOrientation: (_message: string) => {},
+      };
+      let tuiLogReady = false;
+      const logBuffer: Array<{ message: string; level?: "info" | "warn" | "error" }> = [];
+      const logToTui = (message: string, level: "info" | "warn" | "error" = "info"): void => {
+        if (tuiLogReady) {
+          tuiLogState.append(message, level);
+          return;
+        }
+        logBuffer.push({ message, level });
+      };
+
       const cliOptions = options;
       const envConfig = loadEnvConfig({ envFile: resolveEnvFileFromCli(cliOptions.envFile) });
       const resolveCliBoolean = (flag: string): boolean | undefined => {
@@ -1764,15 +1778,24 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
           message: `Acessando servidor e carregando repositórios ${frame} requisições: ${requestCount}`,
         });
       };
-      const wrapRequest = async <T,>(fn: () => Promise<T>): Promise<T> => {
+      const wrapRequest = async <T,>(label: string, fn: () => Promise<T>): Promise<T> => {
         requestCount += 1;
         renderSpinner();
-        return fn();
+        logToTui(`HTTP: ${label} (requisição ${requestCount})`);
+        try {
+          const result = await fn();
+          logToTui(`HTTP: ${label} concluído`);
+          return result;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "erro desconhecido";
+          logToTui(`HTTP: ${label} falhou: ${message}`, "error");
+          throw error;
+        }
       };
       const [groups, userProjects, publicProjects] = await Promise.all([
-        wrapRequest(() => api.listGroups()),
-        wrapRequest(() => api.listUserProjects()),
-        mergedOptions.noPublicRepos ? Promise.resolve([]) : wrapRequest(() => api.listPublicProjects()),
+        wrapRequest("listar grupos", () => api.listGroups()),
+        wrapRequest("listar projetos do usuário", () => api.listUserProjects()),
+        mergedOptions.noPublicRepos ? Promise.resolve([]) : wrapRequest("listar projetos públicos", () => api.listPublicProjects()),
       ]);
       const projects = [...userProjects, ...publicProjects].filter((project, index, all) => {
         return all.findIndex((item) => item.id === project.id) === index;
@@ -2330,9 +2353,15 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       const tuiResult = await renderRepositoryTree(tree, (id) => toggleById(tree, id), session, {
         header: `${server.name} (${server.baseUrl})`,
         footer:
-          "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para sincronizar | Esc para cancelar",
+          "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para sincronizar | Esc para cancelar | F12 para ampliar log",
         onReady: (handlers) => {
           treeProgress = handlers.progress;
+          tuiLogState.append = handlers.log.append;
+          tuiLogState.setOrientation = handlers.log.setOrientation;
+          tuiLogReady = true;
+          handlers.log.append("Tela de sincronização pronta.");
+          logBuffer.forEach((entry) => handlers.log.append(entry.message, entry.level));
+          logBuffer.length = 0;
           handlers.render();
         },
       });
@@ -2358,6 +2387,10 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       );
 
       logger.info(`Sincronizando ${targets.length} repositórios`);
+      logToTui(`Sincronizando ${targets.length} repositórios`);
+      tuiLogState.setOrientation(
+        "Sincronização em andamento | Aguarde a conclusão | F12 para ampliar log | Esc para cancelar"
+      );
       const targetProgress = new Map<
         string,
         { objectsReceived?: number; objectsTotal?: number; transferred?: string; speed?: string }
@@ -2365,7 +2398,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       const syncStartAt = Date.now();
       const syncResults = await parallelSync(
         targets,
-        parallelOptions,
+        { ...parallelOptions, logger: (message, level) => logToTui(message, level) },
         (result) => {
           const branchLabel = result.target.branch ? `#${result.target.branch}` : "";
           const targetKey = `${result.target.pathWithNamespace}${branchLabel}`;
@@ -2387,8 +2420,10 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
           }
           if (result.status === "failed") {
             logger.error(`${result.target.pathWithNamespace} falhou: ${result.message}`);
+            logToTui(`${result.target.pathWithNamespace} falhou: ${result.message}`, "error");
           } else {
             logger.info(`${result.target.pathWithNamespace} ${result.status}`);
+            logToTui(`${result.target.pathWithNamespace} ${result.status}`);
           }
         },
         (event) => {
@@ -2409,6 +2444,9 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
           const line = renderWorkerLine(event, 20);
           const nodeId = `project-${event.target.id}`;
           treeProgress.updateProgress(nodeId, line);
+          if (event.raw) {
+            logToTui(`Git: ${event.raw}`);
+          }
         }
       );
       const syncDurationMs = Date.now() - syncStartAt;
@@ -2450,6 +2488,10 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             `SEM AÇÃO ${counts.skipped} | FALHAS ${counts.failed}`
         );
         summaryLines.push("");
+        logToTui(
+          `Resumo: TOTAL ${counts.total} | CLONE ${counts.cloned} | PULL ${counts.pulled} | PUSH ${counts.pushed}`
+        );
+        logToTui(`Resumo: SEM AÇÃO ${counts.skipped} | FALHAS ${counts.failed}`);
         summaryLines.push(
           `#  ${"Repositório".padEnd(repoWidth, " ")}  STATUS    Qtd Objetos    Volume (MiB)   Velocidade (MiB/s)`
         );

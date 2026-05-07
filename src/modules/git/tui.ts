@@ -116,7 +116,14 @@ export const renderRepositoryTree = async (
     title?: string;
     footer?: string;
     header?: string;
-    onReady?: (handlers: { render: () => void; progress: TuiTreeProgress }) => void;
+    onReady?: (handlers: {
+      render: () => void;
+      progress: TuiTreeProgress;
+      log: {
+        append: (message: string, level?: "info" | "warn" | "error") => void;
+        setOrientation: (message: string) => void;
+      };
+    }) => void;
   }
 ): Promise<TuiSelectionResult> => {
   return new Promise((resolve) => {
@@ -125,12 +132,13 @@ export const renderRepositoryTree = async (
       : blessed.screen({
           smartCSR: true,
           fullUnicode: true,
-          title: options?.title ?? "PAJ? - Sincroniza??o Git",
+          title: options?.title ?? "PAJÉ - Sincronização Git",
         });
 
     const screenRows = Number((screen as any).rows ?? (screen as any).height ?? 24);
-    const footerHeight = Math.max(4, Math.floor(screenRows * 0.2));
-    const listHeight = Math.max(4, screenRows - footerHeight);
+    const headerHeight = 1;
+    const footerHeight = Math.max(3, Math.floor(screenRows * 0.15));
+    const listHeight = Math.max(4, screenRows - headerHeight - footerHeight);
 
     const overlay = blessed.box({
       parent: screen,
@@ -145,17 +153,17 @@ export const renderRepositoryTree = async (
       top: 0,
       left: 0,
       width: "100%",
-      height: 3,
-      border: "line",
-      content: options?.header ?? "PAJ? - Sincroniza??o Git",
+      height: headerHeight,
+      content: options?.header ?? "PAJÉ - Sincronização Git",
+      style: { bold: true },
     });
 
     const list = blessed.list({
       parent: overlay,
       border: "line",
       width: "100%",
-      height: Math.max(4, listHeight - 3),
-      top: 3,
+      height: listHeight,
+      top: headerHeight,
       left: 0,
       keys: true,
       vi: true,
@@ -173,20 +181,93 @@ export const renderRepositoryTree = async (
 
     const footer = blessed.box({
       parent: overlay,
-      label: "Orientações",
       height: footerHeight,
       width: "100%",
       bottom: 0,
       left: 0,
-      border: "line",
-      content:
-        options?.footer ??
-        "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para sincronizar | Esc para cancelar",
-      tags: true,
     });
+
+    const orientationLine = blessed.box({
+      parent: footer,
+      top: 0,
+      left: 0,
+      height: 1,
+      width: "100%",
+      tags: true,
+      name: "orientation-line",
+    });
+
+    const logBox = blessed.box({
+      parent: footer,
+      top: 1,
+      left: 0,
+      height: Math.max(1, footerHeight - 1),
+      width: "100%",
+      tags: true,
+      name: "log-box",
+      scrollable: true,
+      alwaysScroll: true,
+      scrollbar: {
+        ch: " ",
+        track: { bg: "gray" },
+        style: { bg: "yellow" },
+      },
+    });
+
+    const defaultOrientation =
+      options?.footer ??
+      "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para sincronizar | Esc para cancelar | F12 para ampliar log";
+    orientationLine.setContent(defaultOrientation);
 
     let flatItems: FlatTreeItem[] = [];
     const progressMap = new Map<string, ProgressSnapshot>();
+    const logLines: string[] = [];
+    let logMaximized = false;
+
+    const formatTimestamp = (): string => {
+      const now = new Date();
+      return now.toISOString().replace("T", " ").slice(0, 19);
+    };
+
+    const refreshLog = (): void => {
+      logBox.setContent(logLines.join("\n"));
+      if (typeof (logBox as any).setScrollPerc === "function") {
+        (logBox as any).setScrollPerc(100);
+      }
+      screen.render();
+    };
+
+    const appendLog = (message: string, level: "info" | "warn" | "error" = "info"): void => {
+      const timestamp = formatTimestamp();
+      const prefix = level === "error" ? `{red-fg}[${timestamp}]{/red-fg}` : `[${timestamp}]`;
+      const body = level === "error" ? `{red-fg}${message}{/red-fg}` : message;
+      logLines.push(`${prefix} ${body}`);
+      refreshLog();
+    };
+
+    const setOrientation = (message: string): void => {
+      orientationLine.setContent(message);
+      screen.render();
+    };
+
+    const applyLayout = (): void => {
+      if (logMaximized) {
+        header.hide();
+        list.hide();
+        footer.top = 0;
+        footer.bottom = undefined;
+        footer.height = "100%";
+        logBox.height = Math.max(1, screenRows - 1);
+      } else {
+        header.show();
+        list.show();
+        footer.top = undefined;
+        footer.bottom = 0;
+        footer.height = footerHeight;
+        logBox.height = Math.max(1, footerHeight - 1);
+      }
+      screen.render();
+    };
 
     const flattenTree = (items: GitLabTreeNode[], depth = 0): FlatTreeItem[] => {
       const output: FlatTreeItem[] = [];
@@ -273,6 +354,11 @@ export const renderRepositoryTree = async (
       resolve({ confirmed: false, nodes });
     });
 
+    screen.key(["f12"], () => {
+      logMaximized = !logMaximized;
+      applyLayout();
+    });
+
     const updateProgress = (nodeId: string, text: string): void => {
       progressMap.set(nodeId, { text });
       refreshList();
@@ -295,10 +381,15 @@ export const renderRepositoryTree = async (
       refreshList();
     };
 
-    options?.onReady?.({ render: refreshList, progress: { updateProgress, updateStatus, clearProgress } });
+    options?.onReady?.({
+      render: refreshList,
+      progress: { updateProgress, updateStatus, clearProgress },
+      log: { append: appendLog, setOrientation },
+    });
 
     refreshList();
     list.focus();
+    applyLayout();
     screen.render();
   });
 };

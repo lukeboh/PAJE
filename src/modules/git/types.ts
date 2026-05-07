@@ -58,6 +58,7 @@ export type ParallelSyncOptions = {
   concurrency?: number | "auto";
   shallow?: boolean;
   dryRun?: boolean;
+  logger?: (message: string, level?: "info" | "warn" | "error") => void;
 };
 
 export type GitLabServerConfig = {

@@ -225,11 +225,15 @@ Se a chave já existe, o PAJÉ reutiliza e evita sobrescrever, a menos que `--ke
 
 ## Estrutura TUI
 
-A TUI segue o padrão de três áreas:
+A TUI segue o padrão de três quadros:
 
-1. **Barra superior**: título/funcionalidade atual.
-2. **Área principal**: menus e formulários.
-3. **Barra inferior**: instruções contextuais para cada campo.
+1. **Barra de título**: 1 linha no topo com o nome da funcionalidade.
+2. **Área de trabalho**: região central com menus, formulários e árvore de repositórios.
+3. **Barra de orientações/log**: 15% da tela na parte inferior, dividida em:
+   - **Linha de orientações** (1 linha) com comandos possíveis.
+   - **Área de log** com as mensagens de execução (timestamp por linha e erros em vermelho).
+
+Atalho `F12` alterna o log em tela cheia e retorna ao layout padrão.
 
 ## Testes
 

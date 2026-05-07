@@ -28,10 +28,20 @@ const fakeScreen = () => {
   return screen;
 };
 
-const fakeBox = (options?: { label?: string; content?: string }) => {
+const fakeBox = (options?: { label?: string; content?: string; name?: string }) => {
   const content = options?.content ?? "";
-  lastFooterContent = content;
-  return { setContent: (value: string) => (lastFooterContent = value) } as unknown as any;
+  if (options?.name === "orientation-line") {
+    lastFooterContent = content;
+  }
+  return {
+    setContent: (value: string) => {
+      if (options?.name === "orientation-line") {
+        lastFooterContent = value;
+      }
+    },
+    hide: () => undefined,
+    show: () => undefined,
+  } as unknown as any;
 };
 
 const fakeList = () => {
@@ -47,6 +57,8 @@ const fakeList = () => {
     setScroll: (value: number) => {
       lastScroll = value;
     },
+    hide: () => undefined,
+    show: () => undefined,
   } as unknown as any;
   return list;
 };
@@ -80,8 +92,9 @@ const nodes = [
 ];
 const toggleCalls: string[] = [];
 const resultPromise = renderRepositoryTree(nodes, (id) => toggleCalls.push(id), undefined, {
-  onReady: ({ progress }) => {
+  onReady: ({ progress, log }) => {
     progress.updateProgress("project-1", "[##] 10% teste");
+    log.append("Log inicial");
   },
 });
 lastScroll = 5;

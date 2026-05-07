@@ -82,8 +82,11 @@ const runGitWithProgress = async (options: {
   target: GitRepositoryTarget;
   phase: ProgressPhase;
   onProgress?: (event: ProgressEvent) => void;
+  onLog?: (message: string) => void;
 }): Promise<void> => {
-  const { args, cwd, workerId, target, phase, onProgress } = options;
+  const { args, cwd, workerId, target, phase, onProgress, onLog } = options;
+  const commandLabel = `git ${args.join(" ")}`;
+  onLog?.(`Executando: ${commandLabel}`);
   await new Promise<void>((resolve, reject) => {
     const child = spawn("git", args, { cwd });
     const handleChunk = (chunk: Buffer): void => {
@@ -93,6 +96,7 @@ const runGitWithProgress = async (options: {
         if (!trimmed) {
           return;
         }
+        onLog?.(`Saída: ${trimmed}`);
         const parsed = parseProgressLine(trimmed);
         onProgress?.({
           workerId,
@@ -109,13 +113,19 @@ const runGitWithProgress = async (options: {
     };
     child.stdout.on("data", handleChunk);
     child.stderr.on("data", handleChunk);
-    child.on("error", (error) => reject(error));
+    child.on("error", (error) => {
+      onLog?.(`Erro ao executar: ${error.message}`);
+      reject(error);
+    });
     child.on("close", (code) => {
       if (code === 0) {
+        onLog?.(`Comando finalizado: ${commandLabel}`);
         resolve();
         return;
       }
-      reject(new Error(`Git falhou (code ${code ?? "?"}).`));
+      const error = new Error(`Git falhou (code ${code ?? "?"}).`);
+      onLog?.(`Erro ao executar: ${error.message}`);
+      reject(error);
     });
   });
 };
@@ -207,6 +217,7 @@ export const syncRepository = async (
   workerId = 0,
   onProgress?: (event: ProgressEvent) => void
 ): Promise<SyncResult> => {
+  const log = options?.logger;
   try {
     await ensureParentDir(target.localPath);
     const snapshot = await readRepoStatus(target);
@@ -228,6 +239,7 @@ export const syncRepository = async (
       objectsTotal: undefined,
       raw: "start",
     });
+    log?.(`Destino: ${target.localPath}`);
 
     if (!snapshot.hasRepo) {
       const args = ["clone", target.sshUrl, target.localPath];
@@ -245,8 +257,11 @@ export const syncRepository = async (
           target,
           phase: "clone",
           onProgress,
+          onLog: (message) => log?.(message),
         });
         await applyGitLocalConfig(target);
+      } else {
+        log?.("Dry-run: clone ignorado.");
       }
       return { target, status: "cloned" };
     }
@@ -255,6 +270,7 @@ export const syncRepository = async (
       if (!dryRun) {
         await applyGitLocalConfig(target);
       }
+      log?.("Repositório local sem remoto configurado.");
       return { target, status: "skipped", message: "Repositório local sem remoto configurado." };
     }
 
@@ -267,8 +283,11 @@ export const syncRepository = async (
           target,
           phase: "pull",
           onProgress,
+          onLog: (message) => log?.(message),
         });
         await applyGitLocalConfig(target);
+      } else {
+        log?.("Dry-run: pull ignorado.");
       }
       return { target, status: "pulled" };
     }
@@ -282,8 +301,11 @@ export const syncRepository = async (
           target,
           phase: "push",
           onProgress,
+          onLog: (message) => log?.(message),
         });
         await applyGitLocalConfig(target);
+      } else {
+        log?.("Dry-run: push ignorado.");
       }
       return { target, status: "pushed" };
     }
@@ -291,12 +313,15 @@ export const syncRepository = async (
     if (!dryRun) {
       await applyGitLocalConfig(target);
     }
+    log?.("Nenhuma ação necessária.");
     return { target, status: "skipped" };
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro desconhecido";
+    log?.(`Falha: ${message}`);
     return {
       target,
       status: "failed",
-      message: error instanceof Error ? error.message : "Erro desconhecido",
+      message,
     };
   }
 };

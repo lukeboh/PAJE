@@ -77,12 +77,30 @@ Este documento define os requisitos da funcionalidade **Sincronizar repositório
 
 ## Requisitos de usabilidade
 
-### RU-01 — Orientações
+### RU-01 — Estrutura da TUI
 
-- Barra inferior deve sempre conter instruções contextuais.
-- Deve indicar ações básicas: navegar, selecionar, sincronizar, cancelar.
+- A TUI deve ter 3 quadros:
+  - **Barra de título**: 1 linha no topo, com o nome da funcionalidade.
+  - **Área de trabalho**: ao centro, com a árvore de repositórios.
+  - **Barra de orientações/log**: ocupa 15% da tela, na parte inferior.
+- A barra de orientações/log deve ser dividida em:
+  - **Linha de orientações** (1 linha) com comandos possíveis.
+  - **Área de log** com as mensagens de execução.
 
-### RU-02 — Esc
+### RU-02 — Orientações
+
+- A linha de orientações deve indicar ações básicas: navegar, selecionar, sincronizar, cancelar.
+- Deve exibir o atalho `F12` para maximizar/restaurar o log.
+
+### RU-03 — Log de operações
+
+- O log deve exibir tudo que o sistema está fazendo, incluindo comandos executados e respostas.
+- Cada linha deve ter data/hora com precisão de segundos.
+- Mensagens de erro devem aparecer em vermelho.
+- Scroll do log deve ser automático.
+- Ao pressionar `F12`, o log deve ocupar a tela inteira e retornar ao layout padrão ao pressionar `F12` novamente.
+
+### RU-04 — Esc
 
 - `Esc` retorna à tela anterior.
 - Se o usuário estiver digitando, confirmar desistência.
