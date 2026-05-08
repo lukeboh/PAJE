@@ -10,13 +10,15 @@ Este documento define os requisitos da funcionalidade **Sincronizar repositório
 ## Fluxo principal
 
 1. Usuário seleciona `git-sync` no menu principal.
-2. Sistema apresenta feedback de acesso **aos servidores** e inicia a listagem de repositórios em todos os servidores configurados.
-3. Árvore de repositórios é exibida com estados, branchs e caminhos consolidados (um único `base-dir`).
-4. Usuário seleciona itens (grupos/projetos) via checkbox.
-5. Usuário confirma com **Enter** para sincronizar.
-6. Sistema sincroniza respeitando paralelismo configurado.
-7. Progresso aparece na linha de cada repositório.
-8. Ao final, modal de resumo é exibido.
+2. Sistema carrega servidores persistidos e aplica filtros (`serverName`/`baseUrl`) quando informados.
+3. Sistema apresenta feedback de acesso **aos servidores** e inicia a listagem de repositórios em todos os servidores válidos.
+4. Cabeçalho consolidado é exibido com contagem de servidores (ex.: `GitLab (2 servidores)`), seguido da árvore agrupada por servidor.
+5. Árvore de repositórios é exibida com estados, branchs e caminhos consolidados (um único `base-dir`).
+6. Usuário seleciona itens (grupos/projetos) via checkbox.
+7. Usuário confirma com **Enter** para sincronizar.
+8. Sistema sincroniza respeitando paralelismo configurado.
+9. Progresso aparece na linha de cada repositório.
+10. Ao final, modal de resumo é exibido.
 
 ## Requisitos funcionais
 
@@ -37,6 +39,7 @@ Este documento define os requisitos da funcionalidade **Sincronizar repositório
   - `noArchivedRepos`
   - `prepareLocalDirs`
   - `serverName`/`baseUrl` quando fornecidos para filtrar servidores
+- Filtros de servidor devem ocultar servidores não correspondentes e atualizar o cabeçalho agregado com a nova contagem.
 - Apenas projetos filtrados podem aparecer na árvore.
 
 ### RF-03 — Exibição de branch e status
@@ -75,6 +78,7 @@ Este documento define os requisitos da funcionalidade **Sincronizar repositório
   - Tempo total
   - Contagem de ações (clone/pull/push/sem ação/falhas)
   - Lista ordenada de repositórios com métricas (objetos/volume/velocidade)
+- Quando houver múltiplos servidores, o resumo deve indicar o total consolidado e, quando aplicável, destacar o servidor de cada repositório.
 
 ## Requisitos de usabilidade
 
@@ -87,6 +91,7 @@ Este documento define os requisitos da funcionalidade **Sincronizar repositório
 - A barra de orientações/log deve ser dividida em:
   - **Linha de orientações** (1 linha) com comandos possíveis.
   - **Área de log** com as mensagens de execução.
+- O cabeçalho agregado deve permanecer visível no topo da árvore durante a navegação.
 
 ### RU-02 — Orientações
 
@@ -105,6 +110,12 @@ Este documento define os requisitos da funcionalidade **Sincronizar repositório
 
 - `Esc` retorna à tela anterior.
 - Se o usuário estiver digitando, confirmar desistência.
+
+### RU-05 — Cenários multi-servidor
+
+- Caso nenhum servidor corresponda aos filtros `serverName`/`baseUrl`, exibir mensagem explícita e não abrir a árvore.
+- Quando apenas um servidor corresponder, o cabeçalho deve indicar `GitLab (1 servidor)`.
+- O contador de requisições deve refletir o total global de chamadas somadas entre servidores válidos.
 
 ## Requisitos não funcionais
 

@@ -79,6 +79,8 @@ Sincroniza repositórios em paralelo, **agregando todos os servidores configurad
 **TUI (git-sync):**
 
 - Exibe mensagem de acesso **aos servidores** durante a listagem (com contador de requisições).
+- Renderiza cabeçalho agregado no topo da árvore (ex.: `GitLab (2 servidores): TSE-GIT | DEV-GIT`).
+- Agrupa a árvore por servidor, mantendo subgrupos e projetos consolidados em um único `base-dir`.
 - Apresenta branch e estado de cada repositório (cores iguais ao CLI).
 - Mostra progresso por linha na árvore durante a sincronização.
 - Usa `Enter` para sincronizar os itens selecionados.
@@ -119,18 +121,40 @@ paje git-sync --base-dir repos
 **Comportamento relevante:**
 
 - O `git-sync` opera sobre **todos os servidores configurados** quando nenhum filtro (`--server-name`/`--base-url`) é fornecido.
+- `--server-name` filtra por nome exato do servidor persistido; `--base-url` filtra por URL normalizada. Se ambos forem informados, **os dois filtros** são aplicados.
+- Quando `--server-name`/`--base-url` são informados, a TUI renderiza apenas os servidores correspondentes e atualiza o cabeçalho agregado (`GitLab (N servidores)`), além do contador de requisições.
 - Sem autenticação, somente repositórios públicos podem ser listados.
 - Se houver associação SSH válida (`~/.ssh/config`), o fluxo prioriza SSH.
 - O resumo final mostra estados: `SYNCED`, `BEHIND`, `AHEAD`, `REMOTE`, `EMPTY`, `LOCAL`, `UNCOMMITTED`.
 - O filtro suporta padrões Ant/Glob: `?` (um caractere), `*` (qualquer trecho no mesmo diretório), `**` (qualquer profundidade), e múltiplos padrões separados por `;` (com espaços ignorados).
 - `--sync-repos` aceita padrões Ant/Glob no formato `path_with_namespace[.git]#branch`. A `#branch` é opcional. Exemplo: `grupo/projeto.git#main`.
 - `--parallels` controla o número de workers na sincronização. Use `AUTO` ou `0` para ajuste automático.
+- Quando `--server-name` e `--base-url` são informados juntos, o servidor é registrado/atualizado em `~/.paje/git-servers.json`.
 - Quando `--dry-run` é usado, o comando apenas informa o que faria (clone/pull/push) sem executar.
 
-**Exemplo com filtro:**
+> Os filtros podem vir do `env.yaml` ou da CLI. A TUI aplica as mesmas regras de filtragem e exibe apenas os servidores correspondentes.
+
+**Exemplos multi-servidor (CLI):**
 
 ```bash
-npm run dev -- git-sync --env-file=env-test.yaml --verbose --filter="**/setot/**/*"
+# Agrega todos os servidores persistidos
+paje git-sync --base-dir repos
+
+# Filtra por nome do servidor
+paje git-sync --server-name TSE-GIT --base-dir repos
+
+# Filtra por URL do servidor
+paje git-sync --base-url https://gitlab.dev.local --base-dir repos
+
+# Combina filtros de servidor (nome + URL)
+paje git-sync --server-name DEV-GIT --base-url https://gitlab.dev.local --base-dir repos
+```
+
+**Exemplo com filtros de conteúdo:**
+
+```bash
+# Aplica filtros de conteúdo apenas aos servidores já selecionados
+npm run dev -- git-sync --env-file=env-test.yaml --verbose --server-name DEV-GIT --filter="DEV-GIT/devops/*" --no-public-repos=true
 ```
 
 ### 2) `git-server-store` — registrar SSH e token no GitLab
