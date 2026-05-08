@@ -3,13 +3,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Command } from "commander";
-import { configureGitSyncCommand } from "../src/modules/git/gitCommand.js";
 
 const originalFetch = globalThis.fetch;
 const originalHome = process.env.HOME;
+const originalArgv = process.argv;
+const originalHomedir = os.homedir;
 
 const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "paje-home-"));
 process.env.HOME = tempHome;
+os.homedir = () => tempHome;
 const pajeDir = path.join(tempHome, ".paje");
 fs.mkdirSync(pajeDir, { recursive: true });
 fs.writeFileSync(
@@ -29,6 +31,10 @@ fs.writeFileSync(
     },
   ])
 );
+const envPath = path.join(tempHome, "env-test.yaml");
+fs.writeFileSync(envPath, "", "utf-8");
+
+const { configureGitSyncCommand } = await import("../src/modules/git/gitCommand.js");
 
 const calls: Array<{ url: string; init?: RequestInit }> = [];
 globalThis.fetch = (async (url: string, init?: RequestInit): Promise<Response> => {
@@ -38,13 +44,14 @@ globalThis.fetch = (async (url: string, init?: RequestInit): Promise<Response> =
 
 let capturedLogs = "";
 const originalLog = console.log;
-console.log = (message?: unknown) => {
-  capturedLogs += `${String(message ?? "")}\n`;
+console.log = (...args: unknown[]) => {
+  capturedLogs += `${args.map((item) => String(item)).join(" ")}\n`;
 };
 
 const program = new Command();
 configureGitSyncCommand(program);
-await program.parseAsync(["node", "cli.ts", "git-sync"]);
+process.argv = ["node", "cli.ts", "git-sync", "--env-file", envPath];
+await program.parseAsync(["node", "cli.ts", "git-sync", "--env-file", envPath]);
 
 assert.ok(
   capturedLogs.includes("Não há autenticação configurada para TSE-GIT"),
@@ -63,5 +70,7 @@ assert.strictEqual(calls.length, 0, "Não deve chamar API sem autenticação");
 console.log = originalLog;
 globalThis.fetch = originalFetch as typeof fetch;
 process.env.HOME = originalHome;
+os.homedir = originalHomedir;
+process.argv = originalArgv;
 
 console.log("git_sync_auth_guard_test: OK");

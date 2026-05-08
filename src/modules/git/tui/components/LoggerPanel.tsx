@@ -7,6 +7,10 @@ export type LoggerPanelProps = {
   height: number;
 };
 
+const applyAnsiColor = (text: string, colorCode: number): string => {
+  return `\u001b[${colorCode}m${text}\u001b[0m`;
+};
+
 export const LoggerPanel: React.FC<LoggerPanelProps> = ({ entries, height }) => {
   const visibleEntries = useMemo(() => {
     if (height <= 0) {
@@ -17,11 +21,15 @@ export const LoggerPanel: React.FC<LoggerPanelProps> = ({ entries, height }) => 
 
   return (
     <Box flexDirection="column" width="100%" height={height}>
-      {visibleEntries.map((entry) => (
-        <Text key={entry.id} color={entry.level === "error" ? "red" : undefined}>
-          [{entry.timestamp}] {entry.message}
-        </Text>
-      ))}
+      {visibleEntries.map((entry) => {
+        const line = `[${entry.timestamp}] ${entry.message}`;
+        const output = entry.level === "error" ? applyAnsiColor(line, 31) : line;
+        return (
+          <Text key={entry.id}>
+            {output}
+          </Text>
+        );
+      })}
     </Box>
   );
 };
