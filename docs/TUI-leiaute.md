@@ -1,4 +1,4 @@
-# Layout TUI — Ink (PAJÉ)
+# Leiaute TUI — Ink (PAJÉ)
 
 Este documento descreve o layout obrigatório da TUI do PAJÉ, implementado em Ink + React.
 
