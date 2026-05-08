@@ -1265,7 +1265,7 @@ const storeSshKeyOnly = async (
     credentials: {
       ...credentials,
       username: resolvedUsername ?? credentials.username,
-      password: resolveEnvOrCliString(cliOptions.password, "password", "password"),
+      password: resolvedPassword ?? credentials.password ?? "",
     },
     keyInfo,
     fetchImpl: globalThis.fetch,
@@ -1352,7 +1352,7 @@ const storeSshKeyOnly = async (
     credentials: {
       ...credentials,
       username: resolvedUsername ?? credentials.username,
-      password: resolveEnvOrCliString(cli?.password, "password", "password"),
+      password: resolvedPassword ?? credentials.password ?? "",
     },
     fetchImpl: globalThis.fetch,
     logger,
@@ -1687,7 +1687,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         useBasicAuth: resolveEnvOrCliBoolean(cliOptions.useBasicAuth, "useBasicAuth", "use-basic-auth"),
         username: resolveEnvOrCliString(cliOptions.username, "username", "username"),
         userEmail: resolveEnvOrCliString(cliOptions.userEmail, "userEmail", "user-email"),
-        password: resolveEnvOrCliString(cliOptions.password, "password", "password"),
+        password: resolveEnvOrCliString(cliOptions.password, "password", "password") ?? "",
         keyLabel: resolveEnvOrCliString(cliOptions.keyLabel, "keyLabel", "key-label"),
         passphrase: resolveEnvOrCliString(cliOptions.passphrase, "passphrase", "passphrase"),
         publicKeyPath: resolveEnvOrCliString(cliOptions.publicKeyPath, "publicKeyPath", "public-key-path"),
