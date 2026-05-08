@@ -74,6 +74,17 @@ const mergeServerList = (servers: GitServerEntry[]): GitServerEntry[] => {
   }));
 };
 
+const buildServersHeader = (servers: GitServerEntry[]): string => {
+  if (servers.length === 0) {
+    return "GitLab";
+  }
+  const details = servers
+    .map((server) => `${server.name} (${server.baseUrl})`)
+    .join(" | ");
+  const suffix = servers.length === 1 ? "servidor" : "servidores";
+  return `GitLab (${servers.length} ${suffix}): ${details}`;
+};
+
 const mergeGroupsByPath = (
   entries: Array<{ server: GitServerEntry; groups: GitLabGroup[] }>
 ): { groups: GitLabGroup[]; idMapByServer: Map<string, Map<number, number>> } => {
@@ -695,114 +706,6 @@ export const promptBasicAuthPassword = async (
   return answers.password;
 };
 
-export const selectGitServer = async (session?: TuiSession, cli?: GitSyncCliOptions): Promise<GitServerEntry> => {
-  if (cli?.serverName && cli?.baseUrl) {
-    const server: GitServerEntry = {
-      id: cli.baseUrl,
-      name: cli.serverName,
-      baseUrl: cli.baseUrl,
-      useBasicAuth: cli.useBasicAuth ?? false,
-      username: cli.username,
-    };
-    const servers = readGitServers<GitServerEntry[]>([]);
-    const merge = mergeServer(servers, server);
-    writeGitServers(merge.servers);
-    return merge.servers.find((item) => normalizeBaseUrl(item.baseUrl) === normalizeBaseUrl(server.baseUrl)) ?? server;
-  }
-  const servers = readGitServers<GitServerEntry[]>([]);
-  if (cli?.serverName && servers.length > 0) {
-    const normalizedName = cli.serverName.trim().toLowerCase();
-    const matched = servers.find((server) => server.name.trim().toLowerCase() === normalizedName);
-    if (matched) {
-      return matched;
-    }
-  }
-  if (servers.length === 0) {
-    const server = await promptGitServer(session, {
-      name: cli?.serverName,
-      baseUrl: cli?.baseUrl,
-      useBasicAuth: cli?.useBasicAuth,
-      username: cli?.username,
-    });
-    const merge = mergeServer([], server);
-    writeGitServers(merge.servers);
-    return merge.servers[0];
-  }
-
-  if (session) {
-    const selected = await session.promptList({
-      title: "Servidor GitLab",
-      message: "Escolha o servidor",
-      choices: [
-        ...servers.map((server) => ({
-          label: `${server.name} (${server.baseUrl})`,
-          value: server.id,
-          description: "Selecione para usar este servidor nas próximas etapas.",
-        })),
-        {
-          label: "Adicionar novo servidor",
-          value: "__new__",
-          description: "Crie um novo servidor GitLab informando nome, URL e autenticação básica (opcional).",
-        },
-      ],
-    });
-
-    if (selected === "__new__") {
-        const server = await promptGitServer(session, {
-          name: cli?.serverName,
-          baseUrl: cli?.baseUrl,
-          useBasicAuth: cli?.useBasicAuth,
-          username: cli?.username,
-        });
-      const merge = mergeServer(servers, server);
-      writeGitServers(merge.servers);
-      if (merge.updated && session) {
-        await session.showMessage({
-          title: "Servidor GitLab",
-          message: "Servidor já existente. Dados atualizados para a mesma URL.",
-        });
-      }
-      return (
-        merge.servers.find((item) => normalizeBaseUrl(item.baseUrl) === normalizeBaseUrl(server.baseUrl)) ??
-        merge.servers[0]
-      );
-    }
-
-    return servers.find((server) => server.id === selected) ?? servers[0];
-  }
-
-  const { selected } = (await inquirer.prompt([
-    {
-      name: "selected",
-      type: "list",
-      message: "Servidor GitLab",
-      choices: [
-        ...servers.map((server) => ({ name: `${server.name} (${server.baseUrl})`, value: server.id })),
-        { name: "Adicionar novo servidor", value: "__new__" },
-      ],
-    },
-  ])) as { selected: string };
-
-  if (selected === "__new__") {
-    const server = await promptGitServer(undefined, {
-      name: cli?.serverName,
-      baseUrl: cli?.baseUrl,
-      useBasicAuth: cli?.useBasicAuth,
-      username: cli?.username,
-    });
-    const merge = mergeServer(servers, server);
-    writeGitServers(merge.servers);
-    if (merge.updated) {
-      console.log("Servidor já existente. Dados atualizados para a mesma URL.");
-    }
-    return (
-      merge.servers.find((item) => normalizeBaseUrl(item.baseUrl) === normalizeBaseUrl(server.baseUrl)) ??
-      merge.servers[0]
-    );
-  }
-
-  return servers.find((server) => server.id === selected) ?? servers[0];
-};
 const ensureSshKey = async (
   api: GitLabApi,
   session?: TuiSession,
@@ -1856,24 +1759,24 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       }
 
       const listStartAt = Date.now();
-      let requestCount = 0;
-      let spinnerIndex = 0;
+      let listRequestCount = 0;
+      let spinnerFrameIndex = 0;
       const spinnerFrames = ["/", "-", "\\", "|"];
       const renderSpinner = (): void => {
         if (!session) {
           return;
         }
-        const frame = spinnerFrames[spinnerIndex % spinnerFrames.length];
-        spinnerIndex += 1;
+        const frame = spinnerFrames[spinnerFrameIndex % spinnerFrames.length];
+        spinnerFrameIndex += 1;
         session.showMessage({
           title: "GitLab",
-          message: `Acessando servidores e carregando repositórios ${frame} requisições: ${requestCount}`,
+          message: `Acessando servidores e carregando repositórios ${frame} requisições: ${listRequestCount}`,
         });
       };
       const wrapRequest = async <T,>(server: GitServerEntry, label: string, fn: () => Promise<T>): Promise<T> => {
-        requestCount += 1;
+        listRequestCount += 1;
         renderSpinner();
-        logToTui(`HTTP: ${server.name} - ${label} (requisição ${requestCount})`);
+        logToTui(`HTTP: ${server.name} - ${label} (requisição ${listRequestCount})`);
         try {
           const result = await fn();
           logToTui(`HTTP: ${server.name} - ${label} concluído`);
@@ -1971,10 +1874,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         idMapByServer
       );
       const activeServers = validServerResults.map((result) => result.server);
-      const header =
-        activeServers.length === 1
-          ? `${activeServers[0].name} (${activeServers[0].baseUrl})`
-          : `GitLab (${activeServers.length} servidores)`;
+      const header = buildServersHeader(activeServers);
       const listDurationMs = Date.now() - listStartAt;
       if (!session) {
         const tempoLabel = colorize("TEMPO", "yellow");
