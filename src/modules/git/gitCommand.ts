@@ -15,6 +15,7 @@ import {
 } from "./gitRepoScanner.js";
 import { TuiSession } from "./tuiSession.js";
 import {
+  GitLabGroup,
   GitLabProject,
   GitLabTreeNode,
   GitRepositoryTarget,
@@ -60,6 +61,95 @@ type GitServerEntry = {
   token?: string;
 };
 
+const buildServerPrefix = (server: GitServerEntry): string => {
+  const normalizedName = server.name?.trim() || "Servidor";
+  return `[${normalizedName}]`;
+};
+
+const mergeServerList = (servers: GitServerEntry[]): GitServerEntry[] => {
+  return servers.map((server) => ({
+    ...server,
+    id: normalizeBaseUrl(server.baseUrl),
+    baseUrl: normalizeBaseUrl(server.baseUrl),
+  }));
+};
+
+const mergeGroupsByPath = (
+  entries: Array<{ server: GitServerEntry; groups: GitLabGroup[] }>
+): { groups: GitLabGroup[]; idMapByServer: Map<string, Map<number, number>> } => {
+  const byPath = new Map<string, GitLabGroup>();
+  const idMapByServer = new Map<string, Map<number, number>>();
+  let nextId = 1;
+
+  entries.forEach(({ server, groups }) => {
+    const localMap = new Map<number, number>();
+    groups.forEach((group) => {
+      localMap.set(group.id, nextId);
+      nextId += 1;
+    });
+    idMapByServer.set(server.id, localMap);
+
+    groups.forEach((group) => {
+      const normalizedPath = `${server.name}/${group.full_path}`;
+      if (byPath.has(normalizedPath)) {
+        return;
+      }
+      const mappedId = localMap.get(group.id) ?? nextId;
+      const mappedParent = group.parent_id ? localMap.get(group.parent_id) ?? null : null;
+      byPath.set(normalizedPath, {
+        ...group,
+        id: mappedId,
+        full_path: normalizedPath,
+        parent_id: mappedParent,
+      });
+    });
+  });
+
+  return { groups: Array.from(byPath.values()), idMapByServer };
+};
+
+const mergeProjectsByPath = (
+  entries: Array<{ server: GitServerEntry; projects: GitLabProject[] }>,
+  idMapByServer: Map<string, Map<number, number>>
+): { projects: GitLabProject[]; projectIdMapByServer: Map<string, Map<number, number>> } => {
+  const byPath = new Map<string, GitLabProject>();
+  const projectIdMapByServer = new Map<string, Map<number, number>>();
+  let nextProjectId = 1;
+
+  entries.forEach(({ server, projects }) => {
+    const groupMap = idMapByServer.get(server.id);
+    const localMap = new Map<number, number>();
+    projects.forEach((project) => {
+      localMap.set(project.id, nextProjectId);
+      nextProjectId += 1;
+    });
+    projectIdMapByServer.set(server.id, localMap);
+
+    projects.forEach((project) => {
+      const normalizedPath = `${server.name}/${project.path_with_namespace}`;
+      if (byPath.has(normalizedPath)) {
+        return;
+      }
+      const mappedNamespace = project.namespace
+        ? {
+            ...project.namespace,
+            id: groupMap?.get(project.namespace.id) ?? project.namespace.id,
+            full_path: `${server.name}/${project.namespace.full_path}`,
+          }
+        : project.namespace;
+      const mappedId = localMap.get(project.id) ?? nextProjectId;
+      byPath.set(normalizedPath, {
+        ...project,
+        id: mappedId,
+        name: `${buildServerPrefix(server)} ${project.name}`,
+        path_with_namespace: normalizedPath,
+        namespace: mappedNamespace,
+      });
+    });
+  });
+
+  return { projects: Array.from(byPath.values()), projectIdMapByServer };
+};
 type GitSyncCliOptions = {
   baseDir?: string;
   verbose?: boolean;
@@ -713,7 +803,6 @@ export const selectGitServer = async (session?: TuiSession, cli?: GitSyncCliOpti
 
   return servers.find((server) => server.id === selected) ?? servers[0];
 };
-
 const ensureSshKey = async (
   api: GitLabApi,
   session?: TuiSession,
@@ -1273,7 +1362,7 @@ const storeSshKeyOnly = async (
     credentials: {
       ...credentials,
       username: resolvedUsername ?? credentials.username,
-      password: resolvedPassword ?? credentials.password,
+      password: resolveEnvOrCliString(cliOptions.password, "password", "password"),
     },
     keyInfo,
     fetchImpl: globalThis.fetch,
@@ -1360,7 +1449,7 @@ const storeSshKeyOnly = async (
     credentials: {
       ...credentials,
       username: resolvedUsername ?? credentials.username,
-      password: resolvedPassword ?? credentials.password,
+      password: resolveEnvOrCliString(cli?.password, "password", "password"),
     },
     fetchImpl: globalThis.fetch,
     logger,
@@ -1718,49 +1807,52 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         parallels: resolveEnvOrCliString(cliOptions.parallels, "parallels", "parallels"),
       };
 
-      const server = await selectGitServer(session, mergedOptions);
-      let basicAuth: { username: string; password: string } | undefined;
-      const serverHost = new URL(server.baseUrl).hostname;
-      const hasSshAssociation = hasValidSshAssociation(serverHost);
-      if (server.useBasicAuth && !hasSshAssociation) {
-        const username = server.username?.trim();
-        const resolvedUsername = username && username.length > 0 ? username : "";
-        if (!resolvedUsername) {
-          const message = "Usuário não informado para autenticação básica. Cadastre o servidor novamente informando o usuário.";
-          if (session) {
-            await session.showMessage({ title: "GitLab", message });
-          } else {
-            console.log(message);
-          }
-        } else {
-          const password = await promptBasicAuthPassword(resolvedUsername, session, mergedOptions.password);
-          basicAuth = { username: resolvedUsername, password };
-        }
+      const storedServers = readGitServers<GitServerEntry[]>([]);
+      let servers = mergeServerList(storedServers);
+
+      if (mergedOptions.serverName && mergedOptions.baseUrl) {
+        const server: GitServerEntry = {
+          id: mergedOptions.baseUrl,
+          name: mergedOptions.serverName,
+          baseUrl: mergedOptions.baseUrl,
+          useBasicAuth: mergedOptions.useBasicAuth ?? false,
+          username: mergedOptions.username,
+        };
+        const merge = mergeServer(servers, server);
+        writeGitServers(merge.servers);
+        servers = mergeServerList(merge.servers);
       }
-      const api = new GitLabApi({
-        baseUrl: server.baseUrl,
-        basicAuth,
-        token: server.token,
-        verbose: mergedOptions.verbose ?? false,
-        logger: session
-          ? (message) => {
-              session.showMessage({ title: "Verbose", message });
-            }
-          : undefined,
-      });
-      if (!api.hasAuth()) {
-        const message =
-          "Não há autenticação configurada. Configure um token ou autenticação básica para continuar.";
+
+      if (servers.length === 0) {
+        const server = await promptGitServer(session, {
+          name: mergedOptions.serverName,
+          baseUrl: mergedOptions.baseUrl,
+          useBasicAuth: mergedOptions.useBasicAuth,
+          username: mergedOptions.username,
+        });
+        const merge = mergeServer([], server);
+        writeGitServers(merge.servers);
+        servers = mergeServerList(merge.servers);
+      }
+
+      if (mergedOptions.serverName && !mergedOptions.baseUrl) {
+        const normalizedName = mergedOptions.serverName.trim().toLowerCase();
+        servers = servers.filter((server) => server.name.trim().toLowerCase() == normalizedName);
+      }
+
+      if (mergedOptions.baseUrl) {
+        const normalizedBaseUrl = normalizeBaseUrl(mergedOptions.baseUrl);
+        servers = servers.filter((server) => normalizeBaseUrl(server.baseUrl) === normalizedBaseUrl);
+      }
+
+      if (servers.length === 0) {
+        const message = "Nenhum servidor GitLab configurado.";
         if (session) {
           await session.showMessage({ title: "GitLab", message });
         } else {
           console.log(message);
         }
         return;
-      }
-
-      if (hasSshAssociation || api.hasAuth()) {
-        await ensureSshKey(api, session, mergedOptions.verbose ?? false, mergedOptions);
       }
 
       const listStartAt = Date.now();
@@ -1775,31 +1867,114 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         spinnerIndex += 1;
         session.showMessage({
           title: "GitLab",
-          message: `Acessando servidor e carregando repositórios ${frame} requisições: ${requestCount}`,
+          message: `Acessando servidores e carregando repositórios ${frame} requisições: ${requestCount}`,
         });
       };
-      const wrapRequest = async <T,>(label: string, fn: () => Promise<T>): Promise<T> => {
+      const wrapRequest = async <T,>(server: GitServerEntry, label: string, fn: () => Promise<T>): Promise<T> => {
         requestCount += 1;
         renderSpinner();
-        logToTui(`HTTP: ${label} (requisição ${requestCount})`);
+        logToTui(`HTTP: ${server.name} - ${label} (requisição ${requestCount})`);
         try {
           const result = await fn();
-          logToTui(`HTTP: ${label} concluído`);
+          logToTui(`HTTP: ${server.name} - ${label} concluído`);
           return result;
         } catch (error) {
           const message = error instanceof Error ? error.message : "erro desconhecido";
-          logToTui(`HTTP: ${label} falhou: ${message}`, "error");
+          logToTui(`HTTP: ${server.name} - ${label} falhou: ${message}`, "error");
           throw error;
         }
       };
-      const [groups, userProjects, publicProjects] = await Promise.all([
-        wrapRequest("listar grupos", () => api.listGroups()),
-        wrapRequest("listar projetos do usuário", () => api.listUserProjects()),
-        mergedOptions.noPublicRepos ? Promise.resolve([]) : wrapRequest("listar projetos públicos", () => api.listPublicProjects()),
-      ]);
-      const projects = [...userProjects, ...publicProjects].filter((project, index, all) => {
-        return all.findIndex((item) => item.id === project.id) === index;
-      });
+
+      const serverResults = await Promise.all(
+        servers.map(async (server) => {
+          const serverHost = new URL(server.baseUrl).hostname;
+          const hasSshAssociation = hasValidSshAssociation(serverHost);
+          let basicAuth: { username: string; password: string } | undefined;
+
+          if (server.useBasicAuth && !hasSshAssociation) {
+            const username = server.username?.trim();
+            const resolvedUsername = username && username.length > 0 ? username : "";
+            if (!resolvedUsername) {
+              const message = `Usuário não informado para autenticação básica em ${server.name}. Cadastre o servidor novamente informando o usuário.`;
+              if (session) {
+                await session.showMessage({ title: "GitLab", message });
+              } else {
+                console.log(message);
+              }
+              return null;
+            }
+            const password = await promptBasicAuthPassword(resolvedUsername, session, mergedOptions.password);
+            basicAuth = { username: resolvedUsername, password };
+          }
+
+          const api = new GitLabApi({
+            baseUrl: server.baseUrl,
+            basicAuth,
+            token: server.token,
+            verbose: mergedOptions.verbose ?? false,
+            logger: session
+              ? (message) => {
+                  session.showMessage({ title: "Verbose", message });
+                }
+              : undefined,
+          });
+
+          if (!api.hasAuth()) {
+            const message = `Não há autenticação configurada para ${server.name}. Configure um token ou autenticação básica para continuar.`;
+            if (session) {
+              await session.showMessage({ title: "GitLab", message });
+            } else {
+              console.log(message);
+            }
+            return null;
+          }
+
+          if (hasSshAssociation || api.hasAuth()) {
+            await ensureSshKey(api, session, mergedOptions.verbose ?? false, mergedOptions);
+          }
+
+          const [groups, userProjects, publicProjects] = await Promise.all([
+            wrapRequest(server, "listar grupos", () => api.listGroups()),
+            wrapRequest(server, "listar projetos do usuário", () => api.listUserProjects()),
+            mergedOptions.noPublicRepos
+              ? Promise.resolve([])
+              : wrapRequest(server, "listar projetos públicos", () => api.listPublicProjects()),
+          ]);
+          const projects = [...userProjects, ...publicProjects].filter((project, index, all) => {
+            return all.findIndex((item) => item.id === project.id) === index;
+          });
+
+          return { server, groups, projects };
+        })
+      );
+
+      const validServerResults = serverResults.filter(
+        (result): result is { server: GitServerEntry; groups: GitLabGroup[]; projects: GitLabProject[] } =>
+          result !== null
+      );
+
+      if (validServerResults.length === 0) {
+        const message = "Nenhum servidor com autenticação válida encontrado.";
+        if (session) {
+          await session.showMessage({ title: "GitLab", message });
+        } else {
+          console.log(message);
+        }
+        return;
+      }
+
+      const { groups, idMapByServer } = mergeGroupsByPath(
+        validServerResults.map((result) => ({ server: result.server, groups: result.groups }))
+      );
+      const { projects } = mergeProjectsByPath(
+        validServerResults.map((result) => ({ server: result.server, projects: result.projects })),
+        idMapByServer
+      );
+      const activeServers = validServerResults.map((result) => result.server);
+      const header =
+        activeServers.length === 1
+          ? `${activeServers[0].name} (${activeServers[0].baseUrl})`
+          : `GitLab (${activeServers.length} servidores)`;
       const listDurationMs = Date.now() - listStartAt;
       if (!session) {
         const tempoLabel = colorize("TEMPO", "yellow");
@@ -1856,7 +2031,6 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         );
         const localScan = await buildLocalStatusMap(defaultBaseDir, knownPaths);
         const treeNodes = buildHierarchyTree(filteredProjects, statusMap, localScan.localPaths, localScan.statusMap);
-        const header = `${server.name} (${server.baseUrl})`;
         renderTreeLines(header, treeNodes).forEach((line) => console.log(line));
         Object.values(statusMap).forEach((status) => {
           summary.byStatus[status.state] += 1;
@@ -2351,7 +2525,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
 
       let treeProgress: TuiTreeProgress | null = null;
       const tuiResult = await renderRepositoryTree(tree, (id) => toggleById(tree, id), session, {
-        header: `${server.name} (${server.baseUrl})`,
+        header,
         footer:
           "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para sincronizar | Esc para cancelar | F12 para ampliar log",
         onReady: (handlers) => {

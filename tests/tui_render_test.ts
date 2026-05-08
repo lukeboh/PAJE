@@ -1,118 +1,91 @@
 import assert from "node:assert/strict";
-import blessed from "blessed";
-import { renderRepositoryTree } from "../src/modules/git/tui.js";
+import React from "react";
+import { Box, Text, render } from "ink";
+import { PassThrough } from "node:stream";
+import { Layout } from "../src/modules/git/tui/layout.js";
+import { createLogEntry } from "../src/modules/git/tui/logger.js";
 
-const originalScreen = blessed.screen;
+const stdout = new PassThrough();
+(stdout as { columns?: number; rows?: number; isTTY?: boolean }).columns = 80;
+(stdout as { columns?: number; rows?: number; isTTY?: boolean }).rows = 24;
+(stdout as { columns?: number; rows?: number; isTTY?: boolean }).isTTY = true;
 
-let lastScreen: { _keys: Record<string, () => void> } | null = null;
-let lastFooterContent = "";
-let lastItems: string[] = [];
-let lastScroll = 0;
-
-const fakeScreen = () => {
-  const keys: Record<string, () => void> = {};
-  const screen = {
-    rows: 24,
-    height: 24,
-    render: () => undefined,
-    destroy: () => undefined,
-    key: (names: string[] | string, handler: () => void) => {
-      const list = Array.isArray(names) ? names : [names];
-      list.forEach((name) => {
-        keys[name] = handler;
-      });
-    },
-    _keys: keys,
-  } as unknown as any;
-  lastScreen = screen as unknown as { _keys: Record<string, () => void> };
-  return screen;
-};
-
-const fakeBox = (options?: { label?: string; content?: string; name?: string }) => {
-  const content = options?.content ?? "";
-  if (options?.name === "orientation-line") {
-    lastFooterContent = content;
+const stdin = new PassThrough();
+(
+  stdin as {
+    isTTY?: boolean;
+    setRawMode?: (value: boolean) => void;
+    ref?: () => void;
+    unref?: () => void;
   }
-  return {
-    setContent: (value: string) => {
-      if (options?.name === "orientation-line") {
-        lastFooterContent = value;
-      }
-    },
-    hide: () => undefined,
-    show: () => undefined,
-  } as unknown as any;
-};
+).isTTY = true;
+(
+  stdin as {
+    isTTY?: boolean;
+    setRawMode?: (value: boolean) => void;
+    ref?: () => void;
+    unref?: () => void;
+  }
+).setRawMode = () => undefined;
+(
+  stdin as {
+    isTTY?: boolean;
+    setRawMode?: (value: boolean) => void;
+    ref?: () => void;
+    unref?: () => void;
+  }
+).ref = () => undefined;
+(
+  stdin as {
+    isTTY?: boolean;
+    setRawMode?: (value: boolean) => void;
+    ref?: () => void;
+    unref?: () => void;
+  }
+).unref = () => undefined;
 
-const fakeList = () => {
-  const list = {
-    selected: 0,
-    setItems: (items: string[]) => {
-      lastItems = items;
-    },
-    select: () => undefined,
-    focus: () => undefined,
-    on: (_event: string, _handler: () => void) => undefined,
-    getScroll: () => lastScroll,
-    setScroll: (value: number) => {
-      lastScroll = value;
-    },
-    hide: () => undefined,
-    show: () => undefined,
-  } as unknown as any;
-  return list;
-};
-
-(blessed as any).screen = () => fakeScreen();
-(blessed as any).box = () => fakeBox();
-(blessed as any).list = () => fakeList();
-
-const nodes = [
-  {
-    id: "project-1",
-    label: "Repo",
-    selected: false,
-    type: "project",
-    status: { branch: "main", state: "SYNCED" },
-  } as any,
-  {
-    id: "project-2",
-    label: "Repo 2",
-    selected: false,
-    type: "project",
-    status: { branch: "feature-fontes", state: "BEHIND" },
-  } as any,
-  {
-    id: "project-3",
-    label: "Repo 3",
-    selected: false,
-    type: "project",
-    status: { branch: "desenvolvimento", state: "AHEAD" },
-  } as any,
-];
-const toggleCalls: string[] = [];
-const resultPromise = renderRepositoryTree(nodes, (id) => toggleCalls.push(id), undefined, {
-  onReady: ({ progress, log }) => {
-    progress.updateProgress("project-1", "[##] 10% teste");
-    log.append("Log inicial");
-  },
+let output = "";
+stdout.on("data", (chunk) => {
+  output += chunk.toString();
 });
-lastScroll = 5;
-setTimeout(() => {
-  lastScreen?._keys?.enter?.();
-}, 0);
-const result = await resultPromise;
 
-assert.ok(result.nodes.length === 3, "Deve retornar nós informados");
-assert.ok(typeof result.confirmed === "boolean", "Deve retornar resultado confirmado");
-assert.ok(
-  lastFooterContent === "" || lastFooterContent.includes("Enter"),
-  "Deve indicar Enter para sincronizar"
+const waitNextTick = async (): Promise<void> => {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+};
+
+const logs = [
+  createLogEntry("Evento inicial"),
+  createLogEntry("Falha ao autenticar", "error"),
+];
+
+const tree = React.createElement(
+  Layout,
+  {
+    title: "PAJÉ - Teste TUI",
+    orientation: "Use Enter para confirmar",
+    logEntries: logs,
+    logMaximized: false,
+    onToggleLog: () => undefined,
+    children: React.createElement(
+      Box,
+      null,
+      React.createElement(Text, null, "Conteúdo")
+    ),
+  }
 );
-assert.ok(lastItems.some((item) => item.includes("main")), "Deve exibir branch/status na ?rvore");
-assert.ok(lastItems.some((item) => item.includes("10%")), "Deve exibir progresso na ?rvore");
-assert.strictEqual(lastScroll, 5, "Deve preservar scroll ao atualizar lista");
 
-(blessed as any).screen = originalScreen;
+const { unmount } = render(React.createElement(React.Fragment, null, tree), {
+  stdout: stdout as unknown as NodeJS.WriteStream,
+  stdin: stdin as unknown as NodeJS.ReadStream,
+});
+await waitNextTick();
+
+assert.ok(output.includes("PAJÉ - Teste TUI"), "Deve renderizar o título no layout");
+assert.ok(output.includes("Use Enter para confirmar"), "Deve renderizar a orientação");
+assert.ok(output.includes("Evento inicial"), "Deve renderizar entradas do log");
+assert.ok(output.includes("Falha ao autenticar"), "Deve renderizar mensagens de erro");
+assert.ok(/\u001b\[(31|91)m/.test(output), "Deve colorir erro em vermelho");
+
+unmount();
 
 console.log("tui_render_test: OK");

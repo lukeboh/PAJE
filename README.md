@@ -47,7 +47,7 @@ O script garante Node.js 24.x (Active LTS) e valida a instalação.
 
 ### Execução interativa (TUI)
 
-Sem parâmetros, o PAJÉ abre o menu TUI:
+Sem parâmetros, o PAJÉ abre o menu TUI (dashboard com cartões e atalhos F1/F2):
 
 ```bash
 paje
@@ -72,13 +72,13 @@ npm run dev -- <comando>
 
 ### 1) `git-sync` — sincronizar repositórios GitLab
 
-Sincroniza repositórios em paralelo, com seleção por TUI e status de cada repositório.
+Sincroniza repositórios em paralelo, **agregando todos os servidores configurados** (um único `base-dir` local) e exibindo a árvore consolidada na TUI.
 
 > Requisitos detalhados da TUI: consulte [`docs/requisitos-tui-git-sync.md`](docs/requisitos-tui-git-sync.md:1).
 
 **TUI (git-sync):**
 
-- Exibe mensagem de acesso ao servidor durante a listagem.
+- Exibe mensagem de acesso **aos servidores** durante a listagem (com contador de requisições).
 - Apresenta branch e estado de cada repositório (cores iguais ao CLI).
 - Mostra progresso por linha na árvore durante a sincronização.
 - Usa `Enter` para sincronizar os itens selecionados.
@@ -87,7 +87,7 @@ Sincroniza repositórios em paralelo, com seleção por TUI e status de cada rep
 **Exemplo (CLI):**
 
 ```bash
-paje git-sync --base-dir repos --server-name "GitLab" --base-url https://gitlab.com
+paje git-sync --base-dir repos
 ```
 
 **Parâmetros:**
@@ -96,8 +96,8 @@ paje git-sync --base-dir repos --server-name "GitLab" --base-url https://gitlab.
 | --- | --- | --- | --- | --- |
 | `-v`, `--verbose` | não | `false` | Exibe logs detalhados | `true`/`false` |
 | `--base-dir <dir>` | não | `repos` | Diretório base de clonagem | caminho local (aceita `~`) |
-| `--server-name <name>` | não | — | Nome do servidor GitLab | ex: `GitLab` |
-| `--base-url <url>` | não | — | URL base do GitLab | ex: `https://gitlab.com` |
+| `--server-name <name>` | não | — | Nome do servidor GitLab | se informado, filtra servidores pelo nome |
+| `--base-url <url>` | não | — | URL base do GitLab | se informado, filtra servidores pelo URL |
 | `--use-basic-auth` | não | `false` | Usar autenticação básica | requer `--username` |
 | `--username <username>` | não | ? | Usuário para autenticação básica | obrigatório se `--use-basic-auth` |
 | `--password <password>` | não | ? | Senha para autenticação básica | solicitado se necessário |
@@ -118,6 +118,7 @@ paje git-sync --base-dir repos --server-name "GitLab" --base-url https://gitlab.
 
 **Comportamento relevante:**
 
+- O `git-sync` opera sobre **todos os servidores configurados** quando nenhum filtro (`--server-name`/`--base-url`) é fornecido.
 - Sem autenticação, somente repositórios públicos podem ser listados.
 - Se houver associação SSH válida (`~/.ssh/config`), o fluxo prioriza SSH.
 - O resumo final mostra estados: `SYNCED`, `BEHIND`, `AHEAD`, `REMOTE`, `EMPTY`, `LOCAL`, `UNCOMMITTED`.
@@ -225,15 +226,16 @@ Se a chave já existe, o PAJÉ reutiliza e evita sobrescrever, a menos que `--ke
 
 ## Estrutura TUI
 
-A TUI segue o padrão de três quadros:
+A TUI segue o padrão de quatro quadros:
 
 1. **Barra de título**: 1 linha no topo com o nome da funcionalidade.
 2. **Área de trabalho**: região central com menus, formulários e árvore de repositórios.
-3. **Barra de orientações/log**: 15% da tela na parte inferior, dividida em:
-   - **Linha de orientações** (1 linha) com comandos possíveis.
-   - **Área de log** com as mensagens de execução (timestamp por linha e erros em vermelho).
+3. **Barra de orientações** (1 linha) com comandos possíveis.
+4. **Painel de log**: ~15% da tela na parte inferior, com timestamp por linha e erros em vermelho.
 
-Atalho `F12` alterna o log em tela cheia e retorna ao layout padrão.
+Atalho `F12` alterna o log em tela cheia e retorna ao layout padrão. `Esc` retorna à tela anterior e `Ctrl+C` encerra a aplicação.
+
+Consulte o layout detalhado em [docs/TUI_LAYOUT.md](docs/TUI_LAYOUT.md).
 
 ## Testes
 
@@ -243,8 +245,4 @@ npm test
 
 ## Regras do projeto (leitura obrigatória)
 
-Este repositório usa o arquivo [`.clinerules`](.clinerules) como fonte oficial de regras e contexto. Para garantir que ele seja sempre lido por quem trabalha no projeto:
-
-- Sempre revise e siga o conteúdo em [`.clinerules`](.clinerules) antes de iniciar tarefas.
-- Em revisões e PRs, valide se novas mudanças continuam aderentes às regras em [`.clinerules`](.clinerules).
-- Em automações locais (scripts, prompts ou assistentes), adicione uma etapa explícita de leitura de [`.clinerules`](.clinerules).
+Este repositório usa o arquivo [`.roo/rules-code/paje-core.md`](.roo/rules-code/paje-core.md) como fonte oficial de regras e contexto.

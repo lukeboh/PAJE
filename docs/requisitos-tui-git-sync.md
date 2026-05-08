@@ -10,8 +10,8 @@ Este documento define os requisitos da funcionalidade **Sincronizar repositório
 ## Fluxo principal
 
 1. Usuário seleciona `git-sync` no menu principal.
-2. Sistema apresenta feedback de acesso ao servidor e inicia a listagem de repositórios.
-3. Árvore de repositórios é exibida com estados e branchs.
+2. Sistema apresenta feedback de acesso **aos servidores** e inicia a listagem de repositórios em todos os servidores configurados.
+3. Árvore de repositórios é exibida com estados, branchs e caminhos consolidados (um único `base-dir`).
 4. Usuário seleciona itens (grupos/projetos) via checkbox.
 5. Usuário confirma com **Enter** para sincronizar.
 6. Sistema sincroniza respeitando paralelismo configurado.
@@ -20,14 +20,14 @@ Este documento define os requisitos da funcionalidade **Sincronizar repositório
 
 ## Requisitos funcionais
 
-### RF-01 — Feedback de acesso ao servidor
+### RF-01 — Feedback de acesso aos servidores
 
-- Ao iniciar o `git-sync` na TUI, deve haver feedback imediato de acesso ao servidor.
-- A mensagem deve indicar **quantidade de requisições realizadas**.
+- Ao iniciar o `git-sync` na TUI, deve haver feedback imediato de acesso **aos servidores** configurados.
+- A mensagem deve indicar **quantidade de requisições realizadas** (soma global).
 - Deve exibir um **spinner textual** (sequência `/-\|`).
 - Exemplo de mensagem:
-  - `Acessando servidor e carregando repositórios / requisições: 1`
-  - `Acessando servidor e carregando repositórios - requisições: 2`
+  - `Acessando servidores e carregando repositórios / requisições: 1`
+  - `Acessando servidores e carregando repositórios - requisições: 2`
 
 ### RF-02 — Filtros e parâmetros aplicados
 
@@ -36,6 +36,7 @@ Este documento define os requisitos da funcionalidade **Sincronizar repositório
   - `noPublicRepos`
   - `noArchivedRepos`
   - `prepareLocalDirs`
+  - `serverName`/`baseUrl` quando fornecidos para filtrar servidores
 - Apenas projetos filtrados podem aparecer na árvore.
 
 ### RF-03 — Exibição de branch e status

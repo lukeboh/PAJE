@@ -11,6 +11,7 @@ await import("./ssh_key_store_command_test.js");
 await import("./ssh_key_overwrite_test.js");
 await import("./tui_render_test.js");
 await import("./tui_stack_overflow_test.js");
+await import("./tui_menu_dashboard_test.js");
 await import("./gitlab_web_key_test.js");
 await import("./git_sync_auth_guard_test.js");
 await import("./gitlab_personal_token_test.js");

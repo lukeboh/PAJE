@@ -1,40 +1,26 @@
-import blessed from "blessed";
 import { Command } from "commander";
 import { configureGitSyncCommand, configureSshKeyStoreCommand } from "./modules/git/gitCommand.js";
-import { createTuiSession } from "./modules/git/tuiSession.js";
+import { renderMenu, type MenuItem } from "./modules/git/tui/menu.app.js";
 
-type MenuItem = {
-  label: string;
-  command: string;
-  description: string;
-};
 
 const menuItems: MenuItem[] = [
   {
-    label: "Sincronizar repositórios GitLab (git-sync)",
+    label: "Sincronizar repositórios GitLab",
     command: "git-sync",
-    description: "Seleciona grupos e projetos via TUI e executa clone/pull paralelo.",
+    shortcut: "F1",
+    description: "Seleciona grupos e projetos, filtra repositórios e executa clone/pull paralelo.",
   },
   {
-    label: "Gerar e armazenar servidor GitLab (git-server-store)",
+    label: "Registrar servidor GitLab",
     command: "git-server-store",
+    shortcut: "F2",
     description: "Gera chave SSH, grava no ~/.ssh/config, registra no GitLab e salva token.",
   },
 ];
 
 const runMenu = async () => {
-  const session = createTuiSession("PAJÉ");
-  const selection = await session.promptList({
-    title: "PAJÉ - Menu de Funcionalidades",
-    message: "Selecione uma opção",
-    choices: menuItems.map((item) => ({
-      label: item.label,
-      value: item,
-      description: `${item.description}\nConfirme a opção com Enter para iniciar a funcionalidade.`,
-    })),
-  });
-
-  return { session, selection };
+  const selection = await renderMenu(menuItems);
+  return { selection };
 };
 
 const main = async (): Promise<void> => {
@@ -50,9 +36,8 @@ const main = async (): Promise<void> => {
 
   const args = process.argv.slice(2);
   if (args.length === 0) {
-    const { session, selection } = await runMenu();
+    const { selection } = await runMenu();
     if (!selection) {
-      session.destroy();
       return;
     }
     const program = new Command();
@@ -60,18 +45,9 @@ const main = async (): Promise<void> => {
       .name("paje")
       .description("PAJÉ - Plataforma de Apoio à Jornada do Engenheiro")
       .version("0.1.0");
-    configureGitSyncCommand(program, session);
-    configureSshKeyStoreCommand(program, session);
-    program.configureOutput({
-      writeOut: async (str) => {
-        await session.showMessage({ title: "PAJÉ", message: str });
-      },
-      writeErr: async (str) => {
-        await session.showMessage({ title: "PAJÉ - Erro", message: str });
-      },
-    });
+    configureGitSyncCommand(program);
+    configureSshKeyStoreCommand(program);
     await program.parseAsync(["node", "cli.ts", selection.command]);
-    session.destroy();
     return;
   }
 

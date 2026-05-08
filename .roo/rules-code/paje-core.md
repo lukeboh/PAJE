@@ -21,12 +21,15 @@ Você é um Arquiteto de Software Sênior e Desenvolvedor Full-stack. O PAJÉ é
 3. **Padrão de Código:** Conventional Commits e código limpo em português para logs/mensagens ao usuário.
 
 ### Regras de Usabilidade
-1. **Esc:** sempre quer for digitado "esc", o sistema tem voltar à tela anterior. Se o usuário estiver digitando algo, então deve perguntar se ele tem certeza que quer desistir da operação.
+1. **Esc:** ao pressionar "Esc", o sistema deve voltar à tela anterior sem confirmação adicional.
 2. **Parâmetros:** os parâmetros para cada funcionalidade devem ser apresentados em um único formulário de execução, evitando que se espalhe por diversas telas e dificultando a visualização completa dos parâmetros.
-3. A aplicação TUI tem 3 quadros: 
-3.1 Um barra superior que guarda o título ou a funcioalidade.
-3.2 Um barra principal, que apresenta menus e formulários.
-3.3 Uma barra inferior para apresentar orientações sensíveis ao que está em tela e em preenchimento pelo usuário, com uma explicação para o usuário do que deve ser feito. Portanto garanta que em todos os locais que o usuário puder colocar o foco (opções de menu, inputs, etc), que seja apresentado uma explicação do que ele deve fazer.
+3. A aplicação TUI tem 4 quadros:
+3.1 Uma barra superior que guarda o título da funcionalidade.
+3.2 Uma barra principal, que apresenta menus e formulários.
+3.3 Uma barra inferior de orientação (1 linha) para explicar o que deve ser feito conforme o foco atual.
+3.4 Um painel de log na parte inferior com ~15% da altura (com logs e erros em vermelho).
+4. O atalho **F12** alterna o log em tela cheia e retorna ao layout padrão.
+5. **Ctrl+C** encerra a aplicação.
 
 ## Estrutura de Tarefas
 - Sempre valide dependências antes de iniciar uma funcionalidade.
