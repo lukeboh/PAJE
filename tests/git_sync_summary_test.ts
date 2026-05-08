@@ -7,7 +7,7 @@ import { writeGitServers } from "../src/modules/git/persistence.js";
 
 const originalFetch = globalThis.fetch;
 
-const projects = [
+const mainProjects = [
   {
     id: 1,
     name: "Public Repo",
@@ -40,176 +40,175 @@ const projects = [
   },
 ];
 
-const groups = [
-  { id: 10, name: "Grupo", full_path: "grupo", parent_id: null },
+const devProjects = [
+  {
+    id: 11,
+    name: "Dev Repo",
+    path_with_namespace: "devops/dev-repo",
+    ssh_url_to_repo: "git@gitlab.dev.local:devops/dev-repo.git",
+    http_url_to_repo: "https://gitlab.dev.local/devops/dev-repo.git",
+    visibility: "private",
+    archived: false,
+    default_branch: "develop",
+  },
+  {
+    id: 12,
+    name: "Dev Public",
+    path_with_namespace: "devops/dev-public",
+    ssh_url_to_repo: "git@gitlab.dev.local:devops/dev-public.git",
+    http_url_to_repo: "https://gitlab.dev.local/devops/dev-public.git",
+    visibility: "public",
+    archived: false,
+    default_branch: "main",
+  },
 ];
 
-globalThis.fetch = (async (url: string): Promise<Response> => {
-  if (url.includes("/api/v4/groups")) {
-    return new Response(JSON.stringify(groups), { status: 200, headers: { "content-type": "application/json" } });
+const mainGroups = [{ id: 10, name: "Grupo", full_path: "grupo", parent_id: null }];
+const devGroups = [{ id: 20, name: "DevOps", full_path: "devops", parent_id: null }];
+
+const resolveApiResponse = (url: string): Response => {
+  if (url.startsWith("https://git.tse.jus.br")) {
+    if (url.includes("/api/v4/groups")) {
+      return new Response(JSON.stringify(mainGroups), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (url.includes("/api/v4/projects?visibility=public")) {
+      return new Response(
+        JSON.stringify(mainProjects.filter((project) => project.visibility === "public")),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    if (url.includes("/api/v4/projects")) {
+      return new Response(
+        JSON.stringify(mainProjects.filter((project) => project.visibility !== "public")),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
   }
-  if (url.includes("/api/v4/projects?visibility=public")) {
-    return new Response(
-      JSON.stringify(projects.filter((project) => project.visibility === "public")),
-      { status: 200, headers: { "content-type": "application/json" } }
-    );
-  }
-  if (url.includes("/api/v4/projects")) {
-    return new Response(
-      JSON.stringify(projects.filter((project) => project.visibility !== "public")),
-      { status: 200, headers: { "content-type": "application/json" } }
-    );
+  if (url.startsWith("https://gitlab.dev.local")) {
+    if (url.includes("/api/v4/groups")) {
+      return new Response(JSON.stringify(devGroups), { status: 200, headers: { "content-type": "application/json" } });
+    }
+    if (url.includes("/api/v4/projects?visibility=public")) {
+      return new Response(
+        JSON.stringify(devProjects.filter((project) => project.visibility === "public")),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
+    if (url.includes("/api/v4/projects")) {
+      return new Response(
+        JSON.stringify(devProjects.filter((project) => project.visibility !== "public")),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }
   }
   return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
-}) as typeof fetch;
+};
+
+globalThis.fetch = (async (url: string): Promise<Response> => resolveApiResponse(url)) as typeof fetch;
 
 const runSummaryTests = async (): Promise<void> => {
+  let output = "";
+  const originalLog = console.log;
+  console.log = (message?: unknown) => {
+    output += `${String(message ?? "")}\n`;
+    originalLog(message);
+  };
 
-let output = "";
-const originalLog = console.log;
-console.log = (message?: unknown) => {
-  output += `${String(message ?? "")}\n`;
-  originalLog(message);
-};
+  const originalHome = process.env.HOME;
+  const originalArgv = process.argv;
+  process.env.HOME = "/tmp/paje-tests";
+  const homeDir = process.env.HOME;
+  const sshDir = path.join(homeDir, ".ssh");
+  fs.mkdirSync(sshDir, { recursive: true });
+  const keyPath = path.join(sshDir, "paje");
+  fs.writeFileSync(keyPath, "dummy-private-key", "utf-8");
+  const sshConfigPath = path.join(sshDir, "config");
+  fs.writeFileSync(
+    sshConfigPath,
+    "Host git.tse.jus.br\n  HostName git.tse.jus.br\n  User git\n  IdentityFile ~/.ssh/paje\n  IdentitiesOnly yes\nHost gitlab.dev.local\n  HostName gitlab.dev.local\n  User git\n  IdentityFile ~/.ssh/paje\n  IdentitiesOnly yes\n",
+    "utf-8"
+  );
+  const knownHostsPath = path.join(sshDir, "known_hosts");
+  fs.writeFileSync(
+    knownHostsPath,
+    "git.tse.jus.br ssh-rsa ********************... [SSH KEY MASKED]\n" +
+      "gitlab.dev.local ssh-rsa ********************... [SSH KEY MASKED]\n",
+    "utf-8"
+  );
+  const envPath = path.join(homeDir, "env-test.yaml");
+  fs.writeFileSync(envPath, "", "utf-8");
 
-const originalHome = process.env.HOME;
-const originalArgv = process.argv;
-process.env.HOME = "/tmp/paje-tests";
-const homeDir = process.env.HOME;
-const sshDir = path.join(homeDir, ".ssh");
-fs.mkdirSync(sshDir, { recursive: true });
-const keyPath = path.join(sshDir, "paje");
-fs.writeFileSync(keyPath, "dummy-private-key", "utf-8");
-const sshConfigPath = path.join(sshDir, "config");
-fs.writeFileSync(
-  sshConfigPath,
-  "Host git.tse.jus.br\n  HostName git.tse.jus.br\n  User git\n  IdentityFile ~/.ssh/paje\n  IdentitiesOnly yes\n",
-  "utf-8"
-);
-const knownHostsPath = path.join(sshDir, "known_hosts");
-fs.writeFileSync(knownHostsPath, "git.tse.jus.br ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQD\n", "utf-8");
-const envPath = path.join(homeDir, "env-test.yaml");
-fs.writeFileSync(envPath, "", "utf-8");
+  const program = new Command();
+  configureGitSyncCommand(program);
+  const runCli = async (args: string[]): Promise<void> => {
+    process.argv = ["node", "cli.ts", ...args];
+    await program.parseAsync(["node", "cli.ts", ...args]);
+  };
+  writeGitServers([
+    {
+      id: "https://git.tse.jus.br",
+      name: "TSE-GIT",
+      baseUrl: "https://git.tse.jus.br",
+      token: "glpat-test-token",
+    },
+    {
+      id: "https://gitlab.dev.local",
+      name: "DEV-GIT",
+      baseUrl: "https://gitlab.dev.local",
+      token: "glpat-dev-token",
+    },
+  ]);
+  await runCli(["git-sync", "--base-dir", "repos", "--env-file", envPath, "--no-summary=true"]);
 
-const program = new Command();
-configureGitSyncCommand(program);
-const runCli = async (args: string[]): Promise<void> => {
-  process.argv = ["node", "cli.ts", ...args];
-  await program.parseAsync(["node", "cli.ts", ...args]);
-};
-writeGitServers([
-  {
-    id: "https://git.tse.jus.br",
-    name: "TSE-GIT",
-    baseUrl: "https://git.tse.jus.br",
-    token: "glpat-test-token",
-  },
-]);
-await runCli([
-  "git-sync",
-  "--server-name",
-  "TSE-GIT",
-  "--base-url",
-  "https://git.tse.jus.br",
-  "--base-dir",
-  "repos",
-  "--env-file",
-  envPath,
-  "--no-summary=true",
-]);
+  assert.ok(!output.includes("Resumo"), "Não deve exibir resumo quando --no-summary=true");
 
-assert.ok(!output.includes("Resumo"), "Não deve exibir resumo quando --no-summary=true");
+  output = "";
+  await runCli(["git-sync", "--base-dir", "repos", "--env-file", envPath]);
+  assert.ok(output.includes("Resumo") || output.includes("Resumo"), "Deve exibir resumo por padrão");
+  assert.ok(
+    output.includes("Repositórios identificados") || output.includes("Reposit?rios identificados"),
+    "Deve contar todos os repositórios"
+  );
+  assert.ok(
+    output.includes("Repositórios identificados:  5") || output.includes("Reposit?rios identificados:  5"),
+    "Deve contar todos os repositórios no resumo"
+  );
+  assert.ok(
+    output.includes("Públicos                     2") || output.includes("P?blicos                     2"),
+    "Deve contar repositórios públicos"
+  );
+  assert.ok(output.includes("Públicos") || output.includes("P?blicos"), "Deve contar repositórios públicos");
+  assert.ok(output.includes("Arquivados"), "Deve contar repositórios arquivados");
 
-output = "";
-await runCli([
-  "git-sync",
-  "--server-name",
-  "TSE-GIT",
-  "--base-url",
-  "https://git.tse.jus.br",
-  "--base-dir",
-  "repos",
-  "--env-file",
-  envPath,
-]);
-assert.ok(output.includes("Resumo") || output.includes("Resumo"), "Deve exibir resumo por padrão");
-assert.ok(
-  output.includes("Repositórios identificados") || output.includes("Reposit?rios identificados"),
-  "Deve contar todos os repositórios"
-);
-assert.ok(
-  output.includes("Repositórios identificados:  3") || output.includes("Reposit?rios identificados:  3"),
-  "Deve contar todos os repositórios no resumo"
-);
-assert.ok(
-  output.includes("Públicos                     1") || output.includes("P?blicos                     1"),
-  "Deve contar repositórios públicos"
-);
-assert.ok(output.includes("Públicos") || output.includes("P?blicos"), "Deve contar repositórios públicos");
-assert.ok(output.includes("Arquivados"), "Deve contar repositórios arquivados");
+  output = "";
+  await runCli(["git-sync", "--base-dir", "repos", "--env-file", envPath, "--no-public-repos=true"]);
+  assert.ok(!output.includes("public-repo"), "Não deve listar repositórios públicos");
+  assert.ok(
+    output.includes("Repositórios identificados:  3") || output.includes("Reposit?rios identificados:  3"),
+    "Resumo deve respeitar filtros de público"
+  );
 
-output = "";
-await runCli([
-  "git-sync",
-  "--server-name",
-  "TSE-GIT",
-  "--base-url",
-  "https://git.tse.jus.br",
-  "--base-dir",
-  "repos",
-  "--env-file",
-  envPath,
-  "--no-public-repos=true",
-]);
-assert.ok(!output.includes("public-repo"), "Não deve listar repositórios públicos");
-assert.ok(
-  output.includes("Repositórios identificados:  2") || output.includes("Reposit?rios identificados:  2"),
-  "Resumo deve respeitar filtros de público"
-);
+  output = "";
+  await runCli(["git-sync", "--base-dir", "repos", "--env-file", envPath, "--no-archived-repos=true"]);
+  assert.ok(!output.includes("archived-repo"), "Não deve listar repositórios arquivados");
+  assert.ok(
+    output.includes("Repositórios identificados:  4") || output.includes("Reposit?rios identificados:  4"),
+    "Resumo deve respeitar filtros de arquivados"
+  );
 
-output = "";
-await runCli([
-  "git-sync",
-  "--server-name",
-  "TSE-GIT",
-  "--base-url",
-  "https://git.tse.jus.br",
-  "--base-dir",
-  "repos",
-  "--env-file",
-  envPath,
-  "--no-archived-repos=true",
-]);
-assert.ok(!output.includes("archived-repo"), "Não deve listar repositórios arquivados");
-assert.ok(
-  output.includes("Repositórios identificados:  2") || output.includes("Reposit?rios identificados:  2"),
-  "Resumo deve respeitar filtros de arquivados"
-);
+  output = "";
+  await runCli(["git-sync", "--base-dir", "repos", "--env-file", envPath, "--filter=DEV-GIT/devops/*"]);
+  assert.ok(
+    output.includes("Repositórios identificados:  2") || output.includes("Reposit?rios identificados:  2"),
+    "Resumo deve respeitar filtro por padrão"
+  );
 
-output = "";
-await runCli([
-  "git-sync",
-  "--server-name",
-  "TSE-GIT",
-  "--base-url",
-  "https://git.tse.jus.br",
-  "--base-dir",
-  "repos",
-  "--env-file",
-  envPath,
-  "--filter=grupo/public-repo",
-]);
-assert.ok(
-  output.includes("Repositórios identificados:  1") || output.includes("Reposit?rios identificados:  1"),
-  "Resumo deve respeitar filtro por padrão"
-);
+  console.log = originalLog;
+  process.env.HOME = originalHome;
+  process.argv = originalArgv;
+  globalThis.fetch = originalFetch as typeof fetch;
 
-console.log = originalLog;
-process.env.HOME = originalHome;
-process.argv = originalArgv;
-globalThis.fetch = originalFetch as typeof fetch;
-
-console.log("git_sync_summary_test: OK");
+  console.log("git_sync_summary_test: OK");
 };
 
 const summaryPromise = runSummaryTests();

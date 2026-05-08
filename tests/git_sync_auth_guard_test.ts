@@ -21,6 +21,12 @@ fs.writeFileSync(
       baseUrl: "https://gitlab.example.com",
       useBasicAuth: false,
     },
+    {
+      id: "https://gitlab.dev.local",
+      name: "DEV-GIT",
+      baseUrl: "https://gitlab.dev.local",
+      useBasicAuth: false,
+    },
   ])
 );
 
@@ -33,19 +39,26 @@ globalThis.fetch = (async (url: string, init?: RequestInit): Promise<Response> =
 let capturedLogs = "";
 const originalLog = console.log;
 console.log = (message?: unknown) => {
-  capturedLogs += String(message ?? "");
+  capturedLogs += `${String(message ?? "")}\n`;
 };
 
 const program = new Command();
 configureGitSyncCommand(program);
-await program.parseAsync(["node", "cli.ts", "git-sync", "--server-name", "TSE-GIT"]);
+await program.parseAsync(["node", "cli.ts", "git-sync"]);
 
 assert.ok(
-  capturedLogs.includes("Não há autenticação configurada"),
-  "Deve avisar quando não há autenticação"
+  capturedLogs.includes("Não há autenticação configurada para TSE-GIT"),
+  "Deve avisar quando não há autenticação no servidor TSE-GIT"
 );
-const gitlabCalls = calls.filter((call) => call.url.includes("gitlab.example.com"));
-assert.strictEqual(gitlabCalls.length, 0, "Não deve chamar API sem autenticação");
+assert.ok(
+  capturedLogs.includes("Não há autenticação configurada para DEV-GIT"),
+  "Deve avisar quando não há autenticação no servidor DEV-GIT"
+);
+assert.ok(
+  capturedLogs.includes("Nenhum servidor com autenticação válida"),
+  "Deve informar quando nenhum servidor possui autenticação válida"
+);
+assert.strictEqual(calls.length, 0, "Não deve chamar API sem autenticação");
 
 console.log = originalLog;
 globalThis.fetch = originalFetch as typeof fetch;
