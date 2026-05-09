@@ -2427,20 +2427,20 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       const tuiResult = await renderRepositoryTree(tree, (id) => toggleById(tree, id), session, {
         header,
         footer:
-          "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para sincronizar | Esc para cancelar | F12 para ampliar log",
+          "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para confirmar seleção | Esc para cancelar | F12 para ampliar log",
         onReady: (handlers) => {
           treeProgress = handlers.progress;
           tuiLogState.append = handlers.log.append;
           tuiLogState.setOrientation = handlers.log.setOrientation;
           tuiLogReady = true;
-          handlers.log.append("Tela de sincronização pronta.");
+          handlers.log.append("Tela de seleção pronta.");
           logBuffer.forEach((entry) => handlers.log.append(entry.message, entry.level));
           logBuffer.length = 0;
           handlers.render();
         },
       });
       if (!tuiResult.confirmed) {
-        logger.warn("Sincronização cancelada pelo usuário");
+        logger.warn("Seleção cancelada pelo usuário");
         return;
       }
 
@@ -2450,146 +2450,15 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         return;
       }
 
-      const parallelOptions = await resolveParallelOptions(session);
-      const resolvedUserName = mergedOptions.username?.trim() || undefined;
-      const resolvedUserEmail = mergedOptions.userEmail?.trim() || undefined;
-      const targets = prepareTargets(
-        selected,
-        mergedOptions.baseDir ?? "repos",
-        resolvedUserName,
-        resolvedUserEmail
-      );
-
-      logger.info(`Sincronizando ${targets.length} repositórios`);
-      logToTui(`Sincronizando ${targets.length} repositórios`);
-      tuiLogState.setOrientation(
-        "Sincronização em andamento | Aguarde a conclusão | F12 para ampliar log | Esc para cancelar"
-      );
-      const targetProgress = new Map<
-        string,
-        { objectsReceived?: number; objectsTotal?: number; transferred?: string; speed?: string }
-      >();
-      const syncStartAt = Date.now();
-      const syncResults = await parallelSync(
-        targets,
-        { ...parallelOptions, logger: (message, level) => logToTui(message, level) },
-        (result) => {
-          const branchLabel = result.target.branch ? `#${result.target.branch}` : "";
-          const targetKey = `${result.target.pathWithNamespace}${branchLabel}`;
-          const progressSnapshot = targetProgress.get(targetKey);
-          if (progressSnapshot?.objectsTotal && (progressSnapshot.objectsReceived ?? 0) < progressSnapshot.objectsTotal) {
-            progressSnapshot.objectsReceived = progressSnapshot.objectsTotal;
-            targetProgress.set(targetKey, progressSnapshot);
-          }
-          if (treeProgress) {
-            const actionLabel = result.status === "skipped" ? "SEM AÇÃO" : result.status.toUpperCase();
-            const detail = formatTransferDetail({
-              progress: targetProgress.get(targetKey),
-              status: result.status,
-              message: result.message,
-            });
-            const line = `${renderProgressBar(1, 1)} 100% ${actionLabel}${detail}`;
-            const nodeId = `project-${result.target.id}`;
-            treeProgress.updateProgress(nodeId, line);
-          }
-          if (result.status === "failed") {
-            logger.error(`${result.target.pathWithNamespace} falhou: ${result.message}`);
-            logToTui(`${result.target.pathWithNamespace} falhou: ${result.message}`, "error");
-          } else {
-            logger.info(`${result.target.pathWithNamespace} ${result.status}`);
-            logToTui(`${result.target.pathWithNamespace} ${result.status}`);
-          }
-        },
-        (event) => {
-          const branchLabel = event.target.branch ? `#${event.target.branch}` : "";
-          const targetKey = `${event.target.pathWithNamespace}${branchLabel}`;
-          const previousProgress = targetProgress.get(targetKey);
-          const nextObjectsReceived = Math.max(previousProgress?.objectsReceived ?? 0, event.objectsReceived ?? 0);
-          const nextObjectsTotal = Math.max(previousProgress?.objectsTotal ?? 0, event.objectsTotal ?? 0);
-          targetProgress.set(targetKey, {
-            objectsReceived: nextObjectsReceived || undefined,
-            objectsTotal: nextObjectsTotal || undefined,
-            transferred: event.transferred ?? previousProgress?.transferred,
-            speed: event.speed ?? previousProgress?.speed,
-          });
-          if (!treeProgress) {
-            return;
-          }
-          const line = renderWorkerLine(event, 20);
-          const nodeId = `project-${event.target.id}`;
-          treeProgress.updateProgress(nodeId, line);
-          if (event.raw) {
-            logToTui(`Git: ${event.raw}`);
-          }
-        }
-      );
-      const syncDurationMs = Date.now() - syncStartAt;
-      const counts = syncResults.reduce(
-        (acc, result) => {
-          acc.total += 1;
-          if (result.status === "cloned") {
-            acc.cloned += 1;
-          } else if (result.status === "pulled") {
-            acc.pulled += 1;
-          } else if (result.status === "pushed") {
-            acc.pushed += 1;
-          } else if (result.status === "skipped") {
-            acc.skipped += 1;
-          } else if (result.status === "failed") {
-            acc.failed += 1;
-          }
-          return acc;
-        },
-        { total: 0, cloned: 0, pulled: 0, pushed: 0, skipped: 0, failed: 0 }
-      );
-      if (session) {
-        const tempoSync = `${(syncDurationMs / 1000).toFixed(2)}s`;
-        const orderedResults = [...syncResults].sort((a, b) =>
-          `${a.target.pathWithNamespace}#${a.target.branch ?? ""}`.localeCompare(
-            `${b.target.pathWithNamespace}#${b.target.branch ?? ""}`,
-            "pt-BR",
-            { sensitivity: "base" }
-          )
-        );
-        const repoWidth = Math.min(
-          64,
-          Math.max(12, ...orderedResults.map((result) => result.target.pathWithNamespace.length))
-        );
-        const summaryLines: string[] = [];
-        summaryLines.push(`Tempo: ${tempoSync}`);
-        summaryLines.push(
-          `TOTAL ${counts.total} | CLONE ${counts.cloned} | PULL ${counts.pulled} | PUSH ${counts.pushed} | ` +
-            `SEM AÇÃO ${counts.skipped} | FALHAS ${counts.failed}`
-        );
-        summaryLines.push("");
-        logToTui(
-          `Resumo: TOTAL ${counts.total} | CLONE ${counts.cloned} | PULL ${counts.pulled} | PUSH ${counts.pushed}`
-        );
-        logToTui(`Resumo: SEM AÇÃO ${counts.skipped} | FALHAS ${counts.failed}`);
-        summaryLines.push(
-          `#  ${"Repositório".padEnd(repoWidth, " ")}  STATUS    Qtd Objetos    Volume (MiB)   Velocidade (MiB/s)`
-        );
-        orderedResults.forEach((result, index) => {
-          const branchLabel = result.target.branch ? `#${result.target.branch}` : "";
-          const progress = targetProgress.get(`${result.target.pathWithNamespace}${branchLabel}`);
-          const objectsLabel = formatObjects(progress).padEnd(14, " ");
-          const volumeLabel = parseMiB(progress?.transferred).padEnd(13, " ");
-          const speedLabel = parseMiB(progress?.speed, true);
-          const repoLabel = formatRepoLabel(`${result.target.pathWithNamespace}${branchLabel}`, repoWidth);
-          const rowNumber = String(index + 1).padStart(2, " ");
-          const actionLabelRaw = result.status === "skipped" ? "SEM AÇÃO" : result.status.toUpperCase();
-          summaryLines.push(
-            `${rowNumber}  ${repoLabel}  ${actionLabelRaw.padEnd(8, " ")}  ${objectsLabel}  ${volumeLabel}  ${speedLabel}`
-          );
-          if (result.status === "failed") {
-            summaryLines.push(`   erro: ${result.message ?? "Erro desconhecido"}`);
-          }
-        });
-        await session.showMessage({
-          title: "Resumo da sincronização",
-          message: summaryLines.join("\n"),
-        });
+      if (!session) {
+        logger.warn("Sessão TUI indisponível para registrar seleção.");
+        return;
       }
+
+      await session.showMessage({
+        title: "GitLab",
+        message: "Seleção registrada. A sincronização será implementada na próxima etapa.",
+      });
       return;
     });
 };

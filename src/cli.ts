@@ -1,7 +1,7 @@
 import { Command } from "commander";
 import { configureGitSyncCommand, configureSshKeyStoreCommand } from "./modules/git/gitCommand.js";
 import { renderMenu, type MenuItem } from "./modules/git/tui/menu.app.js";
-
+import { createSessionForCommand } from "./cliSession.js";
 
 const menuItems: MenuItem[] = [
   {
@@ -45,8 +45,9 @@ const main = async (): Promise<void> => {
       .name("paje")
       .description("PAJÉ - Plataforma de Apoio à Jornada do Engenheiro")
       .version("0.1.0");
-    configureGitSyncCommand(program);
-    configureSshKeyStoreCommand(program);
+    const session = createSessionForCommand(selection.command);
+    configureGitSyncCommand(program, session);
+    configureSshKeyStoreCommand(program, session);
     await program.parseAsync(["node", "cli.ts", selection.command]);
     return;
   }
