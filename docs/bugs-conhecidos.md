@@ -1,7 +1,30 @@
-Ao inspecionar storeSshKeyOnly() com a ferramenta de leitura (src/modules/git/gitCommand.ts), fica claro que o objeto credentials ainda tenta acessar cliOptions.password. Esse identificador deixou de existir nesse escopo após a remoção do fluxo legado, e exatamente por isso o ssh_key_store_command_test.ts derruba o git-server-store.
+# Bugs conhecidos
 
-Para seguir:
+## BUG-001 — Senha ausente no fluxo `git-server-store`
 
-Incluir password?: string em SshKeyStoreCliOptions na mesma seção do arquivo (linhas 558+).
-Trocar o uso de cliOptions.password por algo como resolvedPassword ?? cli?.password ?? credentials.password dentro do bloco de credenciais.
-Ajustar o teste para garantir que a senha consolidada continue coberta, e então rodar npm test novamente.
+**Descrição:**
+O fluxo `storeSshKeyOnly()` acessa `cliOptions.password`, que pode não existir após remoção de fluxo legado, causando falha em `ssh_key_store_command_test.ts`.
+
+**Impacto:**
+Impede execução correta do `git-server-store` quando a senha só está no env ou em prompt.
+
+**Como reproduzir:**
+1. Executar `npm test`.
+2. O teste `ssh_key_store_command_test.ts` falha na etapa de credenciais.
+
+**Status:**
+Aberto.
+
+**Solução planejada:**
+- Incluir `password?: string` em `SshKeyStoreCliOptions`.
+- Usar fallback `resolvedPassword ?? cli?.password ?? credentials.password`.
+- Ajustar teste para cobrir senha consolidada e executar `npm test`.
+
+---
+
+## Como registrar novos bugs
+
+1. Descreva o comportamento esperado e o comportamento atual.
+2. Registre passos de reprodução.
+3. Inclua impacto e workaround (se existir).
+4. Atualize o status e, se corrigido, referência ao commit/PR.

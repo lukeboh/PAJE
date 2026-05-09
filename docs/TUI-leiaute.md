@@ -17,7 +17,7 @@ Padronizar a experiência de navegação e mensagens da TUI em um layout de 4 pa
 
 3. **Barra de orientação** (1 linha)
    - Apresenta instruções contextuais do que o usuário pode fazer.
-   - Deve sempre refletir o item com foco ou a etapa atual.
+   - Deve refletir o item com foco ou a etapa atual.
 
 4. **Painel de log** (parte inferior)
    - Ocupa aproximadamente **15%** da altura da tela quando em modo padrão.
@@ -40,3 +40,11 @@ Padronizar a experiência de navegação e mensagens da TUI em um layout de 4 pa
 - O layout deve manter o título e a linha de orientação visíveis ao maximizar o log via F12.
 - A área de trabalho pode ser ocultada quando o log estiver maximizado.
 - Componentes reutilizáveis devem ser usados para título, orientação, workspace e log.
+
+## Componentes atuais
+
+- [`Layout`](../src/modules/git/tui/layout.tsx:1)
+- [`TitleBar`](../src/modules/git/tui/components/TitleBar.tsx:1)
+- [`OrientationBar`](../src/modules/git/tui/components/OrientationBar.tsx:1)
+- [`Workspace`](../src/modules/git/tui/components/Workspace.tsx:1)
+- [`LoggerPanel`](../src/modules/git/tui/components/LoggerPanel.tsx:1)
