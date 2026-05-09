@@ -47,7 +47,7 @@ O script garante Node.js 24.x (Active LTS) e valida a instalação.
 
 ### Execução interativa (TUI)
 
-Sem parâmetros, o PAJÉ abre o menu TUI (dashboard com cartões e atalhos F1/F2):
+Sem parâmetros, o PAJÉ abre o menu TUI (dashboard com cartões e atalhos S/G):
 
 ```bash
 paje

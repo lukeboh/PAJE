@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { Box, Text, render, useInput } from "ink";
 import { Layout } from "./layout.js";
 import { createLogEntry, type LogEntry } from "./logger.js";
@@ -50,7 +50,7 @@ export const MenuDashboard: React.FC<MenuDashboardProps> = ({ items, selectedInd
 };
 
 export const MENU_ORIENTATION_MESSAGE =
-  "F1/F2 para selecionar | Setas para navegar | Enter para confirmar | Esc para sair | F12 para ampliar log";
+  "S/G para selecionar | Setas para navegar | Enter para confirmar | Esc para sair | F12 para ampliar log";
 
 export const renderMenu = async (items: MenuItem[]): Promise<MenuItem | null> => {
   return new Promise((resolve) => {
@@ -71,7 +71,11 @@ export const renderMenu = async (items: MenuItem[]): Promise<MenuItem | null> =>
 
     const App: React.FC = () => {
       const [selectedIndex, setSelectedIndex] = useState(0);
-      const logEntries = useMemo<LogEntry[]>(() => [createLogEntry("Selecione uma funcionalidade")], []);
+      const [logEntries, setLogEntries] = useState<LogEntry[]>(() => [createLogEntry("Selecione uma funcionalidade")]);
+
+      const appendLog = (message: string): void => {
+        setLogEntries((current) => [...current, createLogEntry(message)]);
+      };
 
       const clampIndex = (nextIndex: number): number => {
         if (items.length === 0) {
@@ -81,18 +85,42 @@ export const renderMenu = async (items: MenuItem[]): Promise<MenuItem | null> =>
       };
 
       useInput((input, key) => {
-        const keyName = (key as { name?: string }).name;
-        if (keyName === "f1") {
-          setSelectedIndex(0);
+        const normalizedInput = input.toLowerCase();
+        if (normalizedInput === "s") {
+          const selected = items[0];
+          if (selected) {
+            appendLog(`Selecionado: ${selected.label}`);
+            finalize(selected);
+          }
+          return;
         }
-        if (keyName === "f2") {
-          setSelectedIndex(clampIndex(1));
+        if (normalizedInput === "g") {
+          const selected = items[clampIndex(1)];
+          if (selected) {
+            appendLog(`Selecionado: ${selected.label}`);
+            finalize(selected);
+          }
+          return;
         }
         if (key.leftArrow || key.upArrow) {
-          setSelectedIndex((value: number) => clampIndex(value - 1));
+          setSelectedIndex((value: number) => {
+            const nextIndex = clampIndex(value - 1);
+            const selected = items[nextIndex];
+            if (selected) {
+              appendLog(`Selecionado: ${selected.label}`);
+            }
+            return nextIndex;
+          });
         }
         if (key.rightArrow || key.downArrow || key.tab) {
-          setSelectedIndex((value: number) => clampIndex(value + 1));
+          setSelectedIndex((value: number) => {
+            const nextIndex = clampIndex(value + 1);
+            const selected = items[nextIndex];
+            if (selected) {
+              appendLog(`Selecionado: ${selected.label}`);
+            }
+            return nextIndex;
+          });
         }
         if (key.return) {
           finalize(items[clampIndex(selectedIndex)] ?? null);
@@ -100,11 +128,19 @@ export const renderMenu = async (items: MenuItem[]): Promise<MenuItem | null> =>
         if (key.escape) {
           finalize(null);
         }
-        if (input === "1") {
+        if (normalizedInput === "1") {
           setSelectedIndex(0);
+          const selected = items[0];
+          if (selected) {
+            appendLog(`Selecionado: ${selected.label}`);
+          }
         }
-        if (input === "2") {
+        if (normalizedInput === "2") {
           setSelectedIndex(clampIndex(1));
+          const selected = items[clampIndex(1)];
+          if (selected) {
+            appendLog(`Selecionado: ${selected.label}`);
+          }
         }
       });
 

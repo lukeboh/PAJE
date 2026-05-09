@@ -59,13 +59,13 @@ const items: MenuItem[] = [
     label: "Sincronizar repositórios GitLab",
     command: "git-sync",
     description: "Sincroniza projetos e repositórios.",
-    shortcut: "F1",
+    shortcut: "S",
   },
   {
     label: "Registrar servidor GitLab",
     command: "git-server-store",
     description: "Registra servidor e token.",
-    shortcut: "F2",
+    shortcut: "G",
   },
 ];
 
@@ -79,10 +79,10 @@ await waitNextTick();
 
 const normalized = normalizeOutput(output);
 
-assert.ok(normalized.includes("Sincronizar repositórios GitLab"), "Deve renderizar o cartão F1");
-assert.ok(normalized.includes("Registrar servidor GitLab"), "Deve renderizar o cartão F2");
+assert.ok(normalized.includes("Sincronizar repositórios GitLab"), "Deve renderizar o cartão S");
+assert.ok(normalized.includes("Registrar servidor GitLab"), "Deve renderizar o cartão G");
 assert.ok(normalized.includes("Sincroniza projetos e repositórios."), "Deve renderizar a descrição selecionada");
-assert.ok(MENU_ORIENTATION_MESSAGE.includes("F1/F2"), "Mensagem de orientação deve citar atalhos");
+assert.ok(MENU_ORIENTATION_MESSAGE.includes("S/G"), "Mensagem de orientação deve citar atalhos");
 
 unmount();
 

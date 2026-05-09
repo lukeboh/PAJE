@@ -7,13 +7,13 @@ const menuItems: MenuItem[] = [
   {
     label: "Sincronizar repositórios GitLab",
     command: "git-sync",
-    shortcut: "F1",
+    shortcut: "S",
     description: "Seleciona grupos e projetos, filtra repositórios e executa clone/pull paralelo.",
   },
   {
     label: "Registrar servidor GitLab",
     command: "git-server-store",
-    shortcut: "F2",
+    shortcut: "G",
     description: "Gera chave SSH, grava no ~/.ssh/config, registra no GitLab e salva token.",
   },
 ];
