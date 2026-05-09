@@ -201,7 +201,7 @@ export const renderRepositoryTree = async (
       const [logMaximized, setLogMaximized] = useState(false);
       const [orientation, setOrientation] = useState(
         options?.footer ??
-          "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para sincronizar | Esc para cancelar | Ctrl+F11 para ampliar área de trabalho | Ctrl+F12 para ampliar log"
+          "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para sincronizar | Esc para cancelar | W para ampliar área de trabalho | L para ampliar log"
       );
       const [version, setVersion] = useState(0);
       const progressMapRef = useRef<Map<string, ProgressSnapshot>>(new Map());

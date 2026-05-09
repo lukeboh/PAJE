@@ -16,7 +16,7 @@ export const LoggerPanel: React.FC<LoggerPanelProps> = ({ entries, height }) => 
     if (height <= 0) {
       return [];
     }
-    return entries.slice(Math.max(0, entries.length - height));
+    return entries.slice(-height);
   }, [entries, height]);
 
   return (

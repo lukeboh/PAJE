@@ -96,7 +96,7 @@ Este documento define os requisitos da funcionalidade **Sincronizar repositório
 ### RU-02 — Orientações
 
 - A linha de orientações deve indicar ações básicas: navegar, selecionar, sincronizar, cancelar.
-- Deve exibir os atalhos `Ctrl+F11` para maximizar/restaurar a área de trabalho e `Ctrl+F12` para maximizar/restaurar o log.
+- Deve exibir os atalhos `W` para maximizar/restaurar a área de trabalho e `L` para maximizar/restaurar o log.
 
 ### RU-03 — Log de operações
 
@@ -104,8 +104,8 @@ Este documento define os requisitos da funcionalidade **Sincronizar repositório
 - Cada linha deve ter data/hora com precisão de segundos.
 - Mensagens de erro devem aparecer em vermelho.
 - Scroll do log deve ser automático.
-- Ao pressionar `Ctrl+F12`, o log deve ocupar a tela inteira e retornar ao layout padrão ao pressionar `Ctrl+F12` novamente.
-- Ao pressionar `Ctrl+F11`, a área de trabalho deve ocupar a tela inteira e retornar ao layout padrão ao pressionar `Ctrl+F11` novamente.
+- Ao pressionar `L`, o log deve ocupar a tela inteira e retornar ao layout padrão ao pressionar `L` novamente.
+- Ao pressionar `W`, a área de trabalho deve ocupar a tela inteira e retornar ao layout padrão ao pressionar `W` novamente.
 
 ### RU-04 — Esc
 
@@ -127,4 +127,3 @@ Este documento define os requisitos da funcionalidade **Sincronizar repositório
 ### RNF-02 — Testes
 
 - Todo ajuste deve incluir testes automatizados cobrindo comportamento da TUI.
-

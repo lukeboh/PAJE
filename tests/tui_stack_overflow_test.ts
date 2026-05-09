@@ -73,7 +73,7 @@ const renderLayoutSnapshot = async (options: SnapshotOptions): Promise<string> =
   });
 
   const tree = React.createElement(Layout, {
-    title: "PAJÉ - Teste Ctrl+F12",
+    title: "PAJÉ - Teste atalhos W/L",
     workspaceLabel: options.panelTitle,
     orientation: options.orientation,
     logEntries: logs,

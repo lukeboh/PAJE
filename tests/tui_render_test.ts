@@ -64,6 +64,8 @@ const tree = React.createElement(
     title: "PAJÉ - Teste TUI",
     orientation: "Use Enter para confirmar",
     logEntries: logs,
+    initialLogMaximized: false,
+    initialWorkspaceMaximized: false,
     children: React.createElement(
       Box,
       null,

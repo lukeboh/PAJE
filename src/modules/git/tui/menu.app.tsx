@@ -50,7 +50,7 @@ export const MenuDashboard: React.FC<MenuDashboardProps> = ({ items, selectedInd
 };
 
 export const MENU_ORIENTATION_MESSAGE =
-  "S/G para selecionar | Setas para navegar | Enter para confirmar | Esc para sair | Ctrl+F11 para ampliar área de trabalho | Ctrl+F12 para ampliar log";
+  "S/G para selecionar | Setas para navegar | Enter para confirmar | Esc para sair | W para ampliar área de trabalho | L para ampliar log";
 
 export const renderMenu = async (items: MenuItem[]): Promise<MenuItem | null> => {
   return new Promise((resolve) => {

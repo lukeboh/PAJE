@@ -50,30 +50,87 @@ export const Layout: React.FC<LayoutProps> = ({
   const headerLeft = formatHeaderLeft(title, breadcrumbs);
   const workspaceLegend = workspaceLabel ?? title;
 
-  const reservedRows = 2;
-  const contentRows = Math.max(4, terminalHeight - reservedRows);
-  const logPanelHeight = panelState.logMaximized
-    ? contentRows
-    : Math.max(5, Math.floor(contentRows * 0.15));
-  const workspacePanelHeight = panelState.logMaximized
-    ? 0
+  const titleHeight = 1;
+  const orientationHeight = 1;
+  const containerHeight = Math.max(0, terminalHeight - titleHeight);
+  const availablePanelsHeight = Math.max(0, containerHeight - orientationHeight);
+  const FRAME_DECORATION = 2;
+  const FRAME_HEADER_HEIGHT = 1;
+  const MIN_CONTENT_HEIGHT = 2;
+  const MIN_FRAME_HEIGHT = FRAME_DECORATION + FRAME_HEADER_HEIGHT + MIN_CONTENT_HEIGHT;
+
+  const computeFrameHeight = (total: number): number => {
+    if (total <= 0) {
+      return 0;
+    }
+    return Math.min(availablePanelsHeight, Math.max(MIN_FRAME_HEIGHT, total));
+  };
+
+  const desiredLogFrame = panelState.logMaximized
+    ? availablePanelsHeight
     : panelState.workspaceMaximized
-    ? contentRows
-    : Math.max(6, contentRows - logPanelHeight);
+    ? Math.min(FRAME_DECORATION, availablePanelsHeight)
+    : Math.max(MIN_FRAME_HEIGHT, Math.round(availablePanelsHeight * 0.2));
 
-  const logHeight = logPanelHeight;
-  const workspaceHeight = workspacePanelHeight;
+  let logFrameHeight = computeFrameHeight(desiredLogFrame);
+  let workspaceFrameHeight = panelState.logMaximized ? 0 : availablePanelsHeight - logFrameHeight;
 
-  useInput((input, key) => {
-    const keyPress = key as { f11?: boolean; f12?: boolean };
+  if (panelState.workspaceMaximized) {
+    workspaceFrameHeight = computeFrameHeight(availablePanelsHeight);
+    logFrameHeight = Math.max(0, availablePanelsHeight - workspaceFrameHeight);
+  }
+
+  if (!panelState.logMaximized && !panelState.workspaceMaximized) {
+    if (workspaceFrameHeight > 0 && workspaceFrameHeight < MIN_FRAME_HEIGHT && availablePanelsHeight >= MIN_FRAME_HEIGHT * 2) {
+      const deficit = MIN_FRAME_HEIGHT - workspaceFrameHeight;
+      workspaceFrameHeight += deficit;
+      logFrameHeight = Math.max(0, logFrameHeight - deficit);
+    }
+    if (logFrameHeight > 0 && logFrameHeight < MIN_FRAME_HEIGHT && availablePanelsHeight >= MIN_FRAME_HEIGHT * 2) {
+      const deficit = MIN_FRAME_HEIGHT - logFrameHeight;
+      logFrameHeight += deficit;
+      workspaceFrameHeight = Math.max(0, workspaceFrameHeight - deficit);
+    }
+  }
+
+  if (logFrameHeight < 0) {
+    logFrameHeight = 0;
+  }
+  if (workspaceFrameHeight < 0) {
+    workspaceFrameHeight = 0;
+  }
+
+  const normalize = logFrameHeight + workspaceFrameHeight;
+  if (normalize > availablePanelsHeight && normalize > 0) {
+    const scale = availablePanelsHeight / normalize;
+    logFrameHeight = Math.max(FRAME_DECORATION, Math.floor(logFrameHeight * scale));
+    workspaceFrameHeight = Math.max(FRAME_DECORATION, Math.floor(workspaceFrameHeight * scale));
+  }
+
+  if (panelState.logMaximized) {
+    logFrameHeight = availablePanelsHeight;
+    workspaceFrameHeight = 0;
+  }
+  if (panelState.workspaceMaximized) {
+    workspaceFrameHeight = availablePanelsHeight;
+    logFrameHeight = 0;
+  }
+
+
+  useInput((input = "", key) => {
+    const lower = typeof input === "string" ? input.toLowerCase() : "";
+    const metaKey = (key as { meta?: boolean }).meta ?? false;
     if (key.escape) {
       onEscape?.();
     }
-    if (key.ctrl && keyPress.f12) {
+    const isPlainLetter = input.length === 1 && !key.ctrl && !metaKey;
+    if (isPlainLetter && lower === "l") {
       panelState.toggleLog();
+      return;
     }
-    if (key.ctrl && keyPress.f11) {
+    if (isPlainLetter && lower === "w") {
       panelState.toggleWorkspace();
+      return;
     }
     if (key.ctrl && input === "c") {
       onCtrlC?.();
@@ -81,18 +138,29 @@ export const Layout: React.FC<LayoutProps> = ({
     }
   });
 
+  const computeContentHeight = (frameHeight: number): number => {
+    if (frameHeight <= 0) {
+      return 0;
+    }
+    const interiorHeight = frameHeight - (FRAME_DECORATION + FRAME_HEADER_HEIGHT);
+    return Math.max(0, interiorHeight);
+  };
+
+  const workspaceContentHeight = computeContentHeight(workspaceFrameHeight);
+  const logContentHeight = computeContentHeight(logFrameHeight);
+
   return (
     <PanelStateProvider value={panelState}>
-      <LayoutMetricsProvider value={{ workspaceHeight, logHeight }}>
+      <LayoutMetricsProvider value={{ workspaceHeight: workspaceContentHeight, logHeight: logContentHeight }}>
         <Box flexDirection="column" width="100%" height={terminalHeight}>
           <TitleBar left={headerLeft} right="PAJÉ" />
-          <Box flexDirection="column" width="100%" height={terminalHeight - 1}>
-            <PanelFrame title={workspaceLegend} height={workspaceHeight}>
-              <Workspace height={Math.max(0, workspaceHeight - 3)}>{children}</Workspace>
+          <Box flexDirection="column" width="100%" height={containerHeight}>
+            <PanelFrame title={workspaceLegend} height={workspaceFrameHeight}>
+              <Workspace height={workspaceContentHeight}>{children}</Workspace>
             </PanelFrame>
             <OrientationBar message={orientation} />
-            <PanelFrame title="Log" height={logHeight}>
-              <LoggerPanel entries={logEntries} height={Math.max(0, logHeight - 3)} />
+            <PanelFrame title="Log" height={logFrameHeight}>
+              <LoggerPanel entries={logEntries} height={logContentHeight} />
             </PanelFrame>
           </Box>
         </Box>

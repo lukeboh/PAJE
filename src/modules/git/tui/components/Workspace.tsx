@@ -11,7 +11,7 @@ export const Workspace: React.FC<WorkspaceProps> = ({ height, children }) => {
     return null;
   }
   return (
-    <Box flexDirection="column" width="100%" height={height}>
+    <Box flexDirection="column" width="100%" height={height} flexGrow={1}>
       {children}
     </Box>
   );
