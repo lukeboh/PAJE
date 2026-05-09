@@ -64,8 +64,6 @@ const tree = React.createElement(
     title: "PAJÉ - Teste TUI",
     orientation: "Use Enter para confirmar",
     logEntries: logs,
-    logMaximized: false,
-    onToggleLog: () => undefined,
     children: React.createElement(
       Box,
       null,

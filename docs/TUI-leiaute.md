@@ -27,7 +27,8 @@ Padronizar a experiência de navegação e mensagens da TUI em um layout de 4 pa
 
 - **Esc**: volta para a tela anterior (sem confirmação adicional).
 - **Ctrl+C**: encerra a TUI imediatamente.
-- **F12**: alterna o painel de log entre modo padrão e tela cheia.
+- **Ctrl+F11**: alterna a área de trabalho entre modo padrão e tela cheia.
+- **Ctrl+F12**: alterna o painel de log entre modo padrão e tela cheia.
 
 ## Log
 
@@ -39,6 +40,7 @@ Padronizar a experiência de navegação e mensagens da TUI em um layout de 4 pa
 
 - O layout deve manter o título e a linha de orientação visíveis ao maximizar o log via F12.
 - A área de trabalho pode ser ocultada quando o log estiver maximizado.
+- O log pode ser ocultado quando a área de trabalho estiver maximizada via Ctrl+F11.
 - Componentes reutilizáveis devem ser usados para título, orientação, workspace e log.
 
 ## Componentes atuais

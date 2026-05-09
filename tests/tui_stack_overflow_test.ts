@@ -19,6 +19,7 @@ type SnapshotOptions = {
   logMaximized: boolean;
   orientation: string;
   workspaceLabel: string;
+  panelTitle?: string;
 };
 
 const createTTYStreams = () => {
@@ -72,11 +73,11 @@ const renderLayoutSnapshot = async (options: SnapshotOptions): Promise<string> =
   });
 
   const tree = React.createElement(Layout, {
-    title: "PAJÉ - Teste F12",
+    title: "PAJÉ - Teste Ctrl+F12",
+    workspaceLabel: options.panelTitle,
     orientation: options.orientation,
     logEntries: logs,
-    logMaximized: options.logMaximized,
-    onToggleLog: () => undefined,
+    initialLogMaximized: options.logMaximized,
     onEscape: () => undefined,
     children: React.createElement(
       Box,
@@ -101,15 +102,19 @@ const outputDefault = await renderLayoutSnapshot({
   logMaximized: false,
   orientation: "Log padrão",
   workspaceLabel: "WORKSPACE",
+  panelTitle: "Painel de Teste",
 });
 
 assert.ok(outputDefault.includes("Log padrão"), "Deve renderizar orientação inicial");
 assert.ok(outputDefault.includes("WORKSPACE"), "Deve renderizar workspace inicial");
+assert.ok(outputDefault.includes("Painel de Teste"), "Deve renderizar legenda do fieldset");
+assert.ok(outputDefault.includes("Log"), "Deve renderizar legenda do painel de log");
 
 const outputMax = await renderLayoutSnapshot({
   logMaximized: true,
   orientation: "Log maximizado",
   workspaceLabel: "LOG_MAX",
+  panelTitle: "Painel de Log",
 });
 
 assert.ok(outputMax.includes("Log maximizado"), "Deve alternar orientação ao maximizar log");

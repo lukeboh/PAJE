@@ -2427,7 +2427,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       const tuiResult = await renderRepositoryTree(tree, (id) => toggleById(tree, id), session, {
         header,
         footer:
-          "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para confirmar seleção | Esc para cancelar | F12 para ampliar log",
+          "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para confirmar seleção | Esc para cancelar | Ctrl+F11 para ampliar área de trabalho | Ctrl+F12 para ampliar log",
         onReady: (handlers) => {
           treeProgress = handlers.progress;
           tuiLogState.append = handlers.log.append;

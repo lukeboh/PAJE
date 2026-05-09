@@ -1,19 +1,21 @@
 import React from "react";
 import { Box, useApp, useInput, useStdout } from "ink";
 import type { LogEntry } from "./logger.js";
-import { LayoutMetricsProvider } from "./layoutContext.js";
+import { LayoutMetricsProvider, PanelStateProvider, usePanelStateController } from "./layoutContext.js";
 import { LoggerPanel } from "./components/LoggerPanel.js";
 import { OrientationBar } from "./components/OrientationBar.js";
 import { TitleBar } from "./components/TitleBar.js";
 import { Workspace } from "./components/Workspace.js";
+import { PanelFrame } from "./components/PanelFrame.js";
 
 export type LayoutProps = {
   title: string;
   breadcrumbs?: string[];
   orientation: string;
   logEntries: LogEntry[];
-  logMaximized: boolean;
-  onToggleLog: () => void;
+  workspaceLabel?: string;
+  initialLogMaximized?: boolean;
+  initialWorkspaceMaximized?: boolean;
   onEscape?: () => void;
   onCtrlC?: () => void;
   children: React.ReactNode;
@@ -31,43 +33,70 @@ export const Layout: React.FC<LayoutProps> = ({
   breadcrumbs,
   orientation,
   logEntries,
-  logMaximized,
-  onToggleLog,
+  workspaceLabel,
+  initialLogMaximized,
+  initialWorkspaceMaximized,
   onEscape,
   onCtrlC,
   children,
 }) => {
+  const panelState = usePanelStateController({
+    logMaximized: initialLogMaximized,
+    workspaceMaximized: initialWorkspaceMaximized,
+  });
   const { exit } = useApp();
   const { stdout } = useStdout();
   const terminalHeight = stdout?.rows ?? 24;
-  const logHeight = logMaximized ? Math.max(3, terminalHeight - 2) : Math.max(3, Math.floor(terminalHeight * 0.15));
-  const workspaceHeight = logMaximized ? 0 : Math.max(4, terminalHeight - 2 - logHeight);
+  const headerLeft = formatHeaderLeft(title, breadcrumbs);
+  const workspaceLegend = workspaceLabel ?? title;
 
-  useInput((_input, key) => {
+  const reservedRows = 2;
+  const contentRows = Math.max(4, terminalHeight - reservedRows);
+  const logPanelHeight = panelState.logMaximized
+    ? contentRows
+    : Math.max(5, Math.floor(contentRows * 0.15));
+  const workspacePanelHeight = panelState.logMaximized
+    ? 0
+    : panelState.workspaceMaximized
+    ? contentRows
+    : Math.max(6, contentRows - logPanelHeight);
+
+  const logHeight = logPanelHeight;
+  const workspaceHeight = workspacePanelHeight;
+
+  useInput((input, key) => {
+    const keyPress = key as { f11?: boolean; f12?: boolean };
     if (key.escape) {
       onEscape?.();
     }
-    if (key.f12) {
-      onToggleLog();
+    if (key.ctrl && keyPress.f12) {
+      panelState.toggleLog();
     }
-    if (key.ctrl && key.c) {
+    if (key.ctrl && keyPress.f11) {
+      panelState.toggleWorkspace();
+    }
+    if (key.ctrl && input === "c") {
       onCtrlC?.();
       exit();
     }
   });
 
-  const headerLeft = formatHeaderLeft(title, breadcrumbs);
-
   return (
-    <LayoutMetricsProvider value={{ workspaceHeight, logHeight }}>
-      <Box flexDirection="column" width="100%" height={terminalHeight}>
-        <TitleBar left={headerLeft} right="PAJÉ" />
-        <Box flexDirection="column" width="100%" height={terminalHeight - 1}>
-          <Workspace height={workspaceHeight}>{children}</Workspace>
-          <OrientationBar message={orientation} />
-          <LoggerPanel entries={logEntries} height={logHeight} />
+    <PanelStateProvider value={panelState}>
+      <LayoutMetricsProvider value={{ workspaceHeight, logHeight }}>
+        <Box flexDirection="column" width="100%" height={terminalHeight}>
+          <TitleBar left={headerLeft} right="PAJÉ" />
+          <Box flexDirection="column" width="100%" height={terminalHeight - 1}>
+            <PanelFrame title={workspaceLegend} height={workspaceHeight}>
+              <Workspace height={Math.max(0, workspaceHeight - 3)}>{children}</Workspace>
+            </PanelFrame>
+            <OrientationBar message={orientation} />
+            <PanelFrame title="Log" height={logHeight}>
+              <LoggerPanel entries={logEntries} height={Math.max(0, logHeight - 3)} />
+            </PanelFrame>
+          </Box>
         </Box>
-      </Box>
-    </LayoutMetricsProvider>
+      </LayoutMetricsProvider>
+    </PanelStateProvider>
   );
 };

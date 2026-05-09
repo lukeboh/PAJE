@@ -50,7 +50,7 @@ export const MenuDashboard: React.FC<MenuDashboardProps> = ({ items, selectedInd
 };
 
 export const MENU_ORIENTATION_MESSAGE =
-  "S/G para selecionar | Setas para navegar | Enter para confirmar | Esc para sair | F12 para ampliar log";
+  "S/G para selecionar | Setas para navegar | Enter para confirmar | Esc para sair | Ctrl+F11 para ampliar área de trabalho | Ctrl+F12 para ampliar log";
 
 export const renderMenu = async (items: MenuItem[]): Promise<MenuItem | null> => {
   return new Promise((resolve) => {
@@ -147,10 +147,9 @@ export const renderMenu = async (items: MenuItem[]): Promise<MenuItem | null> =>
       return (
         <Layout
           title="PAJÉ - Menu de Funcionalidades"
+          workspaceLabel="Menu de Funcionalidades"
           orientation={MENU_ORIENTATION_MESSAGE}
           logEntries={logEntries}
-          logMaximized={false}
-          onToggleLog={() => undefined}
           onEscape={() => finalize(null)}
         >
           <MenuDashboard items={items} selectedIndex={selectedIndex} />

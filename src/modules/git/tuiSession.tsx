@@ -70,7 +70,6 @@ export const createTuiSession = (_title: string): TuiSession => {
 
       const App: React.FC = () => {
         const [value, setValue] = useState(options.defaultValue ?? "");
-        const [logMaximized, setLogMaximized] = useState(false);
         const logEntries = useMemo<LogEntry[]>(() => [createLogEntry("Informe o valor solicitado")], []);
         const orientation = buildOrientation(
           "Digite o valor e pressione Enter para confirmar | Esc para cancelar",
@@ -99,8 +98,6 @@ export const createTuiSession = (_title: string): TuiSession => {
             title={options.title}
             orientation={orientation}
             logEntries={logEntries}
-            logMaximized={logMaximized}
-            onToggleLog={() => setLogMaximized((current: boolean) => !current)}
             onEscape={() => resolver.finalize(null)}
           >
             <Box flexDirection="column" width="100%">
@@ -124,7 +121,6 @@ export const createTuiSession = (_title: string): TuiSession => {
 
       const App: React.FC = () => {
         const [value, setValue] = useState("");
-        const [logMaximized, setLogMaximized] = useState(false);
         const logEntries = useMemo<LogEntry[]>(() => [createLogEntry("Informe a senha solicitada")], []);
         const orientation = buildOrientation(
           "Digite o valor (oculto) e pressione Enter para confirmar | Esc para cancelar",
@@ -154,8 +150,6 @@ export const createTuiSession = (_title: string): TuiSession => {
             title={options.title}
             orientation={orientation}
             logEntries={logEntries}
-            logMaximized={logMaximized}
-            onToggleLog={() => setLogMaximized((current: boolean) => !current)}
             onEscape={() => resolver.finalize(null)}
           >
             <Box flexDirection="column" width="100%">
@@ -183,7 +177,6 @@ export const createTuiSession = (_title: string): TuiSession => {
 
       const App: React.FC = () => {
         const [selectedIndex, setSelectedIndex] = useState(0);
-        const [logMaximized, setLogMaximized] = useState(false);
         const logEntries = useMemo<LogEntry[]>(() => [createLogEntry("Selecione uma opção")], []);
         const currentChoice = options.choices[selectedIndex];
         const orientation = buildOrientation(
@@ -210,8 +203,6 @@ export const createTuiSession = (_title: string): TuiSession => {
             title={options.title}
             orientation={orientation}
             logEntries={logEntries}
-            logMaximized={logMaximized}
-            onToggleLog={() => setLogMaximized((current: boolean) => !current)}
             onEscape={() => resolver.finalize(null)}
           >
             <Box flexDirection="column" width="100%">
@@ -244,7 +235,6 @@ export const createTuiSession = (_title: string): TuiSession => {
       const resolver = createPromptResolver<T | null>(resolve);
 
       const App: React.FC = () => {
-        const [logMaximized, setLogMaximized] = useState(false);
         const [focusedIndex, setFocusedIndex] = useState(0);
         const [values, setValues] = useState<T>(() =>
           options.fields.reduce((acc, field) => {
@@ -308,8 +298,6 @@ export const createTuiSession = (_title: string): TuiSession => {
             title={options.title}
             orientation={orientation}
             logEntries={logEntries}
-            logMaximized={logMaximized}
-            onToggleLog={() => setLogMaximized((current: boolean) => !current)}
             onEscape={() => resolver.finalize(null)}
           >
             <Box flexDirection="column" width="100%">
@@ -354,7 +342,6 @@ export const createTuiSession = (_title: string): TuiSession => {
       const resolver = createPromptResolver<void>(resolve);
 
       const App: React.FC = () => {
-        const [logMaximized, setLogMaximized] = useState(false);
         const logEntries = useMemo<LogEntry[]>(() => [createLogEntry("Mensagem informativa")], []);
 
         useInput((_input, key) => {
@@ -368,8 +355,6 @@ export const createTuiSession = (_title: string): TuiSession => {
             title={options.title}
             orientation="Pressione Enter para continuar | Esc para cancelar"
             logEntries={logEntries}
-            logMaximized={logMaximized}
-            onToggleLog={() => setLogMaximized((current: boolean) => !current)}
             onEscape={() => resolver.finalize()}
           >
             <Box flexDirection="column" width="100%">
