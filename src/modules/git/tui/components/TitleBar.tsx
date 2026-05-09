@@ -6,7 +6,7 @@ export type TitleBarProps = {
   right: string;
 };
 
-export const TitleBar: React.FC<TitleBarProps> = ({ left, right }) => {
+const TitleBarComponent: React.FC<TitleBarProps> = ({ left, right }) => {
   return (
     <Box flexDirection="row" height={1} width="100%" justifyContent="space-between">
       <Text>{left}</Text>
@@ -14,3 +14,5 @@ export const TitleBar: React.FC<TitleBarProps> = ({ left, right }) => {
     </Box>
   );
 };
+
+export const TitleBar = React.memo(TitleBarComponent);

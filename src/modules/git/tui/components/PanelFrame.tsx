@@ -7,7 +7,7 @@ export type PanelFrameProps = {
   children: React.ReactNode;
 };
 
-export const PanelFrame: React.FC<PanelFrameProps> = ({ title, height, children }) => {
+const PanelFrameComponent: React.FC<PanelFrameProps> = ({ title, height, children }) => {
   if (height <= 0) {
     return null;
   }
@@ -21,3 +21,8 @@ export const PanelFrame: React.FC<PanelFrameProps> = ({ title, height, children 
     </Box>
   );
 };
+
+export const PanelFrame = React.memo(
+  PanelFrameComponent,
+  (prev, next) => prev.title === next.title && prev.height === next.height && prev.children === next.children
+);

@@ -105,7 +105,7 @@ const computeMetrics = (terminalHeight: number, logMaximized: boolean): { worksp
   return { workspaceHeight };
 };
 
-const TreeRow: React.FC<{ item: FlatTreeItem; selected: boolean }> = (
+const TreeRowComponent: React.FC<{ item: FlatTreeItem; selected: boolean }> = (
   { item, selected }: { item: FlatTreeItem; selected: boolean }
 ) => {
   const indicator = item.partiallySelected ? "[~]" : item.selected ? "[x]" : "[ ]";
@@ -134,7 +134,22 @@ const TreeRow: React.FC<{ item: FlatTreeItem; selected: boolean }> = (
   );
 };
 
-const TreeList: React.FC<{
+const TreeRow = React.memo(
+  TreeRowComponent,
+  (prev, next) =>
+    prev.selected === next.selected &&
+    prev.item.id === next.item.id &&
+    prev.item.depth === next.item.depth &&
+    prev.item.label === next.item.label &&
+    prev.item.selected === next.item.selected &&
+    prev.item.partiallySelected === next.item.partiallySelected &&
+    prev.item.progress === next.item.progress &&
+    prev.item.status?.branch === next.item.status?.branch &&
+    prev.item.status?.state === next.item.status?.state &&
+    prev.item.status?.delta === next.item.status?.delta
+);
+
+const TreeListComponent: React.FC<{
   items: FlatTreeItem[];
   selectedIndex: number;
   scrollOffset: number;
@@ -153,7 +168,9 @@ const TreeList: React.FC<{
   }
 ) => {
   const visibleCount = Math.max(1, workspaceHeight);
-  const visibleItems = items.length > 0 ? items.slice(scrollOffset, scrollOffset + visibleCount) : [];
+  const visibleItems = useMemo(() => {
+    return items.length > 0 ? items.slice(scrollOffset, scrollOffset + visibleCount) : [];
+  }, [items, scrollOffset, visibleCount]);
 
   if (items.length === 0) {
     return <Text>(Nenhum repositório encontrado)</Text>;
@@ -168,6 +185,15 @@ const TreeList: React.FC<{
     </Box>
   );
 };
+
+const TreeList = React.memo(
+  TreeListComponent,
+  (prev, next) =>
+    prev.items === next.items &&
+    prev.selectedIndex === next.selectedIndex &&
+    prev.scrollOffset === next.scrollOffset &&
+    prev.workspaceHeight === next.workspaceHeight
+);
 
 export type TuiTreeProgress = {
   updateProgress: (nodeId: string, text: string) => void;
@@ -263,6 +289,7 @@ export const renderRepositoryTree = async (
       }, [items, selectedIndex, onToggle]);
 
       useInput((input: string, key: Key) => {
+        const navigationKey = key as Key & { home?: boolean; end?: boolean };
         if (key.upArrow) {
           const nextIndex = Math.max(0, selectedIndex - 1);
           setSelectedIndex(nextIndex);
@@ -283,11 +310,11 @@ export const renderRepositoryTree = async (
           setSelectedIndex(nextIndex);
           ensureVisible(nextIndex);
         }
-        if (key.home) {
+        if (navigationKey.home) {
           setSelectedIndex(0);
           setScrollOffset(0);
         }
-        if (key.end) {
+        if (navigationKey.end) {
           const lastIndex = Math.max(0, items.length - 1);
           setSelectedIndex(lastIndex);
           setScrollOffset(Math.max(0, lastIndex - visibleCount + 1));

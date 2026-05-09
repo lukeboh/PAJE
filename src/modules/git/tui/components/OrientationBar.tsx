@@ -5,10 +5,12 @@ export type OrientationBarProps = {
   message: string;
 };
 
-export const OrientationBar: React.FC<OrientationBarProps> = ({ message }) => {
+const OrientationBarComponent: React.FC<OrientationBarProps> = ({ message }) => {
   return (
     <Box flexDirection="row" width="100%" height={1}>
       <Text>{message}</Text>
     </Box>
   );
 };
+
+export const OrientationBar = React.memo(OrientationBarComponent);

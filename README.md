@@ -156,6 +156,8 @@ O PAJÉ salva dados locais em:
 
 A TUI segue o padrão de quatro quadros:
 
+> Observação: o renderer em Ink foi otimizado para minimizar redesenhos completos em terminais remotos (SSH), usando memoização de componentes e cálculo de layout estável para reduzir flicker perceptível.
+
 1. **Barra de título**: 1 linha no topo com o nome da funcionalidade.
 2. **Área de trabalho**: região central com menus, formulários e árvore de repositórios.
 3. **Barra de orientações** (1 linha) com comandos possíveis.

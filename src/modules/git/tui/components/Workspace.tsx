@@ -6,7 +6,7 @@ export type WorkspaceProps = {
   children: React.ReactNode;
 };
 
-export const Workspace: React.FC<WorkspaceProps> = ({ height, children }) => {
+const WorkspaceComponent: React.FC<WorkspaceProps> = ({ height, children }) => {
   if (height <= 0) {
     return null;
   }
@@ -16,3 +16,8 @@ export const Workspace: React.FC<WorkspaceProps> = ({ height, children }) => {
     </Box>
   );
 };
+
+export const Workspace = React.memo(
+  WorkspaceComponent,
+  (prev, next) => prev.height === next.height && prev.children === next.children
+);
