@@ -143,7 +143,7 @@ const mergeProjectsByPath = (
     projectIdMapByServer.set(server.id, localMap);
 
     projects.forEach((project) => {
-      const normalizedPath = project.path_with_namespace;
+      const normalizedPath = `${server.name}/${project.path_with_namespace}`;
       if (byPath.has(normalizedPath)) {
         return;
       }
@@ -151,7 +151,7 @@ const mergeProjectsByPath = (
         ? {
             ...project.namespace,
             id: groupMap?.get(project.namespace.id) ?? project.namespace.id,
-            full_path: project.namespace.full_path,
+            full_path: `${server.name}/${project.namespace.full_path}`,
           }
         : project.namespace;
       const mappedId = localMap.get(project.id) ?? nextProjectId;
@@ -162,6 +162,7 @@ const mergeProjectsByPath = (
         path_with_namespace: normalizedPath,
         namespace: mappedNamespace,
         pajeOriginalPathWithNamespace: project.path_with_namespace,
+        pajeServerName: server.name,
       });
     });
   });
@@ -353,7 +354,8 @@ export const buildHierarchyTree = (
   };
 
   projects.forEach((project) => {
-    const segments = project.path_with_namespace.split("/").filter(Boolean);
+    const displayPath = project.pajeOriginalPathWithNamespace ?? project.path_with_namespace;
+    const segments = displayPath.split("/").filter(Boolean);
     let cursor = root;
     segments.forEach((segment, index) => {
       const isLeaf = index === segments.length - 1;
@@ -402,6 +404,10 @@ export const buildHierarchyTree = (
   return root.children ?? [];
 };
 
+const resolveProjectLocalPath = (project: GitLabProject): string => {
+  return project.pajeOriginalPathWithNamespace ?? project.path_with_namespace;
+};
+
 const ensureLocalDirsIfNeeded = async (
   projects: GitLabProject[],
   baseDir: string,
@@ -412,7 +418,7 @@ const ensureLocalDirsIfNeeded = async (
   }
   await Promise.all(
     projects.map(async (project) => {
-      const targetPath = path.join(baseDir, project.path_with_namespace);
+      const targetPath = path.join(baseDir, resolveProjectLocalPath(project));
       await fs.promises.mkdir(targetPath, { recursive: true });
     })
   );
@@ -466,19 +472,19 @@ const resolveSyncTargets = (projects: GitLabProject[], specs: SyncRepoSpec[]): G
   }
   const normalizedProjects = projects.map((project) => ({
     project,
-    matchPath: resolveProjectMatchPath(project),
+    matchPaths: [resolveProjectMatchPath(project), project.pajeOriginalPathWithNamespace].filter(Boolean) as string[],
   }));
   const matches: GitRepositoryTarget[] = [];
   specs.forEach((spec) => {
     const pattern = buildSyncPattern(spec);
-    normalizedProjects.forEach(({ project, matchPath }) => {
-      if (!pattern.test(matchPath)) {
+    normalizedProjects.forEach(({ project, matchPaths }) => {
+      if (!matchPaths.some((matchPath) => pattern.test(matchPath))) {
         return;
       }
       matches.push({
         id: project.id,
         name: project.name,
-        pathWithNamespace: project.path_with_namespace,
+        pathWithNamespace: resolveProjectLocalPath(project),
         sshUrl: project.ssh_url_to_repo,
         localPath: "",
         defaultBranch: project.default_branch,
@@ -1897,7 +1903,16 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         if (mergedOptions.noArchivedRepos && project.archived) {
           return false;
         }
-        return matchesAntPatterns(project.path_with_namespace, filterPatterns);
+        const matchCandidates = [
+          project.path_with_namespace,
+          project.pajeOriginalPathWithNamespace,
+          project.namespace?.full_path,
+          project.namespace?.full_path ? `${project.namespace.full_path}/${project.name}` : undefined,
+        ].filter(Boolean) as string[];
+        if (matchCandidates.length === 0) {
+          return matchesAntPatterns(project.path_with_namespace, filterPatterns);
+        }
+        return matchCandidates.some((candidate) => matchesAntPatterns(candidate, filterPatterns));
       });
 
       const summary = createSummary();
@@ -1919,20 +1934,20 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         const resolvedUserEmail = mergedOptions.userEmail?.trim() || undefined;
         await ensureLocalDirsIfNeeded(filteredProjects, defaultBaseDir, mergedOptions.prepareLocalDirs ?? false);
          const statusEntries = await Promise.all(
-          filteredProjects.map(async (project) => {
-            const targetPath = path.join(defaultBaseDir, project.path_with_namespace);
-            const status = await resolveRepoStatus({
-              targetPath,
-              defaultBranch: project.default_branch,
-              knownRemote: true,
-            });
-            return [project.id, status] as const;
-          })
-        );
-        const statusMap = Object.fromEntries(statusEntries) as Record<number, RepoSyncStatus>;
-        const knownPaths = new Set(
-          filteredProjects.map((project) => path.join(defaultBaseDir, project.path_with_namespace))
-        );
+           filteredProjects.map(async (project) => {
+             const targetPath = path.join(defaultBaseDir, resolveProjectLocalPath(project));
+             const status = await resolveRepoStatus({
+               targetPath,
+               defaultBranch: project.default_branch,
+               knownRemote: true,
+             });
+             return [project.id, status] as const;
+           })
+         );
+         const statusMap = Object.fromEntries(statusEntries) as Record<number, RepoSyncStatus>;
+         const knownPaths = new Set(
+           filteredProjects.map((project) => path.join(defaultBaseDir, resolveProjectLocalPath(project)))
+         );
         const localScan = await buildLocalStatusMap(defaultBaseDir, knownPaths);
         const treeNodes = buildHierarchyTree(filteredProjects, statusMap, localScan.localPaths, localScan.statusMap);
         renderTreeLines(header, treeNodes).forEach((line) => console.log(line));
@@ -2408,13 +2423,14 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       await ensureLocalDirsIfNeeded(filteredProjects, defaultBaseDir, mergedOptions.prepareLocalDirs ?? false);
       const statusEntries = await Promise.all(
         filteredProjects.map(async (project) => {
-          const targetPath = path.join(defaultBaseDir, project.path_with_namespace);
+          const targetPath = path.join(defaultBaseDir, resolveProjectLocalPath(project));
           const status = await resolveRepoStatus({
             targetPath,
             defaultBranch: project.default_branch,
             knownRemote: true,
           });
-          logToTui(`Pré-seleção: ${project.path_with_namespace} -> ${targetPath} [${status.state}]`);
+          const displayPath = project.pajeOriginalPathWithNamespace ?? project.path_with_namespace;
+          logToTui(`Pré-seleção: ${displayPath} -> ${targetPath} [${status.state}]`);
           return [project.id, status] as const;
         })
       );

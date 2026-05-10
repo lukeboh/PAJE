@@ -96,6 +96,8 @@ Sincroniza repositórios em paralelo, agregando todos os servidores configurados
 - O atalho `C` alterna a visualização para mostrar apenas repositórios marcados na árvore.
 - O resumo final mostra estados: `SYNCED`, `BEHIND`, `AHEAD`, `REMOTE`, `EMPTY`, `LOCAL`, `UNCOMMITTED`.
 - Os filtros suportam padrões Ant/Glob: `?`, `*`, `**` e múltiplos padrões separados por `;`.
+- O log é centralizado no LoggerBroker, com transports para console, painel TUI e arquivo em `~/.paje/logs`.
+- Níveis padrão: console `info`, painel `warn`, arquivo `debug`.
 
 ### 2) `git-server-store` — registrar SSH e token no GitLab
 

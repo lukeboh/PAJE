@@ -36,9 +36,10 @@ export const buildGitLabTree = (
 
   projects.forEach((project) => {
     const namespaceId = project.namespace?.id;
+    const displayLabel = project.pajeOriginalPathWithNamespace ?? project.path_with_namespace;
     const node: GitLabTreeNode = {
       id: `project-${project.id}`,
-      label: project.path_with_namespace,
+      label: displayLabel,
       type: "project",
       project,
       selected: false,

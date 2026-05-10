@@ -13,6 +13,7 @@ Você é um Arquiteto de Software Sênior e Desenvolvedor Full-stack. O PAJÉ é
 - **Segurança:** NUNCA salvar senhas em texto plano. Usar variáveis de ambiente seguras ou gerenciadores de chaves (como keytar).
 - **Testes:** Todo novo recurso deve incluir testes automatizados. A tarefa só é considerada concluída após a verificação de sucesso dos testes.
 - **Agnosticismo:** A ferramenta deve funcionar com GitLab corporativo ou GitHub.
+- **Logging:** Centralizar logs no LoggerBroker, com transports e níveis mínimos configuráveis por destino (console, painel TUI, arquivo).
 - **Documentação:** A cada criação ou mudança de comportamento de funcionalidade, criação ou mudanças em parâmetros e comportamentos, deve ser atualizado o arquivo [README.md](../../README.md)
 
 ## Regras de Implementação

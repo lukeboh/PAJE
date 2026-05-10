@@ -109,6 +109,8 @@ Este documento define os requisitos da funcionalidade **Sincronizar repositório
 - Scroll do log deve ser automático.
 - Ao pressionar `L`, o log deve ocupar a tela inteira e retornar ao layout padrão ao pressionar `L` novamente.
 - Ao pressionar `W`, a área de trabalho deve ocupar a tela inteira e retornar ao layout padrão ao pressionar `W` novamente.
+- O pipeline de log deve usar LoggerBroker com transport dedicado ao painel.
+- O painel deve iniciar em nível `warn` (erros em vermelho).
 
 ### RU-04 — Filtro de selecionados
 

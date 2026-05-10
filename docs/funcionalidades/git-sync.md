@@ -69,6 +69,7 @@ A TUI é iniciada ao executar `paje` sem parâmetros e selecionar **Sincronizar 
 - `--sync-repos` aceita padrão `path_with_namespace[.git]#branch`.
 - `--parallels` aceita `AUTO`, `0` ou número ≥ 1.
 - `--dry-run` evita alterações reais, apenas reporta ações.
+- Logs são centralizados no LoggerBroker, com níveis configuráveis por transport (console/painel/arquivo).
 
 ## Saídas
 
