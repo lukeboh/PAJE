@@ -51,6 +51,8 @@ Este documento define os requisitos da funcionalidade **Sincronizar repositório
 ### RF-04 — Seleção por checkbox
 
 - Cada nó exibido deve ter checkbox (`[ ]`, `[~]`, `[x]`).
+- Ao carregar a árvore, os projetos com clone local devem iniciar marcados `[x]`.
+- Grupos/pastas devem iniciar em `[x]` quando todos os filhos estiverem marcados e `[~]` quando parcialmente marcados.
 - Selecionar/desselecionar **não pode** alterar o scroll.
 - Apenas o estado do checkbox deve ser alterado.
 
@@ -96,6 +98,7 @@ Este documento define os requisitos da funcionalidade **Sincronizar repositório
 ### RU-02 — Orientações
 
 - A linha de orientações deve indicar ações básicas: navegar, selecionar, sincronizar, cancelar.
+- Deve exibir o atalho `C` para alternar o filtro de itens marcados.
 - Deve exibir os atalhos `W` para maximizar/restaurar a área de trabalho e `L` para maximizar/restaurar o log.
 
 ### RU-03 — Log de operações
@@ -107,12 +110,18 @@ Este documento define os requisitos da funcionalidade **Sincronizar repositório
 - Ao pressionar `L`, o log deve ocupar a tela inteira e retornar ao layout padrão ao pressionar `L` novamente.
 - Ao pressionar `W`, a área de trabalho deve ocupar a tela inteira e retornar ao layout padrão ao pressionar `W` novamente.
 
-### RU-04 — Esc
+### RU-04 — Filtro de selecionados
+
+- Ao pressionar `C`, a árvore deve alternar entre exibir todos os itens e apenas os itens marcados.
+- Quando o filtro estiver ativo, os ancestrais dos itens marcados devem permanecer visíveis.
+- Ao pressionar `C` novamente, a árvore completa deve ser restaurada.
+
+### RU-05 — Esc
 
 - `Esc` retorna à tela anterior.
 - Se o usuário estiver digitando, confirmar desistência.
 
-### RU-05 — Cenários multi-servidor
+### RU-06 — Cenários multi-servidor
 
 - Caso nenhum servidor corresponda aos filtros `serverName`/`baseUrl`, exibir mensagem explícita e não abrir a árvore.
 - Quando apenas um servidor corresponder, o cabeçalho deve indicar `GitLab (1 servidor)`.

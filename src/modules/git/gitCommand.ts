@@ -4,7 +4,13 @@ import os from "node:os";
 import path from "node:path";
 import { Command } from "commander";
 import { GitLabApi } from "./gitlabApi.js";
-import { buildGitLabTree, collectSelectedProjects, recomputeTreeSelection, toggleTreeNode } from "./treeBuilder.js";
+import {
+  applyInitialSelectionFromStatusMap,
+  buildGitLabTree,
+  collectSelectedProjects,
+  recomputeTreeSelection,
+  toggleTreeNode,
+} from "./treeBuilder.js";
 import { renderRepositoryTree, type TuiTreeProgress } from "./tui.js";
 import {
   getAheadBehind,
@@ -2422,12 +2428,13 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         node.children?.forEach((child) => applyStatusToTree(child));
       };
       tree.forEach((node) => applyStatusToTree(node));
+      applyInitialSelectionFromStatusMap(tree, statusMap);
 
       let treeProgress: TuiTreeProgress | null = null;
       const tuiResult = await renderRepositoryTree(tree, (id) => toggleById(tree, id), session, {
         header,
         footer:
-          "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para confirmar seleção | Esc para cancelar | W para ampliar área de trabalho | L para ampliar log",
+          "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para confirmar seleção | Esc para cancelar | C para filtrar selecionados | W para ampliar área de trabalho | L para ampliar log",
         onReady: (handlers) => {
           treeProgress = handlers.progress;
           tuiLogState.append = handlers.log.append;

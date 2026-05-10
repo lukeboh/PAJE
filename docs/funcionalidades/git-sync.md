@@ -47,15 +47,18 @@ A TUI é iniciada ao executar `paje` sem parâmetros e selecionar **Sincronizar 
 
 1. Carrega servidores e aplica filtros por `serverName` e/ou `baseUrl`.
 2. Aplica filtros de repositórios (`filter`, `noPublicRepos`, `noArchivedRepos`).
-3. Renderiza árvore consolidada na TUI ou imprime árvore na CLI.
-4. Sincroniza os itens selecionados respeitando paralelismo e `dry-run`.
-5. Exibe resumo final e status por repositório.
+3. Calcula estado local e pré-seleção automática na árvore TUI (baseado em clones existentes).
+4. Renderiza árvore consolidada na TUI ou imprime árvore na CLI.
+5. Sincroniza os itens selecionados respeitando paralelismo e `dry-run`.
+6. Exibe resumo final e status por repositório.
 
 ## Requisitos funcionais
 
 - Exibir cabeçalho agregado com total de servidores.
 - Exibir branch e status coloridos por repositório.
 - Manter seleção por checkbox sem perder o scroll.
+- Inicializar checkboxes com base em clonagem local (pré-seleção automática).
+- Permitir alternar a visualização para mostrar apenas repositórios marcados (atalho `C`).
 - Mostrar progresso por linha durante sincronização.
 - Exibir resumo consolidado ao final.
 

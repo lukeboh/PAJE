@@ -92,6 +92,8 @@ Sincroniza repositórios em paralelo, agregando todos os servidores configurados
 **Comportamento relevante:**
 
 - O `git-sync` opera sobre todos os servidores configurados quando nenhum filtro é fornecido.
+- A TUI pré-seleciona repositórios que já possuem clone local (checkbox `[x]`) e propaga seleção parcial para grupos.
+- O atalho `C` alterna a visualização para mostrar apenas repositórios marcados na árvore.
 - O resumo final mostra estados: `SYNCED`, `BEHIND`, `AHEAD`, `REMOTE`, `EMPTY`, `LOCAL`, `UNCOMMITTED`.
 - Os filtros suportam padrões Ant/Glob: `?`, `*`, `**` e múltiplos padrões separados por `;`.
 

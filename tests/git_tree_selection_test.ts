@@ -1,5 +1,11 @@
 import assert from "node:assert";
-import { buildGitLabTree, collectSelectedProjects, recomputeTreeSelection, toggleTreeNode } from "../src/modules/git/treeBuilder.js";
+import {
+  applyInitialSelectionFromStatusMap,
+  buildGitLabTree,
+  collectSelectedProjects,
+  recomputeTreeSelection,
+  toggleTreeNode,
+} from "../src/modules/git/treeBuilder.js";
 import { GitLabGroup, GitLabProject } from "../src/modules/git/types.js";
 
 const groups: GitLabGroup[] = [
@@ -39,5 +45,14 @@ assert.strictEqual(selectedProjects.length, 2, "Todos os projetos do grupo devem
 toggleTreeNode(rootGroup, false);
 recomputeTreeSelection(rootGroup);
 assert.strictEqual(collectSelectedProjects(tree).length, 0, "Nenhum projeto selecionado");
+
+const statusMap = {
+  10: { branch: "main", state: "SYNCED" as const },
+  11: { branch: "main", state: "BEHIND" as const, delta: "-1" },
+};
+applyInitialSelectionFromStatusMap(tree, statusMap);
+const initialSelected = collectSelectedProjects(tree);
+assert.strictEqual(initialSelected.length, 2, "Pré-seleção deve marcar projetos clonados");
+assert.strictEqual(tree[0].selected, true, "Grupo raiz deve ficar selecionado quando todos os filhos estão marcados");
 
 console.log("git_tree_selection_test: OK");

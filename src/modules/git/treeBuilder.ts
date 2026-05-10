@@ -1,4 +1,4 @@
-import { GitLabGroup, GitLabProject, GitLabTreeNode } from "./types.js";
+import { GitLabGroup, GitLabProject, GitLabTreeNode, RepoSyncStatus } from "./types.js";
 
 export const buildGitLabTree = (
   groups: GitLabGroup[],
@@ -86,6 +86,44 @@ export const recomputeTreeSelection = (node: GitLabTreeNode): void => {
     node.selected = false;
     node.partiallySelected = true;
   }
+};
+
+export const applyInitialSelectionFromStatusMap = (
+  nodes: GitLabTreeNode[],
+  statusMap: Record<number, RepoSyncStatus>
+): void => {
+  const visit = (node: GitLabTreeNode): void => {
+    if (node.type === "project" && node.project) {
+      const status = statusMap[node.project.id];
+      const shouldSelect = Boolean(status && status.state !== "EMPTY");
+      node.selected = shouldSelect;
+      node.partiallySelected = false;
+    }
+    node.children?.forEach((child) => visit(child));
+  };
+  nodes.forEach((node) => visit(node));
+  nodes.forEach((node) => recomputeTreeSelection(node));
+};
+
+export const filterTreeBySelection = (nodes: GitLabTreeNode[]): GitLabTreeNode[] => {
+  const visit = (node: GitLabTreeNode): GitLabTreeNode | null => {
+    const filteredChildren = node.children
+      ? node.children
+          .map((child) => visit(child))
+          .filter((child): child is GitLabTreeNode => child !== null)
+      : [];
+    const isMarked = Boolean(node.selected || node.partiallySelected);
+    if (!isMarked && filteredChildren.length === 0) {
+      return null;
+    }
+    return {
+      ...node,
+      children: filteredChildren.length > 0 ? filteredChildren : node.children ? [] : undefined,
+    };
+  };
+  return nodes
+    .map((node) => visit(node))
+    .filter((node): node is GitLabTreeNode => node !== null);
 };
 
 export const collectSelectedProjects = (nodes: GitLabTreeNode[]): GitLabProject[] => {

@@ -27,6 +27,7 @@ Padronizar a experiência de navegação e mensagens da TUI em um layout de 4 pa
 
 - **Esc**: volta para a tela anterior (sem confirmação adicional).
 - **Ctrl+C**: encerra a TUI imediatamente.
+- **C**: alterna filtro para exibir apenas itens marcados na árvore (quando aplicável).
 - **W**: alterna a área de trabalho entre modo padrão e tela cheia.
 - **L**: alterna o painel de log entre modo padrão e tela cheia.
 

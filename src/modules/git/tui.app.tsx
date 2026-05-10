@@ -5,6 +5,7 @@ import { Layout } from "./tui/layout.js";
 import { createLogEntry, type LogEntry } from "./tui/logger.js";
 import type { GitLabTreeNode, RepoSyncStatus, RepoSyncState } from "./types.js";
 import type { TuiSession } from "./tuiSession.js";
+import { filterTreeBySelection } from "./treeBuilder.js";
 
 export type TuiSelectionResult = {
   confirmed: boolean;
@@ -116,20 +117,24 @@ const TreeRowComponent: React.FC<{ item: FlatTreeItem; selected: boolean }> = (
   const backgroundColor = selected ? "blue" : undefined;
 
   return (
-    <Box flexDirection="row" width="100%" backgroundColor={backgroundColor}>
-      <Text color={textColor}>
+    <Box flexDirection="row" width="100%">
+      <Text color={textColor} backgroundColor={backgroundColor}>
         {indent}
         {indicator} {item.label}
       </Text>
       {statusLabel && (
-        <Text color={textColor}>
+        <Text color={textColor} backgroundColor={backgroundColor}>
           {" "}[
           <Text color={statusLabel.branchColor ?? textColor}>{statusLabel.branch}</Text>
           {", "}
           <Text color={statusLabel.stateColor ?? textColor}>{statusLabel.state}</Text>]
         </Text>
       )}
-      {progressLabel && <Text color={textColor}>{progressLabel}</Text>}
+      {progressLabel && (
+        <Text color={textColor} backgroundColor={backgroundColor}>
+          {progressLabel}
+        </Text>
+      )}
     </Box>
   );
 };
@@ -227,18 +232,22 @@ export const renderRepositoryTree = async (
       const [logMaximized, setLogMaximized] = useState(false);
       const [orientation, setOrientation] = useState(
         options?.footer ??
-          "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para sincronizar | Esc para cancelar | W para ampliar área de trabalho | L para ampliar log"
+          "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para sincronizar | Esc para cancelar | C para filtrar selecionados | W para ampliar área de trabalho | L para ampliar log"
       );
       const [version, setVersion] = useState(0);
       const progressMapRef = useRef<Map<string, ProgressSnapshot>>(new Map());
       const [selectedIndex, setSelectedIndex] = useState(0);
       const [scrollOffset, setScrollOffset] = useState(0);
+      const [showOnlySelected, setShowOnlySelected] = useState(false);
       const resolvedRef = useRef(false);
 
       const { workspaceHeight } = computeMetrics(terminalHeight, logMaximized);
       const visibleCount = Math.max(1, workspaceHeight);
 
-      const items = useMemo(() => flattenTree(nodes, progressMapRef.current), [nodes, version]);
+      const items = useMemo(() => {
+        const visibleNodes = showOnlySelected ? filterTreeBySelection(nodes) : nodes;
+        return flattenTree(visibleNodes, progressMapRef.current);
+      }, [nodes, version, showOnlySelected]);
 
       useEffect(() => {
         if (items.length === 0) {
@@ -288,6 +297,19 @@ export const renderRepositoryTree = async (
         setVersion((value: number) => value + 1);
       }, [items, selectedIndex, onToggle]);
 
+      const toggleSelectionFilter = useCallback(() => {
+        setShowOnlySelected((value) => !value);
+        setSelectedIndex(0);
+        setScrollOffset(0);
+        setVersion((value: number) => value + 1);
+        setLogEntries((current: LogEntry[]) => [
+          ...current,
+          createLogEntry(
+            showOnlySelected ? "Exibindo todos os repositórios." : "Exibindo apenas repositórios marcados."
+          ),
+        ]);
+      }, [showOnlySelected]);
+
       useInput((input: string, key: Key) => {
         const navigationKey = key as Key & { home?: boolean; end?: boolean };
         if (key.upArrow) {
@@ -321,6 +343,9 @@ export const renderRepositoryTree = async (
         }
         if (input === " ") {
           toggleSelected();
+        }
+        if (input.toLowerCase() === "c") {
+          toggleSelectionFilter();
         }
         if (key.return) {
           commitResolve(true);
