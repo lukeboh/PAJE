@@ -5,21 +5,21 @@ import type { GitLabProject } from "../src/modules/git/types.js";
 const projects: GitLabProject[] = [
   {
     id: 1,
-    name: "[TSE-GIT] Servico Biometria Clone",
+    name: "Servico Biometria Clone",
     path_with_namespace: "TSE-GIT/eleitoral/secad/Servico Biometria Clone",
     ssh_url_to_repo: "git@git.tse.jus.br:eleitoral/secad/servico.git",
     http_url_to_repo: "https://git.tse.jus.br/eleitoral/secad/servico.git",
   },
   {
     id: 2,
-    name: "[TSE-GIT] cadastro-spring-boot",
+    name: "cadastro-spring-boot",
     path_with_namespace: "TSE-GIT/eleitoral/secad/cadastro-spring-boot",
     ssh_url_to_repo: "git@git.tse.jus.br:eleitoral/secad/cadastro.git",
     http_url_to_repo: "https://git.tse.jus.br/eleitoral/secad/cadastro.git",
   },
   {
     id: 3,
-    name: "[DEV-GIT] sistot",
+    name: "sistot",
     path_with_namespace: "DEV-GIT/eleitoral/setot/sistemas/sistot",
     ssh_url_to_repo: "git@gitlab.dev.local:eleitoral/setot/sistemas/sistot.git",
     http_url_to_repo: "https://gitlab.dev.local/eleitoral/setot/sistemas/sistot.git",

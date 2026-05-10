@@ -18,6 +18,7 @@ export type GitLabProject = {
     id: number;
     full_path: string;
   };
+  pajeOriginalPathWithNamespace?: string;
 };
 
 export type RepoSyncState = "SYNCED" | "BEHIND" | "AHEAD" | "REMOTE" | "EMPTY" | "LOCAL" | "UNCOMMITTED";

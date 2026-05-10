@@ -143,7 +143,7 @@ const mergeProjectsByPath = (
     projectIdMapByServer.set(server.id, localMap);
 
     projects.forEach((project) => {
-      const normalizedPath = `${server.name}/${project.path_with_namespace}`;
+      const normalizedPath = project.path_with_namespace;
       if (byPath.has(normalizedPath)) {
         return;
       }
@@ -151,16 +151,17 @@ const mergeProjectsByPath = (
         ? {
             ...project.namespace,
             id: groupMap?.get(project.namespace.id) ?? project.namespace.id,
-            full_path: `${server.name}/${project.namespace.full_path}`,
+            full_path: project.namespace.full_path,
           }
         : project.namespace;
       const mappedId = localMap.get(project.id) ?? nextProjectId;
       byPath.set(normalizedPath, {
         ...project,
         id: mappedId,
-        name: `${buildServerPrefix(server)} ${project.name}`,
+        name: project.name,
         path_with_namespace: normalizedPath,
         namespace: mappedNamespace,
+        pajeOriginalPathWithNamespace: project.path_with_namespace,
       });
     });
   });
@@ -1896,10 +1897,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         if (mergedOptions.noArchivedRepos && project.archived) {
           return false;
         }
-        if (!matchesAntPatterns(project.path_with_namespace, filterPatterns)) {
-          return false;
-        }
-        return true;
+        return matchesAntPatterns(project.path_with_namespace, filterPatterns);
       });
 
       const summary = createSummary();
@@ -1920,7 +1918,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         const resolvedUserName = mergedOptions.username?.trim() || undefined;
         const resolvedUserEmail = mergedOptions.userEmail?.trim() || undefined;
         await ensureLocalDirsIfNeeded(filteredProjects, defaultBaseDir, mergedOptions.prepareLocalDirs ?? false);
-        const statusEntries = await Promise.all(
+         const statusEntries = await Promise.all(
           filteredProjects.map(async (project) => {
             const targetPath = path.join(defaultBaseDir, project.path_with_namespace);
             const status = await resolveRepoStatus({
@@ -2416,6 +2414,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             defaultBranch: project.default_branch,
             knownRemote: true,
           });
+          logToTui(`Pré-seleção: ${project.path_with_namespace} -> ${targetPath} [${status.state}]`);
           return [project.id, status] as const;
         })
       );
