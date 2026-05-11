@@ -127,20 +127,33 @@ const mergeGroupsByPath = (
 ): { groups: GitLabGroup[]; idMapByServer: Map<string, Map<number, number>> } => {
   const groups: GitLabGroup[] = [];
   const idMapByServer = new Map<string, Map<number, number>>();
+  let nextId = 1;
 
   entries.forEach(({ server, groups: serverGroups }) => {
     const serverIdMap = new Map<number, number>();
     serverGroups.forEach((group) => {
-      const existingIndex = groups.findIndex((item) => item.full_path === group.full_path);
-      if (existingIndex >= 0) {
-        serverIdMap.set(group.id, groups[existingIndex].id);
+      const existing = groups.find((item) => item.full_path === group.full_path);
+      if (existing) {
+        serverIdMap.set(group.id, existing.id);
         return;
       }
-      const normalized = { ...group };
-      groups.push(normalized);
-      serverIdMap.set(group.id, normalized.id);
+      serverIdMap.set(group.id, nextId);
+      nextId += 1;
     });
     idMapByServer.set(server.id, serverIdMap);
+
+    serverGroups.forEach((group) => {
+      if (groups.some((item) => item.full_path === group.full_path)) {
+        return;
+      }
+      const mappedId = serverIdMap.get(group.id) ?? nextId;
+      const mappedParent = group.parent_id ? serverIdMap.get(group.parent_id) ?? null : null;
+      groups.push({
+        ...group,
+        id: mappedId,
+        parent_id: mappedParent,
+      });
+    });
   });
 
   return { groups, idMapByServer };
@@ -151,13 +164,15 @@ const mergeProjectsByPath = (
   idMapByServer: Map<string, Map<number, number>>
 ): { projects: GitLabProject[] } => {
   const projects: GitLabProject[] = [];
+  const seen = new Set<string>();
   entries.forEach(({ server, projects: serverProjects }) => {
     const idMap = idMapByServer.get(server.id);
     serverProjects.forEach((project) => {
-      const existingIndex = projects.findIndex((item) => item.path_with_namespace === project.path_with_namespace);
-      if (existingIndex >= 0) {
+      const normalizedPath = `${server.name}/${project.path_with_namespace}`;
+      if (seen.has(normalizedPath)) {
         return;
       }
+      seen.add(normalizedPath);
       const namespaceId = project.namespace?.id;
       const normalized: GitLabProject = {
         ...project,
@@ -165,8 +180,11 @@ const mergeProjectsByPath = (
           ? {
               ...project.namespace,
               id: namespaceId ? idMap?.get(namespaceId) ?? namespaceId : project.namespace.id,
+              full_path: project.namespace.full_path,
             }
           : undefined,
+        pajeOriginalPathWithNamespace: project.path_with_namespace,
+        pajeServerName: server.name,
       };
       projects.push(normalized);
     });
@@ -264,6 +282,36 @@ const resolveRepoStatus = async (options: {
   return { branch, state: "AHEAD", delta: `+${ahead}/-${behind}` };
 };
 
+const resolveProjectLocalPath = (project: GitLabProject): string => {
+  return project.pajeOriginalPathWithNamespace ?? project.path_with_namespace;
+};
+
+const resolveLocalPathConflicts = (projects: GitLabProject[]): Map<number, string> => {
+  const byPath = new Map<string, GitLabProject[]>();
+  const resolved = new Map<number, string>();
+
+  projects.forEach((project) => {
+    const basePath = resolveProjectLocalPath(project);
+    const entries = byPath.get(basePath) ?? [];
+    entries.push(project);
+    byPath.set(basePath, entries);
+  });
+
+  byPath.forEach((entries, basePath) => {
+    if (entries.length === 1) {
+      resolved.set(entries[0].id, basePath);
+      return;
+    }
+    entries.forEach((project) => {
+      const serverName = project.pajeServerName?.trim();
+      const suffix = serverName && serverName.length > 0 ? `-${serverName}` : "-servidor";
+      resolved.set(project.id, `${basePath}${suffix}`);
+    });
+  });
+
+  return resolved;
+};
+
 const ensureLocalDirsIfNeeded = async (
   projects: GitLabProject[],
   baseDir: string,
@@ -272,9 +320,10 @@ const ensureLocalDirsIfNeeded = async (
   if (!prepareLocalDirs) {
     return;
   }
+  const resolvedPaths = resolveLocalPathConflicts(projects);
   await Promise.all(
     projects.map(async (project) => {
-      const targetPath = path.join(baseDir, project.path_with_namespace);
+      const targetPath = path.join(baseDir, resolvedPaths.get(project.id) ?? resolveProjectLocalPath(project));
       await fs.promises.mkdir(path.dirname(targetPath), { recursive: true });
     })
   );
@@ -410,12 +459,13 @@ const prepareTargets = (
   username?: string,
   userEmail?: string
 ): GitRepositoryTarget[] => {
+  const resolvedPaths = resolveLocalPathConflicts(projects);
   return projects.map((project) => ({
     id: project.id,
     name: project.name,
-    pathWithNamespace: project.path_with_namespace,
+    pathWithNamespace: resolveProjectLocalPath(project),
     sshUrl: project.ssh_url_to_repo,
-    localPath: path.join(baseDir, project.path_with_namespace),
+    localPath: path.join(baseDir, resolvedPaths.get(project.id) ?? resolveProjectLocalPath(project)),
     defaultBranch: project.default_branch,
     gitUserName: username,
     gitUserEmail: userEmail,
@@ -579,9 +629,13 @@ export const createGitSyncCore = (): GitSyncCore => {
 
       await ensureLocalDirsIfNeeded(filteredProjects, config.baseDir, config.prepareLocalDirs ?? false);
 
+      const resolvedPaths = resolveLocalPathConflicts(filteredProjects);
       const statusEntries = await Promise.all(
         filteredProjects.map(async (project) => {
-          const targetPath = path.join(config.baseDir, project.path_with_namespace);
+          const targetPath = path.join(
+            config.baseDir,
+            resolvedPaths.get(project.id) ?? resolveProjectLocalPath(project)
+          );
           const status = await resolveRepoStatus({
             targetPath,
             defaultBranch: project.default_branch,
@@ -617,10 +671,11 @@ export const createGitSyncCore = (): GitSyncCore => {
       const resolvedUserName = config.username?.trim() || undefined;
       const resolvedUserEmail = config.userEmail?.trim() || undefined;
       const syncSpecs = resolveSyncReposSpecs(config.syncRepos);
+      const resolvedPaths = resolveLocalPathConflicts(selected);
       const syncTargets = syncSpecs.length > 0
         ? resolveSyncTargets(selected, syncSpecs).map((target) => ({
             ...target,
-            localPath: path.join(config.baseDir, target.pathWithNamespace),
+            localPath: path.join(config.baseDir, resolvedPaths.get(target.id) ?? target.pathWithNamespace),
             gitUserName: resolvedUserName,
             gitUserEmail: resolvedUserEmail,
           }))

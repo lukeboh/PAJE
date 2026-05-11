@@ -197,7 +197,7 @@ const runSummaryTests = async (): Promise<void> => {
   );
 
   output = "";
-  await runCli(["git-sync", "--base-dir", "repos", "--env-file", envPath, "--filter=DEV-GIT/devops/*"]);
+  await runCli(["git-sync", "--base-dir", "repos", "--env-file", envPath, "--filter=devops/*"]);
   assert.ok(
     output.includes("Repositórios identificados:  2") || output.includes("Reposit?rios identificados:  2"),
     "Resumo deve respeitar filtro por padrão"

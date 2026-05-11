@@ -66,6 +66,8 @@ A TUI é iniciada ao executar `paje` sem parâmetros e selecionar **Sincronizar 
 
 - Sem filtros de servidor, agrega todos os servidores persistidos.
 - Com filtros, somente servidores correspondentes são carregados.
+- Grupos com o mesmo `full_path` em servidores diferentes são consolidados no mesmo nó da árvore.
+- Em colisões de caminho local (mesmo `path_with_namespace` em servidores diferentes), o diretório local recebe sufixo `-<Servidor>`.
 - `--sync-repos` aceita padrão `path_with_namespace[.git]#branch`.
 - `--parallels` aceita `AUTO`, `0` ou número ≥ 1.
 - `--dry-run` evita alterações reais, apenas reporta ações.

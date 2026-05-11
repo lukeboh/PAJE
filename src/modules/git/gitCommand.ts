@@ -111,13 +111,19 @@ const mergeGroupsByPath = (
   entries.forEach(({ server, groups }) => {
     const localMap = new Map<number, number>();
     groups.forEach((group) => {
+      const normalizedPath = group.full_path;
+      const existing = byPath.get(normalizedPath);
+      if (existing) {
+        localMap.set(group.id, existing.id);
+        return;
+      }
       localMap.set(group.id, nextId);
       nextId += 1;
     });
     idMapByServer.set(server.id, localMap);
 
     groups.forEach((group) => {
-      const normalizedPath = `${server.name}/${group.full_path}`;
+      const normalizedPath = group.full_path;
       if (byPath.has(normalizedPath)) {
         return;
       }
@@ -161,7 +167,7 @@ const mergeProjectsByPath = (
         ? {
             ...project.namespace,
             id: groupMap?.get(project.namespace.id) ?? project.namespace.id,
-            full_path: `${server.name}/${project.namespace.full_path}`,
+            full_path: project.namespace.full_path,
           }
         : project.namespace;
       const mappedId = localMap.get(project.id) ?? nextProjectId;
@@ -169,7 +175,7 @@ const mergeProjectsByPath = (
         ...project,
         id: mappedId,
         name: project.name,
-        path_with_namespace: normalizedPath,
+        path_with_namespace: project.path_with_namespace,
         namespace: mappedNamespace,
         pajeOriginalPathWithNamespace: project.path_with_namespace,
         pajeServerName: server.name,
@@ -418,6 +424,32 @@ const resolveProjectLocalPath = (project: GitLabProject): string => {
   return project.pajeOriginalPathWithNamespace ?? project.path_with_namespace;
 };
 
+const resolveLocalPathConflicts = (projects: GitLabProject[]): Map<number, string> => {
+  const byPath = new Map<string, GitLabProject[]>();
+  const resolved = new Map<number, string>();
+
+  projects.forEach((project) => {
+    const basePath = resolveProjectLocalPath(project);
+    const entries = byPath.get(basePath) ?? [];
+    entries.push(project);
+    byPath.set(basePath, entries);
+  });
+
+  byPath.forEach((entries, basePath) => {
+    if (entries.length === 1) {
+      resolved.set(entries[0].id, basePath);
+      return;
+    }
+    entries.forEach((project) => {
+      const serverName = project.pajeServerName?.trim();
+      const suffix = serverName && serverName.length > 0 ? `-${serverName}` : "-servidor";
+      resolved.set(project.id, `${basePath}${suffix}`);
+    });
+  });
+
+  return resolved;
+};
+
 const ensureLocalDirsIfNeeded = async (
   projects: GitLabProject[],
   baseDir: string,
@@ -426,9 +458,10 @@ const ensureLocalDirsIfNeeded = async (
   if (!enabled) {
     return;
   }
+  const resolvedPaths = resolveLocalPathConflicts(projects);
   await Promise.all(
     projects.map(async (project) => {
-      const targetPath = path.join(baseDir, resolveProjectLocalPath(project));
+      const targetPath = path.join(baseDir, resolvedPaths.get(project.id) ?? resolveProjectLocalPath(project));
       await fs.promises.mkdir(targetPath, { recursive: true });
     })
   );
@@ -2053,10 +2086,11 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         const defaultBaseDir = mergedOptions.baseDir ?? "repos";
         const resolvedUserName = mergedOptions.username?.trim() || undefined;
         const resolvedUserEmail = mergedOptions.userEmail?.trim() || undefined;
+        const resolvedPaths = resolveLocalPathConflicts(filteredProjects);
         await ensureLocalDirsIfNeeded(filteredProjects, defaultBaseDir, mergedOptions.prepareLocalDirs ?? false);
          const statusEntries = await Promise.all(
            filteredProjects.map(async (project) => {
-             const targetPath = path.join(defaultBaseDir, resolveProjectLocalPath(project));
+             const targetPath = path.join(defaultBaseDir, resolvedPaths.get(project.id) ?? resolveProjectLocalPath(project));
              const status = await resolveRepoStatus({
                targetPath,
                defaultBranch: project.default_branch,
@@ -2067,11 +2101,13 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
          );
          const statusMap = Object.fromEntries(statusEntries) as Record<number, RepoSyncStatus>;
          const knownPaths = new Set(
-           filteredProjects.map((project) => path.join(defaultBaseDir, resolveProjectLocalPath(project)))
+           filteredProjects.map((project) =>
+             path.join(defaultBaseDir, resolvedPaths.get(project.id) ?? resolveProjectLocalPath(project))
+           )
          );
-        const localScan = await buildLocalStatusMap(defaultBaseDir, knownPaths);
-        const treeNodes = buildHierarchyTree(filteredProjects, statusMap, localScan.localPaths, localScan.statusMap);
-        renderTreeLines(header, treeNodes).forEach((line) => console.log(line));
+       const localScan = await buildLocalStatusMap(defaultBaseDir, knownPaths);
+       const treeNodes = buildHierarchyTree(filteredProjects, statusMap, localScan.localPaths, localScan.statusMap);
+       renderTreeLines(header, treeNodes).forEach((line) => console.log(line));
         Object.values(statusMap).forEach((status) => {
           summary.byStatus[status.state] += 1;
         });
@@ -2086,13 +2122,17 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
 
         const syncSpecs = resolveSyncReposSpecs(mergedOptions.syncRepos);
         if (syncSpecs.length > 0) {
+          const resolvedPaths = resolveLocalPathConflicts(filteredProjects);
           const syncTargets = resolveSyncTargets(filteredProjects, syncSpecs)
-            .map((target) => ({
-              ...target,
-              localPath: path.join(defaultBaseDir, target.pathWithNamespace),
-              gitUserName: resolvedUserName,
-              gitUserEmail: resolvedUserEmail,
-            }))
+            .map((target) => {
+              const resolvedTargetPath = resolvedPaths.get(target.id);
+              return {
+                ...target,
+                localPath: path.join(defaultBaseDir, resolvedTargetPath ?? target.pathWithNamespace),
+                gitUserName: resolvedUserName,
+                gitUserEmail: resolvedUserEmail,
+              };
+            })
             .sort((a, b) =>
               `${a.pathWithNamespace}#${a.branch ?? ""}`.localeCompare(
                 `${b.pathWithNamespace}#${b.branch ?? ""}`,

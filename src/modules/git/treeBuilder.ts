@@ -1,5 +1,14 @@
 import { GitLabGroup, GitLabProject, GitLabTreeNode, RepoSyncStatus } from "./types.js";
 
+const resolvePathLabel = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+  const segments = trimmed.split("/").filter(Boolean);
+  return segments.length > 0 ? segments[segments.length - 1] : trimmed;
+};
+
 export const buildGitLabTree = (
   groups: GitLabGroup[],
   projects: GitLabProject[]
@@ -9,7 +18,7 @@ export const buildGitLabTree = (
   groups.forEach((group) => {
     groupMap.set(group.id, {
       id: `group-${group.id}`,
-      label: group.full_path,
+      label: resolvePathLabel(group.full_path),
       type: "group",
       groupId: group.id,
       children: [],
@@ -39,7 +48,7 @@ export const buildGitLabTree = (
     const displayLabel = project.pajeOriginalPathWithNamespace ?? project.path_with_namespace;
     const node: GitLabTreeNode = {
       id: `project-${project.id}`,
-      label: displayLabel,
+      label: resolvePathLabel(displayLabel),
       type: "project",
       project,
       selected: false,

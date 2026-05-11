@@ -128,6 +128,9 @@ Este documento define os requisitos da funcionalidade **Sincronizar repositório
 - Caso nenhum servidor corresponda aos filtros `serverName`/`baseUrl`, exibir mensagem explícita e não abrir a árvore.
 - Quando apenas um servidor corresponder, o cabeçalho deve indicar `GitLab (1 servidor)`.
 - O contador de requisições deve refletir o total global de chamadas somadas entre servidores válidos.
+- Grupos com o mesmo `full_path` em servidores diferentes devem ser consolidados em um único nó.
+- Os rótulos dos grupos devem exibir apenas o último segmento do caminho (sem prefixo de servidor).
+- Em colisão de caminho local (mesmo `path_with_namespace` em servidores diferentes), o diretório local deve receber sufixo `-<Servidor>`.
 
 ## Requisitos não funcionais
 

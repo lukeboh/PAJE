@@ -95,6 +95,8 @@ Sincroniza repositórios em paralelo, agregando todos os servidores configurados
 - A TUI pré-seleciona repositórios que já possuem clone local (checkbox `[x]`) e propaga seleção parcial para grupos.
 - O atalho `C` alterna a visualização para mostrar apenas repositórios marcados na árvore.
 - O resumo final mostra estados: `SYNCED`, `BEHIND`, `AHEAD`, `REMOTE`, `EMPTY`, `LOCAL`, `UNCOMMITTED`.
+- Grupos com o mesmo `full_path` em servidores diferentes são consolidados no mesmo nó da árvore.
+- Em colisões de caminho local (mesmo `path_with_namespace` em servidores diferentes), o diretório local recebe sufixo `-<Servidor>`.
 - Os filtros suportam padrões Ant/Glob: `?`, `*`, `**` e múltiplos padrões separados por `;`.
 - O log é centralizado no LoggerBroker, com transports para console, painel TUI e arquivo em `~/.paje/logs`.
 - Níveis padrão: console `info`, painel `warn`, arquivo `debug`.
