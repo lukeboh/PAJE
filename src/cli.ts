@@ -1,7 +1,7 @@
 import { Command } from "commander";
-import { configureGitSyncCommand, configureSshKeyStoreCommand } from "./modules/git/gitCommand.js";
-import { renderMenu, type MenuItem } from "./modules/git/tui/menu.app.js";
-import { createSessionForCommand } from "./cliSession.js";
+import { buildInitialParameters, configureGitSyncCommand, configureSshKeyStoreCommand } from "./modules/git/gitCommand";
+import { renderMenu, type MenuItem } from "./modules/git/tui/menu.app";
+import { createSessionForCommand } from "./cliSession";
 
 const menuItems: MenuItem[] = [
   {
@@ -19,7 +19,8 @@ const menuItems: MenuItem[] = [
 ];
 
 const runMenu = async () => {
-  const selection = await renderMenu(menuItems);
+  const parameters = buildInitialParameters();
+  const selection = await renderMenu(menuItems, parameters);
   return { selection };
 };
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import React from "react";
 import { Box, Text, render } from "ink";
 import { PassThrough } from "node:stream";
+import { buildParameter } from "../src/modules/git/core/parameters.js";
 import { Layout } from "../src/modules/git/tui/layout.js";
 import { createLogEntry } from "../src/modules/git/tui/logger.js";
 
@@ -53,9 +54,41 @@ const waitNextTick = async (): Promise<void> => {
   await new Promise((resolve) => setTimeout(resolve, 0));
 };
 
+const waitForOutput = async (predicate: (value: string) => boolean, timeoutMs = 300): Promise<void> => {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (predicate(output)) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+};
+
+const pressKey = (keyValue: string): void => {
+  const data = Buffer.from(keyValue, "utf8");
+  stdin.write(data);
+  stdin.emit("data", data);
+  stdin.emit("keypress", keyValue, { name: keyValue, sequence: keyValue });
+};
+
 const logs = [
   createLogEntry("Evento inicial"),
   createLogEntry("Falha ao autenticar", "error"),
+];
+
+const parameters = [
+  {
+    command: "git-sync",
+    label: "Sincronizar repositórios GitLab",
+    parameters: [
+      buildParameter({
+        name: "baseDir",
+        description: "Diretório base para clonagem",
+        value: "repos",
+        source: "cli",
+      }),
+    ],
+  },
 ];
 
 const tree = React.createElement(
@@ -64,6 +97,7 @@ const tree = React.createElement(
     title: "PAJÉ - Teste TUI",
     orientation: "Use Enter para confirmar",
     logEntries: logs,
+    parameters,
     initialLogMaximized: false,
     initialWorkspaceMaximized: false,
     children: React.createElement(
@@ -80,10 +114,15 @@ const { unmount } = render(React.createElement(React.Fragment, null, tree), {
 });
 await waitNextTick();
 
+pressKey("p");
+await waitForOutput((value) => value.includes("Parâmetros carregados"));
+
 assert.ok(output.includes("PAJÉ - Teste TUI"), "Deve renderizar o título no layout");
 assert.ok(output.includes("Use Enter para confirmar"), "Deve renderizar a orientação");
 assert.ok(output.includes("Evento inicial"), "Deve renderizar entradas do log");
 assert.ok(output.includes("Falha ao autenticar"), "Deve renderizar mensagens de erro");
+const modalShown = output.includes("Parâmetros carregados") || output.includes("P/Esc para fechar");
+assert.ok(modalShown, "Deve exibir a modal de parâmetros ao pressionar P");
 assert.ok(/\u001b\[(31|91)m/.test(output), "Deve colorir erro em vermelho");
 
 unmount();

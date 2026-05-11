@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, render, useInput, useStdout } from "ink";
 import type { Key } from "ink";
+import type { CommandParameters } from "./core/parameters.js";
 import { Layout } from "./tui/layout.js";
 import { createLogEntry, type LogEntry } from "./tui/logger.js";
 import type { GitLabTreeNode, RepoSyncStatus, RepoSyncState } from "./types.js";
@@ -214,6 +215,7 @@ export const renderRepositoryTree = async (
     title?: string;
     footer?: string;
     header?: string;
+    parameters?: CommandParameters[];
     onReady?: (handlers: {
       render: () => void;
       progress: TuiTreeProgress;
@@ -228,6 +230,7 @@ export const renderRepositoryTree = async (
     const App: React.FC = () => {
       const { stdout } = useStdout();
       const terminalHeight = stdout?.rows ?? 24;
+      const parametersSnapshot = options?.parameters ?? [];
       const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
       const [logMaximized, setLogMaximized] = useState(false);
       const [orientation, setOrientation] = useState(
@@ -312,6 +315,10 @@ export const renderRepositoryTree = async (
 
       useInput((input: string, key: Key) => {
         const navigationKey = key as Key & { home?: boolean; end?: boolean };
+        const lower = input.toLowerCase();
+        if (lower === "p") {
+          return;
+        }
         if (key.upArrow) {
           const nextIndex = Math.max(0, selectedIndex - 1);
           setSelectedIndex(nextIndex);
@@ -344,7 +351,7 @@ export const renderRepositoryTree = async (
         if (input === " ") {
           toggleSelected();
         }
-        if (input.toLowerCase() === "c") {
+        if (lower === "c") {
           toggleSelectionFilter();
         }
         if (key.return) {
@@ -395,6 +402,7 @@ export const renderRepositoryTree = async (
           title={headerTitle}
           orientation={orientation}
           logEntries={logEntries}
+          parameters={parametersSnapshot}
           onEscape={() => commitResolve(false)}
         >
           <TreeList

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Box, Text, render, useInput } from "ink";
+import type { CommandParameters } from "../core/parameters.js";
 import { Layout } from "./layout.js";
 import { createLogEntry, type LogEntry } from "./logger.js";
 
@@ -52,7 +53,7 @@ export const MenuDashboard: React.FC<MenuDashboardProps> = ({ items, selectedInd
 export const MENU_ORIENTATION_MESSAGE =
   "S/G para selecionar | Setas para navegar | Enter para confirmar | Esc para sair | W para ampliar área de trabalho | L para ampliar log";
 
-export const renderMenu = async (items: MenuItem[]): Promise<MenuItem | null> => {
+export const renderMenu = async (items: MenuItem[], parameters: CommandParameters[] = []): Promise<MenuItem | null> => {
   return new Promise((resolve) => {
     const resolveRef = { current: resolve };
     const resolvedRef = { current: false };
@@ -72,6 +73,7 @@ export const renderMenu = async (items: MenuItem[]): Promise<MenuItem | null> =>
     const App: React.FC = () => {
       const [selectedIndex, setSelectedIndex] = useState(0);
       const [logEntries, setLogEntries] = useState<LogEntry[]>(() => [createLogEntry("Selecione uma funcionalidade")]);
+      const parametersSnapshot = parameters;
 
       const appendLog = (message: string): void => {
         setLogEntries((current) => [...current, createLogEntry(message)]);
@@ -86,6 +88,9 @@ export const renderMenu = async (items: MenuItem[]): Promise<MenuItem | null> =>
 
       useInput((input, key) => {
         const normalizedInput = input.toLowerCase();
+        if (normalizedInput === "p") {
+          return;
+        }
         if (normalizedInput === "s") {
           const selected = items[0];
           if (selected) {
@@ -150,6 +155,7 @@ export const renderMenu = async (items: MenuItem[]): Promise<MenuItem | null> =>
           workspaceLabel="Menu de Funcionalidades"
           orientation={MENU_ORIENTATION_MESSAGE}
           logEntries={logEntries}
+          parameters={parametersSnapshot}
           onEscape={() => finalize(null)}
         >
           <MenuDashboard items={items} selectedIndex={selectedIndex} />

@@ -4,6 +4,16 @@ import os from "node:os";
 import path from "node:path";
 import { Command } from "commander";
 import { GitLabApi } from "./gitlabApi.js";
+import { resolveGitSyncConfig } from "./core/gitSyncConfig.js";
+import { buildParameter, type CommandParameters, type ParameterSource } from "./core/parameters.js";
+import {
+  resolveEnvBooleanWithSource,
+  resolveEnvNumberWithSource,
+  resolveEnvStringArrayWithSource,
+  resolveEnvStringWithSource,
+  resolveEnvValueWithSource,
+  type EnvResolution,
+} from "./core/envResolver.js";
 import {
   applyInitialSelectionFromStatusMap,
   buildGitLabTree,
@@ -1594,6 +1604,166 @@ const formatRepoLabel = (value: string, width: number): string => {
   return `${value.slice(0, Math.max(0, width - 1))}?`;
 };
 
+const buildParameterSource = (resolution: EnvResolution): ParameterSource => {
+  return resolution.source;
+};
+
+const buildSshKeyStoreParameters = (options: SshKeyStoreCliOptions, hasCliArg: (flag: string) => boolean): CommandParameters => {
+  const hasEnvFileCli = hasCliArg("env-file");
+  const resolvedEnvFile = resolveEnvFileFromCli(hasEnvFileCli ? options.envFile : undefined);
+  const envFileSource: ParameterSource = hasEnvFileCli && options.envFile?.trim() ? "resolved" : "default";
+  const envConfig = loadEnvConfig({ envFile: resolvedEnvFile });
+
+  const resolveEnvOrCliString = (
+    cliValue: string | undefined,
+    key: string,
+    flag: string,
+    defaultValue?: string
+  ): EnvResolution => {
+    const resolvedCli = hasCliArg(flag) ? cliValue : undefined;
+    return resolveEnvStringWithSource(resolvedCli, envConfig, key, defaultValue);
+  };
+  const resolveEnvOrCliBoolean = (
+    cliValue: boolean | undefined,
+    key: string,
+    flag: string,
+    defaultValue?: boolean
+  ): EnvResolution => {
+    const resolvedCli = hasCliArg(flag) ? cliValue : undefined;
+    return resolveEnvBooleanWithSource(resolvedCli, envConfig, key, defaultValue);
+  };
+  const resolveEnvOrCliNumber = (
+    cliValue: number | undefined,
+    key: string,
+    flag: string,
+    defaultValue?: number
+  ): EnvResolution => {
+    const resolvedCli = hasCliArg(flag) ? cliValue : undefined;
+    return resolveEnvNumberWithSource(resolvedCli, envConfig, key, defaultValue);
+  };
+  const resolveEnvOrCliArray = (
+    cliValue: string | undefined,
+    key: string,
+    flag: string
+  ): EnvResolution => {
+    const resolvedCli = hasCliArg(flag) ? cliValue : undefined;
+    return resolveEnvStringArrayWithSource(resolvedCli, envConfig, key);
+  };
+
+  const baseUrlResolution = resolveEnvOrCliString(options.baseUrl?.trim(), "baseUrl", "base-url", "https://git.tse.jus.br");
+  const serverNameResolution = resolveEnvOrCliString(options.serverName, "serverName", "server-name", "GitLab");
+  const usernameResolution = resolveEnvOrCliString(options.username, "username", "username");
+  const keyLabelResolution = resolveEnvOrCliString(options.keyLabel, "keyLabel", "key-label", "paje");
+  const passphraseResolution = resolveEnvOrCliString(options.passphrase, "passphrase", "passphrase");
+  const publicKeyPathResolution = resolveEnvOrCliString(options.publicKeyPath, "publicKeyPath", "public-key-path");
+  const keyOverwriteResolution = resolveEnvOrCliBoolean(options.keyOverwrite, "keyOverwrite", "key-overwrite", false);
+  const retryDelayResolution = resolveEnvOrCliNumber(options.retryDelayMs, "retryDelayMs", "retry-delay-ms");
+  const maxAttemptsResolution = resolveEnvOrCliNumber(options.maxAttempts, "maxAttempts", "max-attempts");
+  const tokenNameResolution = resolveEnvOrCliString(options.tokenName?.trim(), "tokenName", "token-name");
+  const tokenScopesResolution = resolveEnvOrCliArray(options.tokenScopes, "tokenScopes", "token-scopes");
+  const tokenExpiresAtResolution = resolveEnvOrCliString(options.tokenExpiresAt, "tokenExpiresAt", "token-expires-at");
+  const verboseResolution = resolveEnvOrCliBoolean(options.verbose, "verbose", "verbose", false);
+
+  return {
+    command: "git-server-store",
+    label: "Registrar servidor GitLab",
+    parameters: [
+      buildParameter({
+        name: "baseUrl",
+        description: "URL base do GitLab",
+        value: baseUrlResolution.value ?? "",
+        source: buildParameterSource(baseUrlResolution),
+      }),
+      buildParameter({
+        name: "serverName",
+        description: "Nome do servidor GitLab",
+        value: serverNameResolution.value ?? "",
+        source: buildParameterSource(serverNameResolution),
+      }),
+      buildParameter({
+        name: "username",
+        description: "Usuário do GitLab",
+        value: usernameResolution.value ?? "",
+        source: buildParameterSource(usernameResolution),
+      }),
+      buildParameter({
+        name: "keyLabel",
+        description: "Nome da chave SSH a ser gerada",
+        value: keyLabelResolution.value ?? "",
+        source: buildParameterSource(keyLabelResolution),
+      }),
+      buildParameter({
+        name: "passphrase",
+        description: "Passphrase da chave SSH",
+        value: passphraseResolution.value ? "********" : "",
+        source: buildParameterSource(passphraseResolution),
+      }),
+      buildParameter({
+        name: "publicKeyPath",
+        description: "Caminho para chave pública existente",
+        value: publicKeyPathResolution.value ?? "",
+        source: buildParameterSource(publicKeyPathResolution),
+      }),
+      buildParameter({
+        name: "keyOverwrite",
+        description: "Sobrescrever chave existente",
+        value: keyOverwriteResolution.value ?? false,
+        source: buildParameterSource(keyOverwriteResolution),
+      }),
+      buildParameter({
+        name: "retryDelayMs",
+        description: "Intervalo de retry em ms",
+        value: retryDelayResolution.value ?? "",
+        source: buildParameterSource(retryDelayResolution),
+      }),
+      buildParameter({
+        name: "maxAttempts",
+        description: "Número máximo de tentativas",
+        value: maxAttemptsResolution.value ?? "",
+        source: buildParameterSource(maxAttemptsResolution),
+      }),
+      buildParameter({
+        name: "tokenName",
+        description: "Nome do token pessoal no GitLab",
+        value: tokenNameResolution.value ?? "",
+        source: buildParameterSource(tokenNameResolution),
+      }),
+      buildParameter({
+        name: "tokenScopes",
+        description: "Escopos do token",
+        value: tokenScopesResolution.value ?? "",
+        source: buildParameterSource(tokenScopesResolution),
+      }),
+      buildParameter({
+        name: "tokenExpiresAt",
+        description: "Data de expiração do token",
+        value: tokenExpiresAtResolution.value ?? "",
+        source: buildParameterSource(tokenExpiresAtResolution),
+      }),
+      buildParameter({
+        name: "verbose",
+        description: "Exibe detalhes das operações executadas",
+        value: verboseResolution.value ?? false,
+        source: buildParameterSource(verboseResolution),
+      }),
+      buildParameter({
+        name: "envFile",
+        description: "Caminho do arquivo de ambiente",
+        value: resolvedEnvFile ?? "",
+        source: envFileSource,
+      }),
+    ],
+  };
+};
+
+export const buildInitialParameters = (): CommandParameters[] => {
+  const hasCliArg = (_flag: string): boolean => false;
+  const resolveCliBoolean = (_flag: string): boolean | undefined => undefined;
+  const { parameters: gitSyncParameters } = resolveGitSyncConfig({}, hasCliArg, resolveCliBoolean);
+  const sshKeyParameters = buildSshKeyStoreParameters({}, hasCliArg);
+  return [gitSyncParameters, sshKeyParameters];
+};
+
 export const configureGitSyncCommand = (program: Command, session?: TuiSession): void => {
   program
     .command("git-sync")
@@ -1641,7 +1811,6 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       };
 
       const cliOptions = options;
-      const envConfig = loadEnvConfig({ envFile: resolveEnvFileFromCli(cliOptions.envFile) });
       const resolveCliBoolean = (flag: string): boolean | undefined => {
         const dashed = `--${flag}`;
         const args = process.argv;
@@ -1665,63 +1834,15 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         const dashed = `--${flag}`;
         return process.argv.some((arg) => arg === dashed || arg.startsWith(`${dashed}=`));
       };
-      const resolveEnvOrCliString = (cliValue: string | undefined, key: string, flag: string): string | undefined => {
-        const resolvedCli = hasCliArg(flag) ? cliValue : undefined;
-        return resolveEnvString(resolvedCli, envConfig, key) ?? cliValue;
-      };
-      const resolveEnvOrCliBoolean = (
-        cliValue: boolean | undefined,
-        key: string,
-        flag: string,
-        resolvedFlag?: boolean
-      ): boolean | undefined => {
-        const resolvedCli = hasCliArg(flag) ? (resolvedFlag ?? cliValue) : undefined;
-        return resolveEnvBoolean(resolvedCli, envConfig, key) ?? resolvedFlag ?? cliValue;
-      };
-      const resolveEnvOrCliNumber = (
-        cliValue: number | undefined,
-        key: string,
-        flag: string
-      ): number | undefined => {
-        const resolvedCli = hasCliArg(flag) ? cliValue : undefined;
-        return resolveEnvNumber(resolvedCli, envConfig, key) ?? cliValue;
-      };
-      const cliNoSummary = resolveCliBoolean("no-summary");
-      const cliPrepareLocalDirs = resolveCliBoolean("prepare-local-dirs");
-      const cliNoPublicRepos = resolveCliBoolean("no-public-repos");
-      const cliNoArchivedRepos = resolveCliBoolean("no-archived-repos");
-      const cliVerbose = resolveCliBoolean("verbose");
-      const cliDryRun = resolveCliBoolean("dry-run");
-      const mergedOptions: GitSyncCliOptions = {
-        ...cliOptions,
-        baseDir: resolveHomePath(resolveEnvOrCliString(cliOptions.baseDir, "baseDir", "base-dir")),
-        serverName: resolveEnvOrCliString(cliOptions.serverName, "serverName", "server-name"),
-        baseUrl: resolveEnvOrCliString(cliOptions.baseUrl, "baseUrl", "base-url"),
-        useBasicAuth: resolveEnvOrCliBoolean(cliOptions.useBasicAuth, "useBasicAuth", "use-basic-auth"),
-        username: resolveEnvOrCliString(cliOptions.username, "username", "username"),
-        userEmail: resolveEnvOrCliString(cliOptions.userEmail, "userEmail", "user-email"),
-        password: resolveEnvOrCliString(cliOptions.password, "password", "password") ?? "",
-        keyLabel: resolveEnvOrCliString(cliOptions.keyLabel, "keyLabel", "key-label"),
-        passphrase: resolveEnvOrCliString(cliOptions.passphrase, "passphrase", "passphrase"),
-        publicKeyPath: resolveEnvOrCliString(cliOptions.publicKeyPath, "publicKeyPath", "public-key-path"),
-        verbose: resolveEnvOrCliBoolean(cliOptions.verbose, "verbose", "verbose", cliVerbose),
-        prepareLocalDirs:
-          resolveEnvOrCliBoolean(cliOptions.prepareLocalDirs, "prepareLocalDirs", "prepare-local-dirs", cliPrepareLocalDirs) ??
-          false,
-        noSummary:
-          resolveEnvOrCliBoolean(cliOptions.noSummary, "noSummary", "no-summary", cliNoSummary) ??
-          false,
-        noPublicRepos:
-          resolveEnvOrCliBoolean(cliOptions.noPublicRepos, "noPublicRepos", "no-public-repos", cliNoPublicRepos) ??
-          false,
-        noArchivedRepos:
-          resolveEnvOrCliBoolean(cliOptions.noArchivedRepos, "noArchivedRepos", "no-archived-repos", cliNoArchivedRepos) ??
-          false,
-        filter: resolveEnvOrCliString(cliOptions.filter, "filter", "filter"),
-        syncRepos: resolveEnvOrCliString(cliOptions.syncRepos, "syncRepos", "sync-repos"),
-        dryRun: resolveEnvOrCliBoolean(cliOptions.dryRun, "dryRun", "dry-run", cliDryRun) ?? false,
-        parallels: resolveEnvOrCliString(cliOptions.parallels, "parallels", "parallels"),
-      };
+      const { config: mergedOptions, parameters: gitSyncParameters } = resolveGitSyncConfig(
+        cliOptions,
+        hasCliArg,
+        resolveCliBoolean
+      );
+      const parametersSummary: CommandParameters[] = [gitSyncParameters];
+      if (session) {
+        session.setParameters(parametersSummary);
+      }
 
       const storedServers = readGitServers<GitServerEntry[]>([]);
       let servers = mergeServerList(storedServers);
@@ -2450,6 +2571,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         header,
         footer:
           "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para confirmar seleção | Esc para cancelar | C para filtrar selecionados | W para ampliar área de trabalho | L para ampliar log",
+        parameters: session?.getParameters() ?? parametersSummary,
         onReady: (handlers) => {
           treeProgress = handlers.progress;
           tuiLogState.append = handlers.log.append;
@@ -2504,29 +2626,18 @@ export const configureSshKeyStoreCommand = (program: Command, session?: TuiSessi
     .option("--token-scopes <scopes>", "Escopos do token (ex: api,read_repository)")
     .option("--token-expires-at <date>", "Data de expiração do token (YYYY-MM-DD)")
     .action(async (options: SshKeyStoreCliOptions) => {
-      const envConfig = loadEnvConfig({ envFile: resolveEnvFileFromCli(options.envFile) });
       const hasCliArg = (flag: string): boolean => {
         const dashed = `--${flag}`;
         return process.argv.some((arg) => arg === dashed || arg.startsWith(`${dashed}=`));
       };
-      const resolveEnvOrCliString = (
-        cliValue: string | undefined,
-        key: string,
-        flag: string,
-        fallback?: string
-      ): string | undefined => {
-        const resolvedCli = hasCliArg(flag) ? cliValue : undefined;
-        return resolveEnvString(resolvedCli, envConfig, key) ?? cliValue ?? fallback;
-      };
+      const sshKeyParameters = buildSshKeyStoreParameters(options, hasCliArg);
+      if (session) {
+        session.setParameters([sshKeyParameters]);
+      }
 
-      const baseUrl = resolveEnvOrCliString(
-        options.baseUrl?.trim(),
-        "baseUrl",
-        "base-url",
-        "https://git.tse.jus.br"
-      ) as string;
-      const serverName = resolveEnvOrCliString(options.serverName, "serverName", "server-name", "GitLab") as string;
-      const username = resolveEnvOrCliString(options.username, "username", "username");
+      const baseUrl = String(sshKeyParameters.parameters.find((param) => param.name === "baseUrl")?.value ?? "");
+      const serverName = String(sshKeyParameters.parameters.find((param) => param.name === "serverName")?.value ?? "");
+      const username = String(sshKeyParameters.parameters.find((param) => param.name === "username")?.value ?? "");
       const server: GitServerEntry = {
         id: baseUrl,
         name: serverName,

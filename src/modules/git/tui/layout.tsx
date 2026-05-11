@@ -1,18 +1,21 @@
 import React, { useMemo } from "react";
-import { Box, useApp, useInput, useStdout } from "ink";
+import { Box, Text, useApp, useInput, useStdout } from "ink";
+import type { CommandParameters } from "../core/parameters.js";
 import type { LogEntry } from "./logger.js";
-import { LayoutMetricsProvider, PanelStateProvider, usePanelStateController } from "./layoutContext.js";
+import { LayoutMetricsProvider, ModalStateProvider, PanelStateProvider, useModalStateController, usePanelStateController } from "./layoutContext.js";
 import { LoggerPanel } from "./components/LoggerPanel.js";
 import { OrientationBar } from "./components/OrientationBar.js";
 import { TitleBar } from "./components/TitleBar.js";
 import { Workspace } from "./components/Workspace.js";
 import { PanelFrame } from "./components/PanelFrame.js";
+import { ParametersModal } from "./components/ParametersModal.js";
 
 export type LayoutProps = {
   title: string;
   breadcrumbs?: string[];
   orientation: string;
   logEntries: LogEntry[];
+  parameters?: CommandParameters[];
   workspaceLabel?: string;
   initialLogMaximized?: boolean;
   initialWorkspaceMaximized?: boolean;
@@ -33,6 +36,7 @@ export const Layout: React.FC<LayoutProps> = ({
   breadcrumbs,
   orientation,
   logEntries,
+  parameters,
   workspaceLabel,
   initialLogMaximized,
   initialWorkspaceMaximized,
@@ -44,11 +48,23 @@ export const Layout: React.FC<LayoutProps> = ({
     logMaximized: initialLogMaximized,
     workspaceMaximized: initialWorkspaceMaximized,
   });
+  const modalState = useModalStateController();
   const { exit } = useApp();
   const { stdout } = useStdout();
   const terminalHeight = stdout?.rows ?? 24;
+  const terminalWidth = stdout?.columns ?? 80;
   const headerLeft = useMemo(() => formatHeaderLeft(title, breadcrumbs), [title, breadcrumbs]);
   const workspaceLegend = workspaceLabel ?? title;
+  const modalWidth = Math.max(40, Math.min(terminalWidth - 4, 120));
+  const modalHeight = Math.max(10, Math.min(terminalHeight - 4, 30));
+  const modalLeft = Math.max(0, Math.floor((terminalWidth - modalWidth) / 2));
+  const modalTop = Math.max(0, Math.floor((terminalHeight - modalHeight) / 2));
+  const resolvedParameters = parameters ?? [];
+  const modalBackgroundColor = "#2C2C2C";
+  const modalBackgroundLines = useMemo(
+    () => Array.from({ length: modalHeight }, () => " ".repeat(Math.max(1, modalWidth))),
+    [modalHeight, modalWidth]
+  );
 
   const layoutMetrics = useMemo(() => {
     const titleHeight = 1;
@@ -140,10 +156,22 @@ export const Layout: React.FC<LayoutProps> = ({
   useInput((input = "", key) => {
     const lower = typeof input === "string" ? input.toLowerCase() : "";
     const metaKey = (key as { meta?: boolean }).meta ?? false;
-    if (key.escape) {
-      onEscape?.();
-    }
     const isPlainLetter = input.length === 1 && !key.ctrl && !metaKey;
+    if (key.escape) {
+      if (modalState.modalOpen) {
+        modalState.closeModal();
+        return;
+      }
+      onEscape?.();
+      return;
+    }
+    if (isPlainLetter && lower === "p") {
+      modalState.toggleModal();
+      return;
+    }
+    if (modalState.modalOpen) {
+      return;
+    }
     if (isPlainLetter && lower === "l") {
       panelState.toggleLog();
       return;
@@ -160,25 +188,48 @@ export const Layout: React.FC<LayoutProps> = ({
 
   return (
     <PanelStateProvider value={panelState}>
-      <LayoutMetricsProvider
-        value={{
-          workspaceHeight: layoutMetrics.workspaceContentHeight,
-          logHeight: layoutMetrics.logContentHeight,
-        }}
-      >
-        <Box flexDirection="column" width="100%" height={terminalHeight}>
-          <TitleBar left={headerLeft} right="PAJÉ" />
-          <Box flexDirection="column" width="100%" height={layoutMetrics.containerHeight}>
-            <PanelFrame title={workspaceLegend} height={layoutMetrics.workspaceFrameHeight}>
-              <Workspace height={layoutMetrics.workspaceContentHeight}>{children}</Workspace>
-            </PanelFrame>
-            <OrientationBar message={orientation} />
-            <PanelFrame title="Log" height={layoutMetrics.logFrameHeight}>
-              <LoggerPanel entries={logEntries} height={layoutMetrics.logContentHeight} />
-            </PanelFrame>
+      <ModalStateProvider value={modalState}>
+        <LayoutMetricsProvider
+          value={{
+            workspaceHeight: layoutMetrics.workspaceContentHeight,
+            logHeight: layoutMetrics.logContentHeight,
+          }}
+        >
+          <Box flexDirection="column" width="100%" height={terminalHeight}>
+            <TitleBar left={headerLeft} right="PAJÉ" />
+            <Box flexDirection="column" width="100%" height={layoutMetrics.containerHeight}>
+              <PanelFrame title={workspaceLegend} height={layoutMetrics.workspaceFrameHeight}>
+                <Workspace height={layoutMetrics.workspaceContentHeight}>{children}</Workspace>
+              </PanelFrame>
+              <OrientationBar message={orientation} />
+              <PanelFrame title="Log" height={layoutMetrics.logFrameHeight}>
+                <LoggerPanel entries={logEntries} height={layoutMetrics.logContentHeight} />
+              </PanelFrame>
+            </Box>
+            {modalState.modalOpen ? (
+              <>
+                <Box position="absolute" marginLeft={modalLeft} marginTop={modalTop}>
+                  <Box flexDirection="column" width={modalWidth} height={modalHeight}>
+                    {modalBackgroundLines.map((line, index) => (
+                      <Text key={`modal-bg-${index}`} backgroundColor={modalBackgroundColor} color={modalBackgroundColor}>
+                        {line}
+                      </Text>
+                    ))}
+                  </Box>
+                </Box>
+                <Box position="absolute" marginLeft={modalLeft} marginTop={modalTop}>
+                  <ParametersModal
+                    isOpen={modalState.modalOpen}
+                    width={modalWidth}
+                    height={modalHeight}
+                    parameters={resolvedParameters}
+                  />
+                </Box>
+              </>
+            ) : null}
           </Box>
-        </Box>
-      </LayoutMetricsProvider>
+        </LayoutMetricsProvider>
+      </ModalStateProvider>
     </PanelStateProvider>
   );
 };

@@ -13,6 +13,33 @@ export type PanelState = {
   resetPanels: () => void;
 };
 
+export type ModalState = {
+  modalOpen: boolean;
+  toggleModal: () => void;
+  closeModal: () => void;
+};
+
+export const useModalStateController = (): ModalState => {
+  const [modalOpen, setModalOpen] = useState(false);
+
+  const toggleModal = (): void => {
+    setModalOpen((current) => !current);
+  };
+
+  const closeModal = (): void => {
+    setModalOpen(false);
+  };
+
+  return useMemo(
+    () => ({
+      modalOpen,
+      toggleModal,
+      closeModal,
+    }),
+    [modalOpen]
+  );
+};
+
 const LayoutMetricsContext = createContext<LayoutMetrics>({
   workspaceHeight: 0,
   logHeight: 0,
@@ -26,8 +53,15 @@ const PanelStateContext = createContext<PanelState>({
   resetPanels: () => undefined,
 });
 
+const ModalStateContext = createContext<ModalState>({
+  modalOpen: false,
+  toggleModal: () => undefined,
+  closeModal: () => undefined,
+});
+
 export const LayoutMetricsProvider = LayoutMetricsContext.Provider;
 export const PanelStateProvider = PanelStateContext.Provider;
+export const ModalStateProvider = ModalStateContext.Provider;
 
 export const useLayoutMetrics = (): LayoutMetrics => {
   return useContext(LayoutMetricsContext);
@@ -35,6 +69,10 @@ export const useLayoutMetrics = (): LayoutMetrics => {
 
 export const usePanelState = (): PanelState => {
   return useContext(PanelStateContext);
+};
+
+export const useLayoutModal = (): ModalState => {
+  return useContext(ModalStateContext);
 };
 
 export type PanelStateInitial = {

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Box, Text, render, useInput } from "ink";
+import type { CommandParameters } from "./core/parameters.js";
 import { Layout } from "./tui/layout.js";
 import { createLogEntry, type LogEntry } from "./tui/logger.js";
 
@@ -20,6 +21,8 @@ export type TuiSession = {
   promptConfirm: (options: { title: string; message: string; defaultValue?: boolean }) => Promise<boolean | null>;
   showInlineError: (message: string) => void;
   showMessage: (options: { title: string; message: string }) => Promise<void>;
+  setParameters: (parameters: CommandParameters[]) => void;
+  getParameters: () => CommandParameters[];
   destroy: () => void;
 };
 
@@ -63,6 +66,13 @@ const createPromptResolver = <T,>(resolve: (value: T) => void): PromptResolver<T
 
 export const createTuiSession = (_title: string): TuiSession => {
   let inlineError = "";
+  let parameters: CommandParameters[] = [];
+
+  const setParameters = (nextParameters: CommandParameters[]): void => {
+    parameters = [...nextParameters];
+  };
+
+  const getParameters = (): CommandParameters[] => parameters;
 
   const promptInput: TuiSession["promptInput"] = async (options) => {
     return new Promise((resolve) => {
@@ -75,8 +85,12 @@ export const createTuiSession = (_title: string): TuiSession => {
           "Digite o valor e pressione Enter para confirmar | Esc para cancelar",
           options.description
         );
+        const parametersSnapshot = getParameters();
 
         useInput((input, key) => {
+          if (input.toLowerCase() === "p") {
+            return;
+          }
           if (key.return) {
             resolver.finalize(value);
             return;
@@ -98,6 +112,7 @@ export const createTuiSession = (_title: string): TuiSession => {
             title={options.title}
             orientation={orientation}
             logEntries={logEntries}
+            parameters={parametersSnapshot}
             onEscape={() => resolver.finalize(null)}
           >
             <Box flexDirection="column" width="100%">
@@ -127,8 +142,12 @@ export const createTuiSession = (_title: string): TuiSession => {
           options.description
         );
         const masked = "*".repeat(value.length);
+        const parametersSnapshot = getParameters();
 
         useInput((input, key) => {
+          if (input.toLowerCase() === "p") {
+            return;
+          }
           if (key.return) {
             resolver.finalize(value);
             return;
@@ -150,6 +169,7 @@ export const createTuiSession = (_title: string): TuiSession => {
             title={options.title}
             orientation={orientation}
             logEntries={logEntries}
+            parameters={parametersSnapshot}
             onEscape={() => resolver.finalize(null)}
           >
             <Box flexDirection="column" width="100%">
@@ -183,8 +203,12 @@ export const createTuiSession = (_title: string): TuiSession => {
           "Use ↑/↓ para navegar e Enter para confirmar | Esc para cancelar",
           currentChoice?.description
         );
+        const parametersSnapshot = getParameters();
 
-        useInput((_input, key) => {
+        useInput((input, key) => {
+          if (input.toLowerCase() === "p") {
+            return;
+          }
           if (key.upArrow) {
             setSelectedIndex((current: number) => Math.max(0, current - 1));
             return;
@@ -203,6 +227,7 @@ export const createTuiSession = (_title: string): TuiSession => {
             title={options.title}
             orientation={orientation}
             logEntries={logEntries}
+            parameters={parametersSnapshot}
             onEscape={() => resolver.finalize(null)}
           >
             <Box flexDirection="column" width="100%">
@@ -250,6 +275,7 @@ export const createTuiSession = (_title: string): TuiSession => {
           description,
           inlineError
         );
+        const parametersSnapshot = getParameters();
 
         const updateField = (fieldName: string, updater: (current: string) => string): void => {
           setValues((current) => ({
@@ -259,6 +285,9 @@ export const createTuiSession = (_title: string): TuiSession => {
         };
 
         useInput((input, key) => {
+          if (input.toLowerCase() === "p") {
+            return;
+          }
           if (key.tab || key.downArrow) {
             setFocusedIndex((current: number) => Math.min(options.fields.length - 1, current + 1));
             return;
@@ -298,6 +327,7 @@ export const createTuiSession = (_title: string): TuiSession => {
             title={options.title}
             orientation={orientation}
             logEntries={logEntries}
+            parameters={parametersSnapshot}
             onEscape={() => resolver.finalize(null)}
           >
             <Box flexDirection="column" width="100%">
@@ -343,8 +373,12 @@ export const createTuiSession = (_title: string): TuiSession => {
 
       const App: React.FC = () => {
         const logEntries = useMemo<LogEntry[]>(() => [createLogEntry("Mensagem informativa")], []);
+        const parametersSnapshot = getParameters();
 
-        useInput((_input, key) => {
+        useInput((input, key) => {
+          if (input.toLowerCase() === "p") {
+            return;
+          }
           if (key.return) {
             resolver.finalize();
           }
@@ -355,6 +389,7 @@ export const createTuiSession = (_title: string): TuiSession => {
             title={options.title}
             orientation="Pressione Enter para continuar | Esc para cancelar"
             logEntries={logEntries}
+            parameters={parametersSnapshot}
             onEscape={() => resolver.finalize()}
           >
             <Box flexDirection="column" width="100%">
@@ -375,6 +410,7 @@ export const createTuiSession = (_title: string): TuiSession => {
 
   const destroy = (): void => {
     inlineError = "";
+    parameters = [];
   };
 
   return {
@@ -385,6 +421,8 @@ export const createTuiSession = (_title: string): TuiSession => {
     promptConfirm,
     showInlineError,
     showMessage,
+    setParameters,
+    getParameters,
     destroy,
   };
 };

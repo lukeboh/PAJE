@@ -167,7 +167,7 @@ A TUI segue o padrão de quatro quadros:
 3. **Barra de orientações** (1 linha) com comandos possíveis.
 4. **Painel de log**: ~15% da tela na parte inferior, com timestamp por linha e erros em vermelho.
 
-Atalho `F12` alterna o log em tela cheia e retorna ao layout padrão. `Esc` retorna à tela anterior e `Ctrl+C` encerra a aplicação.
+Atalho `F12` alterna o log em tela cheia e retorna ao layout padrão. `P` abre/fecha a modal de parâmetros carregados. `Esc` retorna à tela anterior ou fecha a modal e `Ctrl+C` encerra a aplicação.
 
 Consulte o layout detalhado em [`docs/TUI-leiaute.md`](docs/TUI-leiaute.md:1).
 
