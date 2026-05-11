@@ -19,6 +19,7 @@ export type LayoutProps = {
   workspaceLabel?: string;
   initialLogMaximized?: boolean;
   initialWorkspaceMaximized?: boolean;
+  modalState?: ReturnType<typeof useModalStateController>;
   onEscape?: () => void;
   onCtrlC?: () => void;
   children: React.ReactNode;
@@ -40,6 +41,7 @@ export const Layout: React.FC<LayoutProps> = ({
   workspaceLabel,
   initialLogMaximized,
   initialWorkspaceMaximized,
+  modalState: modalStateOverride,
   onEscape,
   onCtrlC,
   children,
@@ -48,7 +50,7 @@ export const Layout: React.FC<LayoutProps> = ({
     logMaximized: initialLogMaximized,
     workspaceMaximized: initialWorkspaceMaximized,
   });
-  const modalState = useModalStateController();
+  const modalState = modalStateOverride ?? useModalStateController();
   const { exit } = useApp();
   const { stdout } = useStdout();
   const terminalHeight = stdout?.rows ?? 24;

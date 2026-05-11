@@ -3,6 +3,7 @@ import { Box, Text, render, useInput, useStdout } from "ink";
 import type { Key } from "ink";
 import type { CommandParameters } from "./core/parameters.js";
 import { Layout } from "./tui/layout.js";
+import { useModalStateController } from "./tui/layoutContext.js";
 import { createLogEntry, type LogEntry } from "./tui/logger.js";
 import type { GitLabTreeNode, RepoSyncStatus, RepoSyncState } from "./types.js";
 import type { TuiSession } from "./tuiSession.js";
@@ -231,6 +232,7 @@ export const renderRepositoryTree = async (
       const { stdout } = useStdout();
       const terminalHeight = stdout?.rows ?? 24;
       const parametersSnapshot = options?.parameters ?? [];
+      const modalState = useModalStateController();
       const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
       const [logMaximized, setLogMaximized] = useState(false);
       const [orientation, setOrientation] = useState(
@@ -313,54 +315,57 @@ export const renderRepositoryTree = async (
         ]);
       }, [showOnlySelected]);
 
-      useInput((input: string, key: Key) => {
-        const navigationKey = key as Key & { home?: boolean; end?: boolean };
-        const lower = input.toLowerCase();
-        if (lower === "p") {
-          return;
-        }
-        if (key.upArrow) {
-          const nextIndex = Math.max(0, selectedIndex - 1);
-          setSelectedIndex(nextIndex);
-          ensureVisible(nextIndex);
-        }
-        if (key.downArrow) {
-          const nextIndex = Math.min(items.length - 1, selectedIndex + 1);
-          setSelectedIndex(nextIndex);
-          ensureVisible(nextIndex);
-        }
-        if (key.pageUp) {
-          const nextIndex = Math.max(0, selectedIndex - visibleCount);
-          setSelectedIndex(nextIndex);
-          ensureVisible(nextIndex);
-        }
-        if (key.pageDown) {
-          const nextIndex = Math.min(items.length - 1, selectedIndex + visibleCount);
-          setSelectedIndex(nextIndex);
-          ensureVisible(nextIndex);
-        }
-        if (navigationKey.home) {
-          setSelectedIndex(0);
-          setScrollOffset(0);
-        }
-        if (navigationKey.end) {
-          const lastIndex = Math.max(0, items.length - 1);
-          setSelectedIndex(lastIndex);
-          setScrollOffset(Math.max(0, lastIndex - visibleCount + 1));
-        }
-        if (input === " ") {
-          toggleSelected();
-        }
-        if (lower === "c") {
-          toggleSelectionFilter();
-        }
-        if (key.return) {
-          commitResolve(true);
-        }
-        if (key.escape) {
-          commitResolve(false);
-        }
-      });
+      useInput(
+        (input: string, key: Key) => {
+          const navigationKey = key as Key & { home?: boolean; end?: boolean };
+          const lower = input.toLowerCase();
+          if (lower === "p") {
+            return;
+          }
+          if (key.upArrow) {
+            const nextIndex = Math.max(0, selectedIndex - 1);
+            setSelectedIndex(nextIndex);
+            ensureVisible(nextIndex);
+          }
+          if (key.downArrow) {
+            const nextIndex = Math.min(items.length - 1, selectedIndex + 1);
+            setSelectedIndex(nextIndex);
+            ensureVisible(nextIndex);
+          }
+          if (key.pageUp) {
+            const nextIndex = Math.max(0, selectedIndex - visibleCount);
+            setSelectedIndex(nextIndex);
+            ensureVisible(nextIndex);
+          }
+          if (key.pageDown) {
+            const nextIndex = Math.min(items.length - 1, selectedIndex + visibleCount);
+            setSelectedIndex(nextIndex);
+            ensureVisible(nextIndex);
+          }
+          if (navigationKey.home) {
+            setSelectedIndex(0);
+            setScrollOffset(0);
+          }
+          if (navigationKey.end) {
+            const lastIndex = Math.max(0, items.length - 1);
+            setSelectedIndex(lastIndex);
+            setScrollOffset(Math.max(0, lastIndex - visibleCount + 1));
+          }
+          if (input === " ") {
+            toggleSelected();
+          }
+          if (lower === "c") {
+            toggleSelectionFilter();
+          }
+          if (key.return) {
+            commitResolve(true);
+          }
+          if (key.escape) {
+            commitResolve(false);
+          }
+        },
+        { isActive: !modalState.modalOpen }
+      );
 
       useEffect(() => {
         options?.onReady?.({
@@ -403,6 +408,7 @@ export const renderRepositoryTree = async (
           orientation={orientation}
           logEntries={logEntries}
           parameters={parametersSnapshot}
+          modalState={modalState}
           onEscape={() => commitResolve(false)}
         >
           <TreeList

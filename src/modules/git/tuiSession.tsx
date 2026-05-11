@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Box, Text, render, useInput } from "ink";
 import type { CommandParameters } from "./core/parameters.js";
 import { Layout } from "./tui/layout.js";
+import { useModalStateController } from "./tui/layoutContext.js";
 import { createLogEntry, type LogEntry } from "./tui/logger.js";
 
 export type ListChoice<T> = {
@@ -86,26 +87,30 @@ export const createTuiSession = (_title: string): TuiSession => {
           options.description
         );
         const parametersSnapshot = getParameters();
+        const modalState = useModalStateController();
 
-        useInput((input, key) => {
-          if (input.toLowerCase() === "p") {
-            return;
-          }
-          if (key.return) {
-            resolver.finalize(value);
-            return;
-          }
-          if (key.backspace || key.delete) {
-            setValue((current: string) => current.slice(0, -1));
-            return;
-          }
-          if (key.ctrl || key.meta) {
-            return;
-          }
-          if (input) {
-            setValue((current: string) => `${current}${input}`);
-          }
-        });
+        useInput(
+          (input, key) => {
+            if (input.toLowerCase() === "p") {
+              return;
+            }
+            if (key.return) {
+              resolver.finalize(value);
+              return;
+            }
+            if (key.backspace || key.delete) {
+              setValue((current: string) => current.slice(0, -1));
+              return;
+            }
+            if (key.ctrl || key.meta) {
+              return;
+            }
+            if (input) {
+              setValue((current: string) => `${current}${input}`);
+            }
+          },
+          { isActive: !modalState.modalOpen }
+        );
 
         return (
           <Layout
@@ -113,6 +118,7 @@ export const createTuiSession = (_title: string): TuiSession => {
             orientation={orientation}
             logEntries={logEntries}
             parameters={parametersSnapshot}
+            modalState={modalState}
             onEscape={() => resolver.finalize(null)}
           >
             <Box flexDirection="column" width="100%">
@@ -143,26 +149,30 @@ export const createTuiSession = (_title: string): TuiSession => {
         );
         const masked = "*".repeat(value.length);
         const parametersSnapshot = getParameters();
+        const modalState = useModalStateController();
 
-        useInput((input, key) => {
-          if (input.toLowerCase() === "p") {
-            return;
-          }
-          if (key.return) {
-            resolver.finalize(value);
-            return;
-          }
-          if (key.backspace || key.delete) {
-            setValue((current: string) => current.slice(0, -1));
-            return;
-          }
-          if (key.ctrl || key.meta) {
-            return;
-          }
-          if (input) {
-            setValue((current: string) => `${current}${input}`);
-          }
-        });
+        useInput(
+          (input, key) => {
+            if (input.toLowerCase() === "p") {
+              return;
+            }
+            if (key.return) {
+              resolver.finalize(value);
+              return;
+            }
+            if (key.backspace || key.delete) {
+              setValue((current: string) => current.slice(0, -1));
+              return;
+            }
+            if (key.ctrl || key.meta) {
+              return;
+            }
+            if (input) {
+              setValue((current: string) => `${current}${input}`);
+            }
+          },
+          { isActive: !modalState.modalOpen }
+        );
 
         return (
           <Layout
@@ -170,6 +180,7 @@ export const createTuiSession = (_title: string): TuiSession => {
             orientation={orientation}
             logEntries={logEntries}
             parameters={parametersSnapshot}
+            modalState={modalState}
             onEscape={() => resolver.finalize(null)}
           >
             <Box flexDirection="column" width="100%">
@@ -204,23 +215,27 @@ export const createTuiSession = (_title: string): TuiSession => {
           currentChoice?.description
         );
         const parametersSnapshot = getParameters();
+        const modalState = useModalStateController();
 
-        useInput((input, key) => {
-          if (input.toLowerCase() === "p") {
-            return;
-          }
-          if (key.upArrow) {
-            setSelectedIndex((current: number) => Math.max(0, current - 1));
-            return;
-          }
-          if (key.downArrow) {
-            setSelectedIndex((current: number) => Math.min(options.choices.length - 1, current + 1));
-            return;
-          }
-          if (key.return) {
-            resolver.finalize(options.choices[selectedIndex]?.value ?? null);
-          }
-        });
+        useInput(
+          (input, key) => {
+            if (input.toLowerCase() === "p") {
+              return;
+            }
+            if (key.upArrow) {
+              setSelectedIndex((current: number) => Math.max(0, current - 1));
+              return;
+            }
+            if (key.downArrow) {
+              setSelectedIndex((current: number) => Math.min(options.choices.length - 1, current + 1));
+              return;
+            }
+            if (key.return) {
+              resolver.finalize(options.choices[selectedIndex]?.value ?? null);
+            }
+          },
+          { isActive: !modalState.modalOpen }
+        );
 
         return (
           <Layout
@@ -228,6 +243,7 @@ export const createTuiSession = (_title: string): TuiSession => {
             orientation={orientation}
             logEntries={logEntries}
             parameters={parametersSnapshot}
+            modalState={modalState}
             onEscape={() => resolver.finalize(null)}
           >
             <Box flexDirection="column" width="100%">
@@ -276,6 +292,7 @@ export const createTuiSession = (_title: string): TuiSession => {
           inlineError
         );
         const parametersSnapshot = getParameters();
+        const modalState = useModalStateController();
 
         const updateField = (fieldName: string, updater: (current: string) => string): void => {
           setValues((current) => ({
@@ -284,43 +301,46 @@ export const createTuiSession = (_title: string): TuiSession => {
           }));
         };
 
-        useInput((input, key) => {
-          if (input.toLowerCase() === "p") {
-            return;
-          }
-          if (key.tab || key.downArrow) {
-            setFocusedIndex((current: number) => Math.min(options.fields.length - 1, current + 1));
-            return;
-          }
-          if ((key.shift && key.tab) || key.upArrow) {
-            setFocusedIndex((current: number) => Math.max(0, current - 1));
-            return;
-          }
-          if (key.return) {
-            if (focusedIndex >= options.fields.length - 1) {
-              inlineError = "";
-              resolver.finalize(values);
+        useInput(
+          (input, key) => {
+            if (input.toLowerCase() === "p") {
               return;
             }
-            setFocusedIndex((current: number) => Math.min(options.fields.length - 1, current + 1));
-            return;
-          }
-          if (key.backspace || key.delete) {
-            const name = String(focusedField?.name ?? "");
-            if (!name) {
+            if (key.tab || key.downArrow) {
+              setFocusedIndex((current: number) => Math.min(options.fields.length - 1, current + 1));
               return;
             }
-            updateField(name, (current) => current.slice(0, -1));
-            return;
-          }
-          if (key.ctrl || key.meta) {
-            return;
-          }
-          if (input && focusedField) {
-            const name = String(focusedField.name);
-            updateField(name, (current) => `${current}${input}`);
-          }
-        });
+            if ((key.shift && key.tab) || key.upArrow) {
+              setFocusedIndex((current: number) => Math.max(0, current - 1));
+              return;
+            }
+            if (key.return) {
+              if (focusedIndex >= options.fields.length - 1) {
+                inlineError = "";
+                resolver.finalize(values);
+                return;
+              }
+              setFocusedIndex((current: number) => Math.min(options.fields.length - 1, current + 1));
+              return;
+            }
+            if (key.backspace || key.delete) {
+              const name = String(focusedField?.name ?? "");
+              if (!name) {
+                return;
+              }
+              updateField(name, (current) => current.slice(0, -1));
+              return;
+            }
+            if (key.ctrl || key.meta) {
+              return;
+            }
+            if (input && focusedField) {
+              const name = String(focusedField.name);
+              updateField(name, (current) => `${current}${input}`);
+            }
+          },
+          { isActive: !modalState.modalOpen }
+        );
 
         return (
           <Layout
@@ -328,6 +348,7 @@ export const createTuiSession = (_title: string): TuiSession => {
             orientation={orientation}
             logEntries={logEntries}
             parameters={parametersSnapshot}
+            modalState={modalState}
             onEscape={() => resolver.finalize(null)}
           >
             <Box flexDirection="column" width="100%">
@@ -374,15 +395,19 @@ export const createTuiSession = (_title: string): TuiSession => {
       const App: React.FC = () => {
         const logEntries = useMemo<LogEntry[]>(() => [createLogEntry("Mensagem informativa")], []);
         const parametersSnapshot = getParameters();
+        const modalState = useModalStateController();
 
-        useInput((input, key) => {
-          if (input.toLowerCase() === "p") {
-            return;
-          }
-          if (key.return) {
-            resolver.finalize();
-          }
-        });
+        useInput(
+          (input, key) => {
+            if (input.toLowerCase() === "p") {
+              return;
+            }
+            if (key.return) {
+              resolver.finalize();
+            }
+          },
+          { isActive: !modalState.modalOpen }
+        );
 
         return (
           <Layout
@@ -390,6 +415,7 @@ export const createTuiSession = (_title: string): TuiSession => {
             orientation="Pressione Enter para continuar | Esc para cancelar"
             logEntries={logEntries}
             parameters={parametersSnapshot}
+            modalState={modalState}
             onEscape={() => resolver.finalize()}
           >
             <Box flexDirection="column" width="100%">

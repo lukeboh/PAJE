@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Box, Text, render, useInput } from "ink";
 import type { CommandParameters } from "../core/parameters.js";
 import { Layout } from "./layout.js";
+import { useModalStateController } from "./layoutContext.js";
 import { createLogEntry, type LogEntry } from "./logger.js";
 
 export type MenuItem = {
@@ -73,6 +74,7 @@ export const renderMenu = async (items: MenuItem[], parameters: CommandParameter
     const App: React.FC = () => {
       const [selectedIndex, setSelectedIndex] = useState(0);
       const [logEntries, setLogEntries] = useState<LogEntry[]>(() => [createLogEntry("Selecione uma funcionalidade")]);
+      const modalState = useModalStateController();
       const parametersSnapshot = parameters;
 
       const appendLog = (message: string): void => {
@@ -86,68 +88,71 @@ export const renderMenu = async (items: MenuItem[], parameters: CommandParameter
         return Math.max(0, Math.min(items.length - 1, nextIndex));
       };
 
-      useInput((input, key) => {
-        const normalizedInput = input.toLowerCase();
-        if (normalizedInput === "p") {
-          return;
-        }
-        if (normalizedInput === "s") {
-          const selected = items[0];
-          if (selected) {
-            appendLog(`Selecionado: ${selected.label}`);
-            finalize(selected);
+      useInput(
+        (input, key) => {
+          const normalizedInput = input.toLowerCase();
+          if (normalizedInput === "p") {
+            return;
           }
-          return;
-        }
-        if (normalizedInput === "g") {
-          const selected = items[clampIndex(1)];
-          if (selected) {
-            appendLog(`Selecionado: ${selected.label}`);
-            finalize(selected);
+          if (normalizedInput === "s") {
+            const selected = items[0];
+            if (selected) {
+              appendLog(`Selecionado: ${selected.label}`);
+              finalize(selected);
+            }
+            return;
           }
-          return;
-        }
-        if (key.leftArrow || key.upArrow) {
-          setSelectedIndex((value: number) => {
-            const nextIndex = clampIndex(value - 1);
-            const selected = items[nextIndex];
+          if (normalizedInput === "g") {
+            const selected = items[clampIndex(1)];
+            if (selected) {
+              appendLog(`Selecionado: ${selected.label}`);
+              finalize(selected);
+            }
+            return;
+          }
+          if (key.leftArrow || key.upArrow) {
+            setSelectedIndex((value: number) => {
+              const nextIndex = clampIndex(value - 1);
+              const selected = items[nextIndex];
+              if (selected) {
+                appendLog(`Selecionado: ${selected.label}`);
+              }
+              return nextIndex;
+            });
+          }
+          if (key.rightArrow || key.downArrow || key.tab) {
+            setSelectedIndex((value: number) => {
+              const nextIndex = clampIndex(value + 1);
+              const selected = items[nextIndex];
+              if (selected) {
+                appendLog(`Selecionado: ${selected.label}`);
+              }
+              return nextIndex;
+            });
+          }
+          if (key.return) {
+            finalize(items[clampIndex(selectedIndex)] ?? null);
+          }
+          if (key.escape) {
+            finalize(null);
+          }
+          if (normalizedInput === "1") {
+            setSelectedIndex(0);
+            const selected = items[0];
             if (selected) {
               appendLog(`Selecionado: ${selected.label}`);
             }
-            return nextIndex;
-          });
-        }
-        if (key.rightArrow || key.downArrow || key.tab) {
-          setSelectedIndex((value: number) => {
-            const nextIndex = clampIndex(value + 1);
-            const selected = items[nextIndex];
+          }
+          if (normalizedInput === "2") {
+            setSelectedIndex(clampIndex(1));
+            const selected = items[clampIndex(1)];
             if (selected) {
               appendLog(`Selecionado: ${selected.label}`);
             }
-            return nextIndex;
-          });
-        }
-        if (key.return) {
-          finalize(items[clampIndex(selectedIndex)] ?? null);
-        }
-        if (key.escape) {
-          finalize(null);
-        }
-        if (normalizedInput === "1") {
-          setSelectedIndex(0);
-          const selected = items[0];
-          if (selected) {
-            appendLog(`Selecionado: ${selected.label}`);
           }
-        }
-        if (normalizedInput === "2") {
-          setSelectedIndex(clampIndex(1));
-          const selected = items[clampIndex(1)];
-          if (selected) {
-            appendLog(`Selecionado: ${selected.label}`);
-          }
-        }
-      });
+        },
+        { isActive: !modalState.modalOpen }
+      );
 
       return (
         <Layout
@@ -156,6 +161,7 @@ export const renderMenu = async (items: MenuItem[], parameters: CommandParameter
           orientation={MENU_ORIENTATION_MESSAGE}
           logEntries={logEntries}
           parameters={parametersSnapshot}
+          modalState={modalState}
           onEscape={() => finalize(null)}
         >
           <MenuDashboard items={items} selectedIndex={selectedIndex} />
