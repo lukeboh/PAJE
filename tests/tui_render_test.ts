@@ -115,13 +115,17 @@ const { unmount } = render(React.createElement(React.Fragment, null, tree), {
 await waitNextTick();
 
 pressKey("p");
-await waitForOutput((value) => value.includes("Parâmetros carregados"));
+await waitForOutput((value) => value.includes("Parâmetros carregados") || value.includes("Loaded parameters"));
 
 assert.ok(output.includes("PAJÉ - Teste TUI"), "Deve renderizar o título no layout");
 assert.ok(output.includes("Use Enter para confirmar"), "Deve renderizar a orientação");
 assert.ok(output.includes("Evento inicial"), "Deve renderizar entradas do log");
 assert.ok(output.includes("Falha ao autenticar"), "Deve renderizar mensagens de erro");
-const modalShown = output.includes("Parâmetros carregados") || output.includes("P/Esc para fechar");
+const modalShown =
+  output.includes("Parâmetros carregados") ||
+  output.includes("P/Esc para fechar") ||
+  output.includes("Loaded parameters") ||
+  output.includes("P/Esc to close");
 assert.ok(modalShown, "Deve exibir a modal de parâmetros ao pressionar P");
 assert.ok(/\u001b\[(31|91)m/.test(output), "Deve colorir erro em vermelho");
 

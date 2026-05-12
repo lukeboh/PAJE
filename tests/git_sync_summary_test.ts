@@ -164,44 +164,57 @@ const runSummaryTests = async (): Promise<void> => {
 
   output = "";
   await runCli(["git-sync", "--base-dir", "repos", "--env-file", envPath]);
-  assert.ok(output.includes("Resumo") || output.includes("Resumo"), "Deve exibir resumo por padrão");
-  assert.ok(
-    output.includes("Repositórios identificados") || output.includes("Reposit?rios identificados"),
-    "Deve contar todos os repositórios"
-  );
-  assert.ok(
-    output.includes("Repositórios identificados:  5") || output.includes("Reposit?rios identificados:  5"),
-    "Deve contar todos os repositórios no resumo"
-  );
-  assert.ok(
-    output.includes("Públicos                     2") || output.includes("P?blicos                     2"),
-    "Deve contar repositórios públicos"
-  );
-  assert.ok(output.includes("Públicos") || output.includes("P?blicos"), "Deve contar repositórios públicos");
-  assert.ok(output.includes("Arquivados"), "Deve contar repositórios arquivados");
+  const summaryShown =
+    output.includes("Resumo") ||
+    output.includes("Summary") ||
+    output.includes("Repositories identified");
+  assert.ok(summaryShown, "Deve exibir resumo por padrão");
+  const repositoriesIdentified =
+    output.includes("Repositórios identificados") ||
+    output.includes("Reposit?rios identificados") ||
+    output.includes("Repositories identified");
+  assert.ok(repositoriesIdentified, "Deve contar todos os repositórios");
+  const repositoriesIdentifiedCount =
+    output.includes("Repositórios identificados:  5") ||
+    output.includes("Reposit?rios identificados:  5") ||
+    output.includes("Repositories identified:  5");
+  assert.ok(repositoriesIdentifiedCount, "Deve contar todos os repositórios no resumo");
+  const publicCount =
+    output.includes("Públicos                     2") ||
+    output.includes("P?blicos                     2") ||
+    output.includes("Public                    2");
+  assert.ok(publicCount, "Deve contar repositórios públicos");
+  const publicLabel =
+    output.includes("Públicos") || output.includes("P?blicos") || output.includes("Public");
+  assert.ok(publicLabel, "Deve contar repositórios públicos");
+  const archivedLabel = output.includes("Arquivados") || output.includes("Archived");
+  assert.ok(archivedLabel, "Deve contar repositórios arquivados");
 
   output = "";
   await runCli(["git-sync", "--base-dir", "repos", "--env-file", envPath, "--no-public-repos=true"]);
   assert.ok(!output.includes("public-repo"), "Não deve listar repositórios públicos");
-  assert.ok(
-    output.includes("Repositórios identificados:  3") || output.includes("Reposit?rios identificados:  3"),
-    "Resumo deve respeitar filtros de público"
-  );
+  const publicFilterSummary =
+    output.includes("Repositórios identificados:  3") ||
+    output.includes("Reposit?rios identificados:  3") ||
+    output.includes("Repositories identified:  3");
+  assert.ok(publicFilterSummary, "Resumo deve respeitar filtros de público");
 
   output = "";
   await runCli(["git-sync", "--base-dir", "repos", "--env-file", envPath, "--no-archived-repos=true"]);
   assert.ok(!output.includes("archived-repo"), "Não deve listar repositórios arquivados");
-  assert.ok(
-    output.includes("Repositórios identificados:  4") || output.includes("Reposit?rios identificados:  4"),
-    "Resumo deve respeitar filtros de arquivados"
-  );
+  const archivedFilterSummary =
+    output.includes("Repositórios identificados:  4") ||
+    output.includes("Reposit?rios identificados:  4") ||
+    output.includes("Repositories identified:  4");
+  assert.ok(archivedFilterSummary, "Resumo deve respeitar filtros de arquivados");
 
   output = "";
   await runCli(["git-sync", "--base-dir", "repos", "--env-file", envPath, "--filter=devops/*"]);
-  assert.ok(
-    output.includes("Repositórios identificados:  2") || output.includes("Reposit?rios identificados:  2"),
-    "Resumo deve respeitar filtro por padrão"
-  );
+  const filterSummary =
+    output.includes("Repositórios identificados:  2") ||
+    output.includes("Reposit?rios identificados:  2") ||
+    output.includes("Repositories identified:  2");
+  assert.ok(filterSummary, "Resumo deve respeitar filtro por padrão");
 
   console.log = originalLog;
   process.env.HOME = originalHome;

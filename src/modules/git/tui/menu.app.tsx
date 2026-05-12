@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Box, Text, render, useInput } from "ink";
 import type { CommandParameters } from "../core/parameters.js";
 import { Layout } from "./layout.js";
 import { useModalStateController } from "./layoutContext.js";
-import { createLogEntry, type LogEntry } from "./logger.js";
+import { appendLogEntry } from "./logStore.js";
 import { t } from "../../../i18n/index.js";
 
 export type MenuItem = {
@@ -73,13 +73,16 @@ export const renderMenu = async (items: MenuItem[], parameters: CommandParameter
 
     const App: React.FC = () => {
       const [selectedIndex, setSelectedIndex] = useState(0);
-      const [logEntries, setLogEntries] = useState<LogEntry[]>(() => [createLogEntry(t("menu.log.selectFeature"))]);
       const modalState = useModalStateController();
       const parametersSnapshot = parameters;
 
       const appendLog = (message: string): void => {
-        setLogEntries((current) => [...current, createLogEntry(message)]);
+        appendLogEntry(message, "info");
       };
+
+      useEffect(() => {
+        appendLog(t("menu.log.selectFeature"));
+      }, []);
 
       const clampIndex = (nextIndex: number): number => {
         if (items.length === 0) {
@@ -159,7 +162,6 @@ export const renderMenu = async (items: MenuItem[], parameters: CommandParameter
           title={t("app.menuTitle")}
           workspaceLabel={t("menu.workspaceLabel")}
           orientation={t("menu.orientation")}
-          logEntries={logEntries}
           parameters={parametersSnapshot}
           modalState={modalState}
           onEscape={() => finalize(null)}

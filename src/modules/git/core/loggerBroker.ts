@@ -26,7 +26,14 @@ const formatTimestamp = (date: Date = new Date()): string => {
 export class LoggerBroker {
   private readonly transports: LogTransport[] = [];
 
+  hasTransport(name: string): boolean {
+    return this.transports.some((transport) => transport.name === name);
+  }
+
   addTransport(transport: LogTransport): void {
+    if (this.hasTransport(transport.name)) {
+      return;
+    }
     this.transports.push(transport);
   }
 

@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { useLogEntries } from "./logStore.js";
 import { Box, Text, useApp, useInput, useStdout } from "ink";
 import type { CommandParameters } from "../core/parameters.js";
 import type { LogEntry } from "./logger.js";
@@ -15,7 +16,7 @@ export type LayoutProps = {
   title: string;
   breadcrumbs?: string[];
   orientation: string;
-  logEntries: LogEntry[];
+  logEntries?: LogEntry[];
   parameters?: CommandParameters[];
   workspaceLabel?: string;
   initialLogMaximized?: boolean;
@@ -57,6 +58,8 @@ export const Layout: React.FC<LayoutProps> = ({
   const terminalHeight = stdout?.rows ?? 24;
   const terminalWidth = stdout?.columns ?? 80;
   const headerLeft = useMemo(() => formatHeaderLeft(title, breadcrumbs), [title, breadcrumbs]);
+  const globalLogEntries = useLogEntries();
+  const resolvedLogEntries = logEntries ?? globalLogEntries;
   const workspaceLegend = workspaceLabel ?? title;
   const modalWidth = Math.max(40, Math.min(terminalWidth - 4, 120));
   const modalHeight = Math.max(10, Math.min(terminalHeight - 4, 30));
@@ -206,7 +209,7 @@ export const Layout: React.FC<LayoutProps> = ({
               </PanelFrame>
               <OrientationBar message={orientation} />
               <PanelFrame title={t("layout.logTitle")} height={layoutMetrics.logFrameHeight}>
-                <LoggerPanel entries={logEntries} height={layoutMetrics.logContentHeight} />
+                <LoggerPanel entries={resolvedLogEntries} height={layoutMetrics.logContentHeight} />
               </PanelFrame>
             </Box>
             {modalState.modalOpen ? (

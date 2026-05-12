@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Box, Text, render, useInput } from "ink";
 import type { CommandParameters } from "./core/parameters.js";
 import { Layout } from "./tui/layout.js";
 import { useModalStateController } from "./tui/layoutContext.js";
-import { createLogEntry, type LogEntry } from "./tui/logger.js";
+import { appendLogEntry } from "./tui/logStore.js";
 import { t } from "../../i18n/index.js";
 
 export type ListChoice<T> = {
@@ -82,7 +82,9 @@ export const createTuiSession = (_title: string): TuiSession => {
 
       const App: React.FC = () => {
         const [value, setValue] = useState(options.defaultValue ?? "");
-        const logEntries = useMemo<LogEntry[]>(() => [createLogEntry(t("session.log.input"))], []);
+        useEffect(() => {
+          appendLogEntry(t("session.log.input"));
+        }, []);
         const orientation = buildOrientation(t("session.orientation.input"), options.description);
         const parametersSnapshot = getParameters();
         const modalState = useModalStateController();
@@ -114,7 +116,6 @@ export const createTuiSession = (_title: string): TuiSession => {
           <Layout
             title={options.title}
             orientation={orientation}
-            logEntries={logEntries}
             parameters={parametersSnapshot}
             modalState={modalState}
             onEscape={() => resolver.finalize(null)}
@@ -140,7 +141,9 @@ export const createTuiSession = (_title: string): TuiSession => {
 
       const App: React.FC = () => {
         const [value, setValue] = useState("");
-        const logEntries = useMemo<LogEntry[]>(() => [createLogEntry(t("session.log.password"))], []);
+        useEffect(() => {
+          appendLogEntry(t("session.log.password"));
+        }, []);
         const orientation = buildOrientation(t("session.orientation.password"), options.description);
         const masked = "*".repeat(value.length);
         const parametersSnapshot = getParameters();
@@ -173,7 +176,6 @@ export const createTuiSession = (_title: string): TuiSession => {
           <Layout
             title={options.title}
             orientation={orientation}
-            logEntries={logEntries}
             parameters={parametersSnapshot}
             modalState={modalState}
             onEscape={() => resolver.finalize(null)}
@@ -203,7 +205,9 @@ export const createTuiSession = (_title: string): TuiSession => {
 
       const App: React.FC = () => {
         const [selectedIndex, setSelectedIndex] = useState(0);
-        const logEntries = useMemo<LogEntry[]>(() => [createLogEntry(t("session.log.list"))], []);
+        useEffect(() => {
+          appendLogEntry(t("session.log.list"));
+        }, []);
         const currentChoice = options.choices[selectedIndex];
         const orientation = buildOrientation(t("session.orientation.list"), currentChoice?.description);
         const parametersSnapshot = getParameters();
@@ -233,7 +237,6 @@ export const createTuiSession = (_title: string): TuiSession => {
           <Layout
             title={options.title}
             orientation={orientation}
-            logEntries={logEntries}
             parameters={parametersSnapshot}
             modalState={modalState}
             onEscape={() => resolver.finalize(null)}
@@ -275,7 +278,9 @@ export const createTuiSession = (_title: string): TuiSession => {
             return acc;
           }, {} as T)
         );
-        const logEntries = useMemo<LogEntry[]>(() => [createLogEntry(t("session.log.form"))], []);
+        useEffect(() => {
+          appendLogEntry(t("session.log.form"));
+        }, []);
         const focusedField = options.fields[focusedIndex];
         const description = focusedField?.description;
         const orientation = buildOrientation(t("session.orientation.form"), description, inlineError);
@@ -334,7 +339,6 @@ export const createTuiSession = (_title: string): TuiSession => {
           <Layout
             title={options.title}
             orientation={orientation}
-            logEntries={logEntries}
             parameters={parametersSnapshot}
             modalState={modalState}
             onEscape={() => resolver.finalize(null)}
@@ -381,7 +385,9 @@ export const createTuiSession = (_title: string): TuiSession => {
       const resolver = createPromptResolver<void>(resolve);
 
       const App: React.FC = () => {
-        const logEntries = useMemo<LogEntry[]>(() => [createLogEntry(t("session.log.message"))], []);
+        useEffect(() => {
+          appendLogEntry(t("session.log.message"));
+        }, []);
         const parametersSnapshot = getParameters();
         const modalState = useModalStateController();
 
@@ -401,7 +407,6 @@ export const createTuiSession = (_title: string): TuiSession => {
           <Layout
             title={options.title}
             orientation={t("session.orientation.message")}
-            logEntries={logEntries}
             parameters={parametersSnapshot}
             modalState={modalState}
             onEscape={() => resolver.finalize()}

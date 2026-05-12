@@ -1,3 +1,4 @@
+import { appendLogRecord } from "../tui/logStore.js";
 import { PajeLogger } from "../logger.js";
 import type { LogEntry, LogLevel, LogTransport } from "./loggerBroker.js";
 
@@ -52,6 +53,21 @@ export const createPanelTransport = (
     log: (entry: LogEntry) => {
       const level = entry.level === "debug" ? "info" : entry.level;
       append(`[${entry.timestamp}] ${entry.message}`, level);
+    },
+  };
+};
+
+export const createGlobalPanelTransport = (name: string, minLevel: LogLevel): LogTransport => {
+  return {
+    name,
+    minLevel,
+    log: (entry: LogEntry) => {
+      appendLogRecord({
+        id: `${entry.timestamp}-${Math.random().toString(16).slice(2)}`,
+        message: entry.message,
+        level: entry.level === "debug" ? "info" : entry.level,
+        timestamp: entry.timestamp,
+      });
     },
   };
 };

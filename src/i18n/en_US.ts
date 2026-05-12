@@ -120,6 +120,17 @@ const enUS = {
   cli: {
     log: {
       preselection: "Preselection: {{displayPath}} → {{targetPath}} ({{state}})",
+      tokenValid: "Valid token for {{baseUrl}}.",
+      tokenDetails: "Token details: active={{active}}, expires={{expiresAt}}, scopes={{scopes}}",
+      tokenReuse: "Reusing existing token.",
+      tokenInvalid: "Token is invalid.",
+      tokenValidateFail: "Failed to validate token: {{message}}",
+      tokenRotateStart: "Token invalid, starting rotation for {{baseUrl}}...",
+      tokenRotateSuccess: "Token rotated successfully for {{baseUrl}}.",
+      tokenRotateFail: "Failed to rotate token: {{message}}",
+      tokenNameMissing: "Token name not provided.",
+      skipRemoteToken: "Skipping remote token creation/validation (PAJE_SKIP_SSH_STORE=1).",
+      skipRemoteStore: "Skipping remote SSH key registration (PAJE_SKIP_SSH_STORE=1).",
     },
     command: {
       gitSync: {

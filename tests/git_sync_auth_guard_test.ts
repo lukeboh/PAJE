@@ -53,18 +53,18 @@ configureGitSyncCommand(program);
 process.argv = ["node", "cli.ts", "git-sync", "--env-file", envPath];
 await program.parseAsync(["node", "cli.ts", "git-sync", "--env-file", envPath]);
 
-assert.ok(
-  capturedLogs.includes("Não há autenticação configurada para TSE-GIT"),
-  "Deve avisar quando não há autenticação no servidor TSE-GIT"
-);
-assert.ok(
-  capturedLogs.includes("Não há autenticação configurada para DEV-GIT"),
-  "Deve avisar quando não há autenticação no servidor DEV-GIT"
-);
-assert.ok(
-  capturedLogs.includes("Nenhum servidor com autenticação válida"),
-  "Deve informar quando nenhum servidor possui autenticação válida"
-);
+const noAuthTseGit =
+  capturedLogs.includes("Não há autenticação configurada para TSE-GIT") ||
+  capturedLogs.includes("No authentication configured for TSE-GIT");
+assert.ok(noAuthTseGit, "Deve avisar quando não há autenticação no servidor TSE-GIT");
+const noAuthDevGit =
+  capturedLogs.includes("Não há autenticação configurada para DEV-GIT") ||
+  capturedLogs.includes("No authentication configured for DEV-GIT");
+assert.ok(noAuthDevGit, "Deve avisar quando não há autenticação no servidor DEV-GIT");
+const noValidServer =
+  capturedLogs.includes("Nenhum servidor com autenticação válida") ||
+  capturedLogs.includes("No server with valid authentication found");
+assert.ok(noValidServer, "Deve informar quando nenhum servidor possui autenticação válida");
 assert.strictEqual(calls.length, 0, "Não deve chamar API sem autenticação");
 
 console.log = originalLog;

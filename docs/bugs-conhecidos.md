@@ -22,6 +22,100 @@ Aberto.
 
 ---
 
+## BUG-002 — Comportamento do Esc não está consistente
+
+**Descrição:**
+
+O Esc deveria "retornar":
+1. Sair de uma modal;
+2. Restaurar um painel maximizado;
+3. Retornar para uma tela anterior, até chegar no menu principal.
+4. Se estiver no menu principal, sair da aplicação.
+
+**Impacto:**
+Prejudica a usabilidade da aplicação.
+
+**Como reproduzir:**
+1. Executar `paje`.
+2. Selecione qualquer menu, por exemplo o S - Sincronizar.
+3. Clique em Esc. Deveria voltar para o menu mas não volta.
+
+E em qualquer situação que está descrita na descrição.
+
+**Status:**
+Aberto.
+
+**Solução planejada:**
+- Garantir que em qualquer situação de apresentada pela TUI, o Esc seja tratado conforme regras.
+- Reforçar esse comportamento na documentação
+
+---
+
+## BUG-003 — Painel de log reseta ao trocar de tela
+
+**Descrição:**
+O Painel de log na TUI é recriado a cada tela (menu, prompts e árvore), fazendo com que o histórico seja perdido.
+
+**Impacto:**
+O usuário perde contexto sobre ações anteriores na mesma sessão, dificultando auditoria e diagnóstico.
+
+**Como reproduzir:**
+1. Executar `paje` e entrar em qualquer fluxo TUI.
+2. Alternar entre menu e prompts ou avançar para a seleção de árvore.
+3. Observar que o painel de log é resetado.
+
+**Status:**
+Em correção.
+
+**Solução planejada:**
+- Centralizar logs em um store global de sessão.
+- Integrar `LoggerBroker` via transport para o painel.
+- Remover estados locais de log nas telas.
+
+---
+
+## BUG-003 — Mensagens e Logs da funcionalidade de sincronização não estão dentro do padrão
+
+**Descrição:**
+Ao selecionar S para sincronizar na primeira tela no menu de funcionalidades, uma mensagem genérica "yyyy-mm-dd hh:mm:ss] Mensagem informativa" é apresentada no painel de log e o texto abaixo é apresentado na área de trabalho:
+
+> GitLab
+> Acessando servidores e carregando repositórios - requisições: 2
+
+A mensagem informativa na verdade não informa nada e o "Acessando servidores e carregando repositórios - requisições: 2" está estático e não dá ideia do progresso no acesso ao servidor.
+
+**Impacto:**
+Falta de coerência quanto aos feedbacks que o sistema dá ao usuário para acompanhar a operação do sistema.
+
+**Como reproduzir:**
+1. Executar `paje` e selecionar S para sincronizar.
+3. Observar as mensagens na área de trabalho e painel de log.
+
+**Status:**
+Em correção.
+
+**Solução planejada:**
+- Apresentar um spinner centralizado na área de trabalho durante a execução.
+- Garantir que o painel de log está usando o mesmo modulo e operação para fazer a sincronização pela TUI e, desta forma, ter certeza que as mesmas mensagens que saiam console quando a sincronização é feita por CLI saiam no painel de acompanhamento quando executada pela TUI. Por exemplo, quando executo "./paje.sh git-sync --locale=en-US --dry-run --verbose" quero que a saída abaixo seja registrada em ambos os casos como logs e, portanto que saiam no painel de acompanhamento da seguinte forma:
+
+HTTP GET https://git.tse.jus.br/api/v4/groups?all_available=true&per_page=100&page=1
+Headers: {"Content-Type":"application/json","PRIVATE-TOKEN":"<REDACTED>"}
+HTTP GET https://git.tse.jus.br/api/v4/projects?membership=true&per_page=100&page=1
+Headers: {"Content-Type":"application/json","PRIVATE-TOKEN":"<REDACTED>"}
+HTTP 200 https://git.tse.jus.br/api/v4/groups?all_available=true&per_page=100&page=1
+HTTP 200 https://git.tse.jus.br/api/v4/projects?membership=true&per_page=100&page=1
+HTTP GET https://git.tse.jus.br/api/v4/projects?membership=true&per_page=100&page=2
+Headers: {"Content-Type":"application/json","PRIVATE-TOKEN":"<REDACTED>"}
+HTTP 200 https://git.tse.jus.br/api/v4/projects?membership=true&per_page=100&page=2
+HTTP GET https://git.tse.jus.br/api/v4/projects?membership=true&per_page=100&page=3
+Headers: {"Content-Type":"application/json","PRIVATE-TOKEN":"<REDACTED>"}
+HTTP 200 https://git.tse.jus.br/api/v4/projects?membership=true&per_page=100&page=3
+Tempo 4.69s
+
+- Reforçar regras de log, principalmente que todas as saídas para o usuário sejam por meio de log, de forma a garantir que tudo que saia na console saia no painel de acompanhamento e saia no arquivo de log.
+
+---
+
 ## Como registrar novos bugs
 
 1. Descreva o comportamento esperado e o comportamento atual.

@@ -42,6 +42,8 @@ import {
 } from "./types.js";
 import { parallelSync, runGit, type ProgressEvent, resolveConcurrency } from "./parallelSync.js";
 import { PajeLogger } from "./logger.js";
+import { LoggerBroker } from "./core/loggerBroker.js";
+import { createGlobalPanelTransport } from "./core/loggerTransports.js";
 import { antPatternToRegex, compileAntPatterns, matchesAntPatterns, splitFilterPatterns } from "./patternFilter.js";
 import {
   addHostToKnownHosts,
@@ -1849,19 +1851,12 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       setLocale(options.locale);
       const logger = new PajeLogger();
       logger.info(t("cli.command.gitSync.description"));
+      const tuiBroker = new LoggerBroker();
+      tuiBroker.addTransport(createGlobalPanelTransport("tui-panel", "debug"));
+      tuiBroker.info(t("cli.command.gitSync.description"));
 
-      let tuiLogState = {
-        append: (_message: string, _level?: "info" | "warn" | "error") => {},
-        setOrientation: (_message: string) => {},
-      };
-      let tuiLogReady = false;
-      const logBuffer: Array<{ message: string; level?: "info" | "warn" | "error" }> = [];
       const logToTui = (message: string, level: "info" | "warn" | "error" = "info"): void => {
-        if (tuiLogReady) {
-          tuiLogState.append(message, level);
-          return;
-        }
-        logBuffer.push({ message, level });
+        tuiBroker.log(level, message);
       };
 
       const cliOptions = options;
@@ -2648,12 +2643,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         parameters: session?.getParameters() ?? parametersSummary,
         onReady: (handlers) => {
           treeProgress = handlers.progress;
-          tuiLogState.append = handlers.log.append;
-          tuiLogState.setOrientation = handlers.log.setOrientation;
-          tuiLogReady = true;
           handlers.log.append(t("tui.tree.orientationDefault"));
-          logBuffer.forEach((entry) => handlers.log.append(entry.message, entry.level));
-          logBuffer.length = 0;
           handlers.render();
         },
       });

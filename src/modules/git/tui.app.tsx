@@ -4,7 +4,7 @@ import type { Key } from "ink";
 import type { CommandParameters } from "./core/parameters.js";
 import { Layout } from "./tui/layout.js";
 import { useModalStateController } from "./tui/layoutContext.js";
-import { createLogEntry, type LogEntry } from "./tui/logger.js";
+import { appendLogEntry } from "./tui/logStore.js";
 import type { GitLabTreeNode, RepoSyncStatus, RepoSyncState } from "./types.js";
 import type { TuiSession } from "./tuiSession.js";
 import { filterTreeBySelection } from "./treeBuilder.js";
@@ -234,7 +234,6 @@ export const renderRepositoryTree = async (
       const terminalHeight = stdout?.rows ?? 24;
       const parametersSnapshot = options?.parameters ?? [];
       const modalState = useModalStateController();
-      const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
       const [logMaximized, setLogMaximized] = useState(false);
       const [orientation, setOrientation] = useState(
         options?.footer ?? t("tui.tree.orientationDefault")
@@ -307,10 +306,7 @@ export const renderRepositoryTree = async (
         setSelectedIndex(0);
         setScrollOffset(0);
         setVersion((value: number) => value + 1);
-        setLogEntries((current: LogEntry[]) => [
-          ...current,
-          createLogEntry(showOnlySelected ? t("tui.tree.filterAll") : t("tui.tree.filterSelected")),
-        ]);
+        appendLogEntry(showOnlySelected ? t("tui.tree.filterAll") : t("tui.tree.filterSelected"));
       }, [showOnlySelected]);
 
       useInput(
@@ -391,7 +387,7 @@ export const renderRepositoryTree = async (
           },
           log: {
             append: (message: string, level: "info" | "warn" | "error" = "info") => {
-              setLogEntries((current: LogEntry[]) => [...current, createLogEntry(message, level)]);
+              appendLogEntry(message, level);
             },
             setOrientation: (message: string) => setOrientation(message),
           },
@@ -404,7 +400,6 @@ export const renderRepositoryTree = async (
         <Layout
           title={headerTitle}
           orientation={orientation}
-          logEntries={logEntries}
           parameters={parametersSnapshot}
           modalState={modalState}
           onEscape={() => commitResolve(false)}

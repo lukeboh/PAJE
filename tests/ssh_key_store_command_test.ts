@@ -206,10 +206,10 @@ const tokenCalls = calls.filter(
   (call) => call.url.endsWith("/-/user_settings/personal_access_tokens") && call.init?.method === "POST"
 );
 assert.strictEqual(tokenCalls.length, 0, "Não deve criar token quando já existe em git-servers.json");
-assert.ok(
-  logMessages.some((message) => message.includes("Detalhes do token:")),
-  "Deve exibir detalhes do token existente"
+const tokenDetailsLogged = logMessages.some((message) =>
+  message.includes("Detalhes do token:") || message.includes("Token details:")
 );
+assert.ok(tokenDetailsLogged, "Deve exibir detalhes do token existente");
 
 const serversPath = path.join(tempHome, ".paje", "git-servers.json");
 const serverData = JSON.parse(fs.readFileSync(serversPath, "utf-8")) as Array<{ token?: string }>;

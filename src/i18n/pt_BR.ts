@@ -120,6 +120,17 @@ const ptBR = {
   cli: {
     log: {
       preselection: "Pré-seleção: {{displayPath}} → {{targetPath}} ({{state}})",
+      tokenValid: "Token válido para {{baseUrl}}.",
+      tokenDetails: "Detalhes do token: ativo={{active}}, expira={{expiresAt}}, escopos={{scopes}}",
+      tokenReuse: "Reutilizando token existente.",
+      tokenInvalid: "Token inválido.",
+      tokenValidateFail: "Falha ao validar token: {{message}}",
+      tokenRotateStart: "Token inválido, iniciando rotação para {{baseUrl}}...",
+      tokenRotateSuccess: "Token rotacionado com sucesso para {{baseUrl}}.",
+      tokenRotateFail: "Falha ao rotacionar token: {{message}}",
+      tokenNameMissing: "Nome do token não informado.",
+      skipRemoteToken: "Pulo de criação/validação de token remoto (PAJE_SKIP_SSH_STORE=1).",
+      skipRemoteStore: "Pulo de registro remoto de chave SSH (PAJE_SKIP_SSH_STORE=1).",
     },
     command: {
       gitSync: {
