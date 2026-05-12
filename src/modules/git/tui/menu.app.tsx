@@ -54,7 +54,11 @@ export const MenuDashboard: React.FC<MenuDashboardProps> = ({ items, selectedInd
 
 export const MENU_ORIENTATION_MESSAGE = t("menu.orientation");
 
-export const renderMenu = async (items: MenuItem[], parameters: CommandParameters[] = []): Promise<MenuItem | null> => {
+export const renderMenu = async (
+  items: MenuItem[],
+  parameters: CommandParameters[] = [],
+  options?: { suppressInitialEscapeMs?: number }
+): Promise<MenuItem | null> => {
   return new Promise((resolve) => {
     const resolveRef = { current: resolve };
     const resolvedRef = { current: false };
@@ -75,6 +79,8 @@ export const renderMenu = async (items: MenuItem[], parameters: CommandParameter
       const [selectedIndex, setSelectedIndex] = useState(0);
       const modalState = useModalStateController();
       const parametersSnapshot = parameters;
+      const suppressInitialEscapeMs = options?.suppressInitialEscapeMs ?? 0;
+      const ignoreNextEscapeRef = React.useRef(suppressInitialEscapeMs > 0);
 
       const appendLog = (message: string): void => {
         appendLogEntry(message, "info");
@@ -82,7 +88,14 @@ export const renderMenu = async (items: MenuItem[], parameters: CommandParameter
 
       useEffect(() => {
         appendLog(t("menu.log.selectFeature"));
-      }, []);
+        if (!suppressInitialEscapeMs) {
+          return;
+        }
+        const timer = setTimeout(() => {
+          ignoreNextEscapeRef.current = false;
+        }, suppressInitialEscapeMs);
+        return () => clearTimeout(timer);
+      }, [suppressInitialEscapeMs]);
 
       const clampIndex = (nextIndex: number): number => {
         if (items.length === 0) {
@@ -136,9 +149,6 @@ export const renderMenu = async (items: MenuItem[], parameters: CommandParameter
           if (key.return) {
             finalize(items[clampIndex(selectedIndex)] ?? null);
           }
-          if (key.escape) {
-            finalize(null);
-          }
           if (normalizedInput === "1") {
             setSelectedIndex(0);
             const selected = items[0];
@@ -164,7 +174,10 @@ export const renderMenu = async (items: MenuItem[], parameters: CommandParameter
           orientation={t("menu.orientation")}
           parameters={parametersSnapshot}
           modalState={modalState}
-          onEscape={() => finalize(null)}
+          escapeEnabled={!ignoreNextEscapeRef.current}
+          onEscape={() => {
+            finalize(null);
+          }}
         >
           <MenuDashboard items={items} selectedIndex={selectedIndex} />
         </Layout>

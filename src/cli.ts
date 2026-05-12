@@ -38,9 +38,9 @@ const resolveLocaleArg = (args: string[]): string | undefined => {
 
 const hasCommandArg = (args: string[]): boolean => args.some((arg) => !arg.startsWith("-"));
 
-const runMenu = async (locale?: string) => {
+const runMenu = async (locale?: string, suppressInitialEscapeMs?: number) => {
   const parameters = buildInitialParameters(locale);
-  const selection = await renderMenu(buildMenuItems(), parameters);
+  const selection = await renderMenu(buildMenuItems(), parameters, { suppressInitialEscapeMs });
   return { selection };
 };
 
@@ -60,21 +60,31 @@ const main = async (): Promise<void> => {
   configureSshKeyStoreCommand(baseProgram);
   if (!hasCommandArg(args)) {
     baseProgram.parseOptions(process.argv);
-    const { selection } = await runMenu(resolveLocaleArg(args));
-    if (!selection) {
-      return;
+    let suppressInitialEscapeMs = 0;
+    let justReturnedFromCommand = false;
+    while (true) {
+      const { selection } = await runMenu(resolveLocaleArg(args), suppressInitialEscapeMs);
+      if (!selection) {
+        if (justReturnedFromCommand) {
+          justReturnedFromCommand = false;
+          suppressInitialEscapeMs = 0;
+          continue;
+        }
+        return;
+      }
+      const program = new Command();
+      program
+        .name("paje")
+        .description(t("app.description"))
+        .version("0.1.0")
+        .option("--locale <locale>", t("cli.command.gitSync.options.locale"));
+      const session = createSessionForCommand(selection.command);
+      configureGitSyncCommand(program, session);
+      configureSshKeyStoreCommand(program, session);
+      await program.parseAsync(["node", "cli.ts", selection.command]);
+      justReturnedFromCommand = true;
+      suppressInitialEscapeMs = 300;
     }
-    const program = new Command();
-    program
-      .name("paje")
-      .description(t("app.description"))
-      .version("0.1.0")
-      .option("--locale <locale>", t("cli.command.gitSync.options.locale"));
-    const session = createSessionForCommand(selection.command);
-    configureGitSyncCommand(program, session);
-    configureSshKeyStoreCommand(program, session);
-    await program.parseAsync(["node", "cli.ts", selection.command]);
-    return;
   }
 
   await baseProgram.parseAsync(process.argv);

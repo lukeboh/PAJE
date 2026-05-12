@@ -24,6 +24,7 @@ export type LayoutProps = {
   modalState?: ReturnType<typeof useModalStateController>;
   onEscape?: () => void;
   onCtrlC?: () => void;
+  escapeEnabled?: boolean;
   children: React.ReactNode;
 };
 
@@ -46,6 +47,7 @@ export const Layout: React.FC<LayoutProps> = ({
   modalState: modalStateOverride,
   onEscape,
   onCtrlC,
+  escapeEnabled = true,
   children,
 }) => {
   const panelState = usePanelStateController({
@@ -164,8 +166,15 @@ export const Layout: React.FC<LayoutProps> = ({
     const metaKey = (key as { meta?: boolean }).meta ?? false;
     const isPlainLetter = input.length === 1 && !key.ctrl && !metaKey;
     if (key.escape) {
+      if (!escapeEnabled) {
+        return;
+      }
       if (modalState.modalOpen) {
         modalState.closeModal();
+        return;
+      }
+      if (panelState.logMaximized || panelState.workspaceMaximized) {
+        panelState.resetPanels();
         return;
       }
       onEscape?.();

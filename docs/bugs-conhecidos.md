@@ -46,8 +46,9 @@ E em qualquer situação que está descrita na descrição.
 Aberto.
 
 **Solução planejada:**
-- Garantir que em qualquer situação de apresentada pela TUI, o Esc seja tratado conforme regras.
-- Reforçar esse comportamento na documentação
+- Centralizar o tratamento do Esc no layout para priorizar: fechar modal -> restaurar painel maximizado -> voltar tela anterior -> sair no menu principal.
+- Garantir que o retorno das telas internas (S/G) ao menu passe pelo handler global do layout.
+- Reforçar esse comportamento na documentação.
 
 ---
 

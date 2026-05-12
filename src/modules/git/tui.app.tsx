@@ -229,6 +229,8 @@ export const renderRepositoryTree = async (
   }
 ): Promise<TuiSelectionResult> => {
   return new Promise((resolve) => {
+    const unmountRef: { current?: () => void } = {};
+
     const App: React.FC = () => {
       const { stdout } = useStdout();
       const terminalHeight = stdout?.rows ?? 24;
@@ -288,6 +290,9 @@ export const renderRepositoryTree = async (
           }
           resolvedRef.current = true;
           resolve({ confirmed, nodes });
+          if (unmountRef.current) {
+            setTimeout(() => unmountRef.current?.(), 0);
+          }
         },
         [nodes]
       );
@@ -354,9 +359,6 @@ export const renderRepositoryTree = async (
           if (key.return) {
             commitResolve(true);
           }
-          if (key.escape) {
-            commitResolve(false);
-          }
         },
         { isActive: !modalState.modalOpen }
       );
@@ -414,6 +416,7 @@ export const renderRepositoryTree = async (
       );
     };
 
-    render(<App />);
+    const { unmount } = render(<App />);
+    unmountRef.current = unmount;
   });
 };

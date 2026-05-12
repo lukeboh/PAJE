@@ -6,6 +6,8 @@ import { buildParameter } from "../src/modules/git/core/parameters.js";
 import { Layout } from "../src/modules/git/tui/layout.js";
 import { createLogEntry } from "../src/modules/git/tui/logger.js";
 
+const normalizeOutput = (value: string): string => value.replace(/\u001b\[[0-9;]*m/g, "");
+
 const stdout = new PassThrough();
 (stdout as { columns?: number; rows?: number; isTTY?: boolean }).columns = 80;
 (stdout as { columns?: number; rows?: number; isTTY?: boolean }).rows = 24;
@@ -117,6 +119,11 @@ await waitNextTick();
 pressKey("p");
 await waitForOutput((value) => value.includes("Parâmetros carregados") || value.includes("Loaded parameters"));
 
+pressKey("w");
+await waitNextTick();
+pressKey("\u001B");
+await waitNextTick();
+
 assert.ok(output.includes("PAJÉ - Teste TUI"), "Deve renderizar o título no layout");
 assert.ok(output.includes("Use Enter para confirmar"), "Deve renderizar a orientação");
 assert.ok(output.includes("Evento inicial"), "Deve renderizar entradas do log");
@@ -128,6 +135,8 @@ const modalShown =
   output.includes("P/Esc to close");
 assert.ok(modalShown, "Deve exibir a modal de parâmetros ao pressionar P");
 assert.ok(/\u001b\[(31|91)m/.test(output), "Deve colorir erro em vermelho");
+const normalizedAfterEsc = normalizeOutput(output);
+assert.ok(normalizedAfterEsc.includes("Conteúdo"), "Esc deve restaurar painel maximizado e manter área de trabalho");
 
 unmount();
 

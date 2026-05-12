@@ -25,7 +25,7 @@ Padronizar a experiência de navegação e mensagens da TUI em um layout de 4 pa
 
 ## Atalhos globais
 
-- **Esc**: volta para a tela anterior (sem confirmação adicional) ou fecha a modal de parâmetros quando aberta.
+- **Esc**: fecha a modal de parâmetros quando aberta; se algum painel estiver maximizado, restaura o layout; caso contrário, volta para a tela anterior (sem confirmação adicional) e, no menu principal, encerra a aplicação.
 - **P**: abre/fecha a modal de parâmetros carregados na execução atual.
 - **Ctrl+C**: encerra a TUI imediatamente.
 - **C**: alterna filtro para exibir apenas itens marcados na árvore (quando aplicável).
