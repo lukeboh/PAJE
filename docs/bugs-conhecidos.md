@@ -70,7 +70,7 @@ Falta de coerência quanto aos feedbacks que o sistema dá ao usuário para acom
 3. Observar as mensagens na área de trabalho e painel de log.
 
 **Status:**
-Aberto.
+Resolvido (ajuste de logs TUI/CLI e spinner de carregamento).
 
 **Solução planejada:**
 - Apresentar um spinner centralizado na área de trabalho durante a execução.

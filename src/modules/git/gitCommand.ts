@@ -7,6 +7,7 @@ import { setLocale, t } from "../../i18n/index.js";
 import { GitLabApi } from "./gitlabApi.js";
 import { resolveGitSyncConfig } from "./core/gitSyncConfig.js";
 import { buildParameter, type CommandParameters, type ParameterSource } from "./core/parameters.js";
+import { createGitSyncCore } from "./core/gitSyncService.js";
 import {
   resolveEnvBooleanWithSource,
   resolveEnvNumberWithSource,
@@ -41,9 +42,8 @@ import {
   RepoSyncState,
 } from "./types.js";
 import { parallelSync, runGit, type ProgressEvent, resolveConcurrency } from "./parallelSync.js";
-import { PajeLogger } from "./logger.js";
 import { LoggerBroker } from "./core/loggerBroker.js";
-import { createGlobalPanelTransport } from "./core/loggerTransports.js";
+import { createConsoleTransport, createFileTransport, createGlobalPanelTransport } from "./core/loggerTransports.js";
 import { antPatternToRegex, compileAntPatterns, matchesAntPatterns, splitFilterPatterns } from "./patternFilter.js";
 import {
   addHostToKnownHosts,
@@ -147,38 +147,37 @@ const mergeGroupsByPath = (
 const mergeProjectsByPath = (
   entries: Array<{ server: GitServerEntry; projects: GitLabProject[] }>,
   idMapByServer: Map<string, Map<number, number>>
-): { projects: GitLabProject[]; projectIdMapByServer: Map<string, Map<number, number>> } => {
-  const byPath = new Map<string, GitLabProject>();
-  const projectIdMapByServer = new Map<string, Map<number, number>>();
+): { projects: GitLabProject[] } => {
+  const projects: GitLabProject[] = [];
+  const seen = new Set<string>();
   let nextProjectId = 1;
 
-  entries.forEach(({ server, projects }) => {
-    const groupMap = idMapByServer.get(server.id);
+  entries.forEach(({ server, projects: serverProjects }) => {
+    const idMap = idMapByServer.get(server.id);
     const localMap = new Map<number, number>();
-    projects.forEach((project) => {
+    serverProjects.forEach((project) => {
       localMap.set(project.id, nextProjectId);
       nextProjectId += 1;
     });
-    projectIdMapByServer.set(server.id, localMap);
 
-    projects.forEach((project) => {
+    serverProjects.forEach((project) => {
       const normalizedPath = `${server.name}/${project.path_with_namespace}`;
-      if (byPath.has(normalizedPath)) {
+      if (seen.has(normalizedPath)) {
         return;
       }
+      seen.add(normalizedPath);
+      const namespaceId = project.namespace?.id;
       const mappedNamespace = project.namespace
         ? {
             ...project.namespace,
-            id: groupMap?.get(project.namespace.id) ?? project.namespace.id,
+            id: namespaceId ? idMap?.get(namespaceId) ?? namespaceId : project.namespace.id,
             full_path: project.namespace.full_path,
           }
-        : project.namespace;
+        : undefined;
       const mappedId = localMap.get(project.id) ?? nextProjectId;
-      byPath.set(normalizedPath, {
+      projects.push({
         ...project,
         id: mappedId,
-        name: project.name,
-        path_with_namespace: project.path_with_namespace,
         namespace: mappedNamespace,
         pajeOriginalPathWithNamespace: project.path_with_namespace,
         pajeServerName: server.name,
@@ -186,7 +185,7 @@ const mergeProjectsByPath = (
     });
   });
 
-  return { projects: Array.from(byPath.values()), projectIdMapByServer };
+  return { projects };
 };
 type GitSyncCliOptions = {
   baseDir?: string;
@@ -1849,16 +1848,6 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
     .option("--dry-run", t("cli.command.gitSync.options.dryRun"), false)
     .action(async function (this: Command, options: GitSyncCliOptions) {
       setLocale(options.locale);
-      const logger = new PajeLogger();
-      logger.info(t("cli.command.gitSync.description"));
-      const tuiBroker = new LoggerBroker();
-      tuiBroker.addTransport(createGlobalPanelTransport("tui-panel", "debug"));
-      tuiBroker.info(t("cli.command.gitSync.description"));
-
-      const logToTui = (message: string, level: "info" | "warn" | "error" = "info"): void => {
-        tuiBroker.log(level, message);
-      };
-
       const cliOptions = options;
       const resolveCliBoolean = (flag: string): boolean | undefined => {
         const dashed = `--${flag}`;
@@ -1891,6 +1880,88 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       const parametersSummary: CommandParameters[] = [gitSyncParameters];
       if (session) {
         session.setParameters(parametersSummary);
+      }
+
+      const tuiSession = session;
+      if (tuiSession) {
+        const broker = new LoggerBroker();
+        broker.addTransport(createGlobalPanelTransport("tui-panel", "debug"));
+        broker.addTransport(createFileTransport("git-sync-file", "info"));
+        broker.info(t("cli.command.gitSync.description"));
+        const core = createGitSyncCore();
+        const tree: GitLabTreeNode[] = [];
+        let treeProgress: TuiTreeProgress | null = null;
+        const setLoadingRef: { current: ((loading: boolean, label?: string) => void) | null } = { current: null };
+        const renderRef: { current: (() => void) | null } = { current: null };
+        const headerRef: { current: string } = { current: t("app.gitSyncTitle") };
+        let resolveReady: (() => void) | null = null;
+        const readyPromise = new Promise<void>((resolve) => {
+          resolveReady = resolve;
+        });
+        const tuiResultPromise = renderRepositoryTree(tree, (id) => core.toggleTreeSelection(tree, id), tuiSession, {
+          header: headerRef.current,
+          footer: t("tui.tree.orientationConfirm"),
+          parameters: tuiSession.getParameters() ?? parametersSummary,
+          onReady: (handlers) => {
+            treeProgress = handlers.progress;
+            setLoadingRef.current = handlers.workspace.setLoading;
+            renderRef.current = handlers.render;
+            setLoadingRef.current?.(true, t("tui.tree.loading"));
+            handlers.log.append(t("tui.tree.orientationDefault"));
+            handlers.render();
+            resolveReady?.();
+          },
+        });
+
+        await readyPromise;
+        const { header, tree: loadedTree } = await core.loadTree({ config: mergedOptions, logger: broker });
+        if (loadedTree.length === 0) {
+          setLoadingRef.current?.(false);
+          return;
+        }
+        headerRef.current = header;
+        tree.splice(0, tree.length, ...loadedTree);
+        setLoadingRef.current?.(false);
+        renderRef.current?.();
+
+        const tuiResult = await tuiResultPromise;
+        if (!tuiResult.confirmed) {
+          broker.warn(t("tui.tree.filterAll"));
+          return;
+        }
+
+        const selected = collectSelectedProjects(tree);
+        if (selected.length === 0) {
+          broker.warn(t("tui.tree.empty"));
+          return;
+        }
+
+        setLoadingRef.current?.(true, t("tui.tree.loading"));
+        try {
+          await core.syncSelected({
+            config: mergedOptions,
+            logger: broker,
+            tree,
+            handlers: {
+              onProgress: (event) => {
+                if (!treeProgress) {
+                  return;
+                }
+                const line = renderWorkerLine(event, 20);
+                treeProgress.updateProgress(`project-${event.target.id}`, line);
+              },
+              onResult: (result) => {
+                if (!treeProgress) {
+                  return;
+                }
+                treeProgress.clearProgress(`project-${result.target.id}`);
+              },
+            },
+          });
+        } finally {
+          setLoadingRef.current?.(false);
+        }
+        return;
       }
 
       const storedServers = readGitServers<GitServerEntry[]>([]);
@@ -1933,40 +2004,25 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
 
       if (servers.length === 0) {
         const message = t("cli.prompt.gitlab.noServerConfigured");
-        if (session) {
-          await session.showMessage({ title: t("cli.prompt.gitlab.title"), message });
-        } else {
-          console.log(message);
-        }
+        console.log(message);
         return;
       }
 
       const listStartAt = Date.now();
       let listRequestCount = 0;
-      let spinnerFrameIndex = 0;
-      const spinnerFrames = ["/", "-", "\\", "|"];
-      const renderSpinner = (): void => {
-        if (!session) {
-          return;
-        }
-        const frame = spinnerFrames[spinnerFrameIndex % spinnerFrames.length];
-        spinnerFrameIndex += 1;
-        session.showMessage({
-          title: t("cli.prompt.gitlab.title"),
-          message: t("cli.http.accessServers", { frame, count: listRequestCount }),
-        });
-      };
+      const broker = new LoggerBroker();
+      broker.addTransport(createConsoleTransport("git-sync-console", "debug"));
+      broker.addTransport(createFileTransport("git-sync-file", "debug"));
       const wrapRequest = async <T,>(server: GitServerEntry, label: string, fn: () => Promise<T>): Promise<T> => {
         listRequestCount += 1;
-        renderSpinner();
-        logToTui(t("cli.http.start", { server: server.name, label, count: listRequestCount }));
+        broker.info(t("cli.http.start", { server: server.name, label, count: listRequestCount }));
         try {
           const result = await fn();
-          logToTui(t("cli.http.success", { server: server.name, label }));
+          broker.info(t("cli.http.success", { server: server.name, label }));
           return result;
         } catch (error) {
           const message = error instanceof Error ? error.message : t("cli.errors.unknown");
-          logToTui(t("cli.http.fail", { server: server.name, label, message }), "error");
+          broker.error(t("cli.http.fail", { server: server.name, label, message }));
           throw error;
         }
       };
@@ -1982,11 +2038,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             const resolvedUsername = username && username.length > 0 ? username : "";
             if (!resolvedUsername) {
               const message = t("cli.prompt.gitlab.userMissingBasicAuth", { server: server.name });
-              if (session) {
-                await session.showMessage({ title: t("cli.prompt.gitlab.title"), message });
-              } else {
-                console.log(message);
-              }
+              console.log(message);
               return null;
             }
             const password = await promptBasicAuthPassword(resolvedUsername, session, mergedOptions.password);
@@ -1998,20 +2050,12 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             basicAuth,
             token: server.token,
             verbose: mergedOptions.verbose ?? false,
-            logger: session
-              ? (message) => {
-                  session.showMessage({ title: t("layout.logTitle"), message });
-                }
-              : undefined,
+            logger: (message) => broker.debug(message),
           });
 
           if (!api.hasAuth()) {
             const message = t("cli.prompt.gitlab.noAuthConfigured", { server: server.name });
-            if (session) {
-              await session.showMessage({ title: t("cli.prompt.gitlab.title"), message });
-            } else {
-              console.log(message);
-            }
+            console.log(message);
             return null;
           }
 
@@ -2041,11 +2085,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
 
       if (validServerResults.length === 0) {
         const message = t("cli.prompt.gitlab.noValidServer");
-        if (session) {
-          await session.showMessage({ title: t("cli.prompt.gitlab.title"), message });
-        } else {
-          console.log(message);
-        }
+        console.log(message);
         return;
       }
 
@@ -2609,65 +2649,6 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         }
         return;
       }
-
-      const defaultBaseDir = mergedOptions.baseDir ?? "repos";
-      await ensureLocalDirsIfNeeded(filteredProjects, defaultBaseDir, mergedOptions.prepareLocalDirs ?? false);
-      const statusEntries = await Promise.all(
-        filteredProjects.map(async (project) => {
-          const targetPath = path.join(defaultBaseDir, resolveProjectLocalPath(project));
-          const status = await resolveRepoStatus({
-            targetPath,
-            defaultBranch: project.default_branch,
-            knownRemote: true,
-          });
-          const displayPath = project.pajeOriginalPathWithNamespace ?? project.path_with_namespace;
-          logToTui(t("cli.log.preselection", { displayPath, targetPath, state: status.state }));
-          return [project.id, status] as const;
-        })
-      );
-      const statusMap = Object.fromEntries(statusEntries) as Record<number, RepoSyncStatus>;
-      const applyStatusToTree = (node: GitLabTreeNode): void => {
-        if (node.type === "project" && node.project) {
-          node.status = statusMap[node.project.id];
-          return;
-        }
-        node.children?.forEach((child) => applyStatusToTree(child));
-      };
-      tree.forEach((node) => applyStatusToTree(node));
-      applyInitialSelectionFromStatusMap(tree, statusMap);
-
-      let treeProgress: TuiTreeProgress | null = null;
-      const tuiResult = await renderRepositoryTree(tree, (id) => toggleById(tree, id), session, {
-        header,
-        footer: t("tui.tree.orientationConfirm"),
-        parameters: session?.getParameters() ?? parametersSummary,
-        onReady: (handlers) => {
-          treeProgress = handlers.progress;
-          handlers.log.append(t("tui.tree.orientationDefault"));
-          handlers.render();
-        },
-      });
-      if (!tuiResult.confirmed) {
-        logger.warn(t("tui.tree.filterAll"));
-        return;
-      }
-
-      const selected = collectSelectedProjects(tree);
-      if (selected.length === 0) {
-        logger.warn(t("tui.tree.empty"));
-        return;
-      }
-
-      if (!session) {
-        logger.warn(t("session.errorPrefix", { error: t("cli.log.tuiUnavailable") }));
-        return;
-      }
-
-      await session.showMessage({
-        title: t("cli.prompt.gitlab.title"),
-        message: t("session.log.message"),
-      });
-      return;
     });
 };
 

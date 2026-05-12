@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, Text, render, useInput } from "ink";
+import { Box, Text, render, useApp, useInput } from "ink";
 import type { CommandParameters } from "../core/parameters.js";
 import { Layout } from "./layout.js";
 import { useModalStateController } from "./layoutContext.js";
@@ -64,6 +64,9 @@ export const renderMenu = async (
     const resolveRef = { current: resolve };
     const resolvedRef = { current: false };
     const unmountRef: { current?: () => void } = {};
+    const clearRef: { current?: () => void } = {};
+    const deactivateRef: { current?: () => void } = {};
+    const exitRef: { current?: () => void } = {};
     const loggerRef: { current?: PajeLogger } = {};
     const instanceRef = { current: "menu-unknown" };
 
@@ -76,14 +79,35 @@ export const renderMenu = async (
       loggerRef.current?.info(
         `[TUI][MENU] finalize instance=${instanceRef.current} result=${command} resolved=${resolvedRef.current}`
       );
-      if (unmountRef.current) {
-        unmountRef.current();
+      const clear = clearRef.current;
+      const unmount = unmountRef.current;
+      const deactivate = deactivateRef.current;
+      const exit = exitRef.current;
+      if (deactivate) {
+        loggerRef.current?.info(`[TUI][MENU] deactivate now instance=${instanceRef.current}`);
+        deactivate();
       }
-      resolveRef.current(result);
+      if (exit) {
+        loggerRef.current?.info(`[TUI][MENU] exit now instance=${instanceRef.current}`);
+        exit();
+      }
+      if (clear) {
+        loggerRef.current?.info(`[TUI][MENU] clear now instance=${instanceRef.current}`);
+        clear();
+      }
+      if (unmount) {
+        loggerRef.current?.info(`[TUI][MENU] unmount now instance=${instanceRef.current}`);
+        unmount();
+      }
+      setTimeout(() => {
+        resolveRef.current(result);
+      }, 0);
     };
 
     const App: React.FC = () => {
       const [selectedIndex, setSelectedIndex] = useState(0);
+      const [active, setActive] = useState(true);
+      const { exit } = useApp();
       const modalState = useModalStateController();
       const parametersSnapshot = parameters;
       const suppressInitialEscapeMs = options?.suppressInitialEscapeMs ?? 0;
@@ -99,13 +123,15 @@ export const renderMenu = async (
         loggerRef.current = debugLogger;
         instanceRef.current = instanceId;
         appendLog(t("menu.log.selectFeature"));
+        deactivateRef.current = () => setActive(false);
+        exitRef.current = exit;
         debugLogger.info(
           `[TUI][MENU] mount instance=${instanceId} suppressInitialEscapeMs=${suppressInitialEscapeMs} escapeEnabled=${escapeEnabled}`
         );
         return () => {
           debugLogger.info(`[TUI][MENU] unmount instance=${instanceId}`);
         };
-      }, [suppressInitialEscapeMs, debugLogger, instanceId, escapeEnabled]);
+      }, [suppressInitialEscapeMs, debugLogger, instanceId, escapeEnabled, exit]);
 
       useEffect(() => {
         if (suppressInitialEscapeMs <= 0) {
@@ -212,8 +238,12 @@ export const renderMenu = async (
             }
           }
         },
-        { isActive: !modalState.modalOpen }
+        { isActive: !modalState.modalOpen && active }
       );
+
+      if (!active) {
+        return null;
+      }
 
       return (
         <Layout
@@ -233,7 +263,8 @@ export const renderMenu = async (
       );
     };
 
-    const { unmount } = render(<App />);
+    const { unmount, clear } = render(<App />);
     unmountRef.current = unmount;
+    clearRef.current = clear;
   });
 };

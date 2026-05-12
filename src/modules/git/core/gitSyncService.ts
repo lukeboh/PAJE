@@ -17,7 +17,7 @@ import {
   upsertSshConfigHost,
 } from "../sshManager.js";
 import {
-  buildGitLabTree,
+  buildGitLabTreeFromProjects,
   collectSelectedProjects,
   applyInitialSelectionFromStatusMap,
   recomputeTreeSelection,
@@ -166,8 +166,16 @@ const mergeProjectsByPath = (
 ): { projects: GitLabProject[] } => {
   const projects: GitLabProject[] = [];
   const seen = new Set<string>();
+  let nextProjectId = 1;
+
   entries.forEach(({ server, projects: serverProjects }) => {
     const idMap = idMapByServer.get(server.id);
+    const localMap = new Map<number, number>();
+    serverProjects.forEach((project) => {
+      localMap.set(project.id, nextProjectId);
+      nextProjectId += 1;
+    });
+
     serverProjects.forEach((project) => {
       const normalizedPath = `${server.name}/${project.path_with_namespace}`;
       if (seen.has(normalizedPath)) {
@@ -175,15 +183,18 @@ const mergeProjectsByPath = (
       }
       seen.add(normalizedPath);
       const namespaceId = project.namespace?.id;
+      const mappedNamespace = project.namespace
+        ? {
+            ...project.namespace,
+            id: namespaceId ? idMap?.get(namespaceId) ?? namespaceId : project.namespace.id,
+            full_path: project.namespace.full_path,
+          }
+        : undefined;
+      const mappedId = localMap.get(project.id) ?? nextProjectId;
       const normalized: GitLabProject = {
         ...project,
-        namespace: project.namespace
-          ? {
-              ...project.namespace,
-              id: namespaceId ? idMap?.get(namespaceId) ?? namespaceId : project.namespace.id,
-              full_path: project.namespace.full_path,
-            }
-          : undefined,
+        id: mappedId,
+        namespace: mappedNamespace,
         pajeOriginalPathWithNamespace: project.path_with_namespace,
         pajeServerName: server.name,
       };
@@ -646,7 +657,7 @@ export const createGitSyncCore = (): GitSyncCore => {
         })
       );
       const statusMap = Object.fromEntries(statusEntries) as Record<number, RepoSyncStatus>;
-      const tree = buildGitLabTree(groups, filteredProjects);
+      const tree = buildGitLabTreeFromProjects(filteredProjects);
       const applyStatusToTree = (node: GitLabTreeNode): void => {
         if (node.type === "project" && node.project) {
           node.status = statusMap[node.project.id];

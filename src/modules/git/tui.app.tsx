@@ -11,6 +11,9 @@ import type { TuiSession } from "./tuiSession.js";
 import { filterTreeBySelection } from "./treeBuilder.js";
 import { t } from "../../i18n/index.js";
 
+const SPINNER_FRAMES = ["|", "/", "-", "\\"];
+const SPINNER_INTERVAL_MS = 120;
+
 export type TuiSelectionResult = {
   confirmed: boolean;
   nodes: GitLabTreeNode[];
@@ -163,23 +166,39 @@ const TreeListComponent: React.FC<{
   selectedIndex: number;
   scrollOffset: number;
   workspaceHeight: number;
+  loading?: boolean;
+  loadingLabel?: string;
 }> = (
   {
     items,
     selectedIndex,
     scrollOffset,
     workspaceHeight,
+    loading,
+    loadingLabel,
   }: {
     items: FlatTreeItem[];
     selectedIndex: number;
     scrollOffset: number;
     workspaceHeight: number;
+    loading?: boolean;
+    loadingLabel?: string;
   }
 ) => {
   const visibleCount = Math.max(1, workspaceHeight);
   const visibleItems = useMemo(() => {
     return items.length > 0 ? items.slice(scrollOffset, scrollOffset + visibleCount) : [];
   }, [items, scrollOffset, visibleCount]);
+
+  if (loading) {
+    const paddingTop = Math.max(0, Math.floor((workspaceHeight - 3) / 2));
+    return (
+      <Box flexDirection="column" width="100%" height={workspaceHeight} justifyContent="center" alignItems="center">
+        {paddingTop > 0 ? <Box height={paddingTop} /> : null}
+        <Text>{loadingLabel ?? t("tui.tree.loading")}</Text>
+      </Box>
+    );
+  }
 
   if (items.length === 0) {
     return <Text>{t("tui.tree.empty")}</Text>;
@@ -201,7 +220,9 @@ const TreeList = React.memo(
     prev.items === next.items &&
     prev.selectedIndex === next.selectedIndex &&
     prev.scrollOffset === next.scrollOffset &&
-    prev.workspaceHeight === next.workspaceHeight
+    prev.workspaceHeight === next.workspaceHeight &&
+    prev.loading === next.loading &&
+    prev.loadingLabel === next.loadingLabel
 );
 
 export type TuiTreeProgress = {
@@ -226,6 +247,9 @@ export const renderRepositoryTree = async (
         append: (message: string, level?: "info" | "warn" | "error") => void;
         setOrientation: (message: string) => void;
       };
+      workspace: {
+        setLoading: (loading: boolean, label?: string) => void;
+      };
     }) => void;
   }
 ): Promise<TuiSelectionResult> => {
@@ -242,11 +266,18 @@ export const renderRepositoryTree = async (
       const [orientation, setOrientation] = useState(
         options?.footer ?? t("tui.tree.orientationDefault")
       );
+      const [headerTitle] = useState(
+        options?.header ?? options?.title ?? t("app.gitSyncTitle")
+      );
       const [version, setVersion] = useState(0);
       const progressMapRef = useRef<Map<string, ProgressSnapshot>>(new Map());
       const [selectedIndex, setSelectedIndex] = useState(0);
       const [scrollOffset, setScrollOffset] = useState(0);
       const [showOnlySelected, setShowOnlySelected] = useState(false);
+      const [loading, setLoading] = useState(false);
+      const [loadingLabel, setLoadingLabel] = useState<string | undefined>(undefined);
+      const spinnerIndexRef = useRef(0);
+      const loadingLabelBaseRef = useRef<string | undefined>(undefined);
       const resolvedRef = useRef(false);
 
       const { workspaceHeight } = computeMetrics(terminalHeight, logMaximized);
@@ -278,6 +309,19 @@ export const renderRepositoryTree = async (
           debugLogger.info("[TUI][TREE] unmount");
         };
       }, [debugLogger]);
+
+      useEffect(() => {
+        if (!loading) {
+          return;
+        }
+        const interval = setInterval(() => {
+          spinnerIndexRef.current = (spinnerIndexRef.current + 1) % SPINNER_FRAMES.length;
+          const frame = SPINNER_FRAMES[spinnerIndexRef.current];
+          const base = loadingLabelBaseRef.current ?? t("tui.tree.loading");
+          setLoadingLabel(`${base} ${frame}`);
+        }, SPINNER_INTERVAL_MS);
+        return () => clearInterval(interval);
+      }, [loading]);
 
       const ensureVisible = useCallback(
         (nextIndex: number) => {
@@ -404,10 +448,21 @@ export const renderRepositoryTree = async (
             },
             setOrientation: (message: string) => setOrientation(message),
           },
+          workspace: {
+            setLoading: (value: boolean, label?: string) => {
+              loadingLabelBaseRef.current = label;
+              if (value) {
+                spinnerIndexRef.current = 0;
+                setLoading(true);
+                setLoadingLabel(`${label ?? t("tui.tree.loading")} ${SPINNER_FRAMES[0]}`);
+                return;
+              }
+              setLoading(false);
+              setLoadingLabel(undefined);
+            },
+          },
         });
       }, [options, nodes]);
-
-      const headerTitle = options?.header ?? options?.title ?? t("app.gitSyncTitle");
 
       return (
         <Layout
@@ -425,6 +480,8 @@ export const renderRepositoryTree = async (
             selectedIndex={selectedIndex}
             scrollOffset={scrollOffset}
             workspaceHeight={workspaceHeight}
+            loading={loading}
+            loadingLabel={loadingLabel}
           />
         </Layout>
       );

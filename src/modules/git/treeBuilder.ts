@@ -65,6 +65,68 @@ export const buildGitLabTree = (
   return roots;
 };
 
+export const buildGitLabTreeFromProjects = (projects: GitLabProject[]): GitLabTreeNode[] => {
+  const roots: GitLabTreeNode[] = [];
+  const ensureGroupNode = (
+    parent: GitLabTreeNode[] | undefined,
+    label: string,
+    pathKey: string
+  ): GitLabTreeNode => {
+    const siblings = parent ?? roots;
+    const existing = siblings.find((node) => node.type === "group" && node.label === label);
+    if (existing) {
+      return existing;
+    }
+    const created: GitLabTreeNode = {
+      id: `group-path-${pathKey}`,
+      label,
+      type: "group",
+      children: [],
+      selected: false,
+      partiallySelected: false,
+    };
+    siblings.push(created);
+    return created;
+  };
+
+  const seenProjects = new Set<number>();
+  projects.forEach((project) => {
+    if (seenProjects.has(project.id)) {
+      return;
+    }
+    seenProjects.add(project.id);
+    const displayPath = project.pajeOriginalPathWithNamespace ?? project.path_with_namespace;
+    const segments = displayPath.split("/").filter(Boolean);
+    if (segments.length === 0) {
+      return;
+    }
+
+    let cursor: GitLabTreeNode | null = null;
+    let pathKey = "";
+    segments.forEach((segment, index) => {
+      const isLeaf = index === segments.length - 1;
+      pathKey = pathKey ? `${pathKey}/${segment}` : segment;
+      if (isLeaf) {
+        const parentChildren = cursor?.children ?? roots;
+        parentChildren.push({
+          id: `project-${project.id}`,
+          label: segment,
+          type: "project",
+          project,
+          selected: false,
+          partiallySelected: false,
+        });
+        return;
+      }
+      const groupNode = ensureGroupNode(cursor?.children, segment, pathKey);
+      cursor = groupNode;
+      cursor.children = cursor.children ?? [];
+    });
+  });
+
+  return roots;
+};
+
 export const toggleTreeNode = (node: GitLabTreeNode, selected: boolean): void => {
   node.selected = selected;
   node.partiallySelected = false;

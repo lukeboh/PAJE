@@ -2,6 +2,7 @@ import assert from "node:assert";
 import {
   applyInitialSelectionFromStatusMap,
   buildGitLabTree,
+  buildGitLabTreeFromProjects,
   collectSelectedProjects,
   recomputeTreeSelection,
   toggleTreeNode,
@@ -54,5 +55,17 @@ applyInitialSelectionFromStatusMap(tree, statusMap);
 const initialSelected = collectSelectedProjects(tree);
 assert.strictEqual(initialSelected.length, 2, "Pré-seleção deve marcar projetos clonados");
 assert.strictEqual(tree[0].selected, true, "Grupo raiz deve ficar selecionado quando todos os filhos estão marcados");
+
+const hierarchyTree = buildGitLabTreeFromProjects(projects);
+const hierarchyProjects = collectSelectedProjects(hierarchyTree);
+assert.strictEqual(hierarchyProjects.length, 0, "Árvore hierárquica inicia sem seleção");
+assert.ok(
+  hierarchyTree.some((node) => node.type === "group" && node.label === "grupo-a"),
+  "Árvore hierárquica deve criar grupos a partir do path"
+);
+assert.ok(
+  hierarchyTree.some((node) => node.type === "group" && node.children?.some((child) => child.label === "projeto-1")),
+  "Árvore hierárquica deve conter projetos como folhas"
+);
 
 console.log("git_tree_selection_test: OK");

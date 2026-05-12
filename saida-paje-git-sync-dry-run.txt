@@ -1,0 +1,532 @@
+[INFO] Executando PAJE...
+
+> paje@0.1.0 dev
+> tsx src/cli.ts git-sync --dry-run
+
+[2026-05-12 22:00:27] HTTP: TSE-GIT - listar grupos (requisição 1)
+[2026-05-12 22:00:27] HTTP: TSE-GIT - listar projetos do usuário (requisição 2)
+[2026-05-12 22:00:27] HTTP: TSE-GIT - listar grupos concluído
+[2026-05-12 22:00:31] HTTP: TSE-GIT - listar projetos do usuário concluído
+[33mTempo[0m [36m4.80s[0m
+1 servidor — TSE-GIT (https://git.tse.jus.br)
++ eleitoral
+| + setot
+|   + bd
+|   | + rec-arquivos-urna-bd [[33mdevelop[0m, [35mempty[0m]
+|   | + rec-bu-bd [[33mdevelop[0m, [35mempty[0m]
+|   | + se-bd [[33mdevelop[0m, [35mempty[0m]
+|   | + se-sistot-integracao-bd [[33mdevelop[0m, [35mempty[0m]
+|   | + setot-base-bd [[33mdevelop[0m, [35mempty[0m]
+|   | + sisdiv-bd [[33mdevelop[0m, [35mempty[0m]
+|   | + sistot-banco-de-dados [[33mdevelop[0m, [35mempty[0m]
+|   | + sistot-bd [[33mdevelop[0m, [35mempty[0m]
+|   | + sistot-candidato-bd [[33mdevelop[0m, [35mempty[0m]
+|   | + sistot-correspondencia-bd [[33mdevelop[0m, [35mempty[0m]
+|   | + sistot-ct-bd [[33mdevelop[0m, [35mempty[0m]
+|   | + sistot-secao-bd [[33mdevelop[0m, [35mempty[0m]
+|   | + sistot-totalizacao-bd [[33mdevelop[0m, [35mempty[0m]
+|   | + web-arquivos-urna-bd [[33mdevelop[0m, [35mempty[0m]
+|   + devops
+|   | + automacao-de-testes [[33mdevelop[0m, [32msynced[0m]
+|   | + cofre-de-senhas [[36mmain[0m, [32msynced[0m]
+|   | + integracao-devsec [[33mdevelop[0m, [32msynced[0m]
+|   | + lacracao [[35mmaster[0m, [32msynced[0m]
+|   | + setot-devops [[33mdevelop[0m, [32msynced[0m]
+|   + divulgacao
+|   | + resultado-unificado [[33mdevelop[0m, [32msynced[0m]
+|   | + Resultados [[33mdevelop[0m, [31mbehind -3[0m]
+|   + documentacao-interna [[36mmain[0m, [35mempty[0m]
+|   + documentacao-legada [[33mdevelop[0m, [35mempty[0m]
+|   + documentacao-sistema [[36mmain[0m, [35mempty[0m]
+|   + gitlab-profile [[36mmain[0m, [35mempty[0m]
+|   + infra
+|   | + aes-gcm [[33mdevelop[0m, [32msynced[0m]
+|   | + dozer [[36mmain[0m, [32msynced[0m]
+|   | + gestor-arquivos [[33mdevelop[0m, [32msynced[0m]
+|   | + info-arquivos-negocio [feature-fontes, [32msynced[0m]
+|   | + infra-aplicacao [feature-fontes, [32msynced[0m]
+|   | + infra-arquivo-urna [feature-fontes, [32msynced[0m]
+|   | + infra-calcula-hash-t0 [feature-fontes, [32msynced[0m]
+|   | + infra-carimbo-tempo [feature-fontes, [32msynced[0m]
+|   | + infra-certificado-digital [feature-fontes, [32msynced[0m]
+|   | + infra-chaves-privadas [feature-fontes, [32msynced[0m]
+|   | + infra-chaves-publicas [feature-fontes, [32msynced[0m]
+|   | + infra-cofre [feature-fontes, [32msynced[0m]
+|   | + infra-comunicador-desafio [feature-fontes, [32msynced[0m]
+|   | + infra-contexto [feature-fontes, [32msynced[0m]
+|   | + infra-datasource [feature-fontes, [32msynced[0m]
+|   | + infra-devsec-java [[33mdevelop[0m, [32msynced[0m]
+|   | + infra-e521-jna [[33mdevelop[0m, [32msynced[0m]
+|   | + infra-eleicao [feature-fontes, [32msynced[0m]
+|   | + infra-exec [feature-fontes, [32msynced[0m]
+|   | + infra-fabrica-arquivo-urna [feature-fontes, [32msynced[0m]
+|   | + infra-fabrica-pacotes-integracao [feature-fontes, [32msynced[0m]
+|   | + infra-filtro-seguranca [feature-fontes, [32msynced[0m]
+|   | + infra-gerador-arquivo-simulado [feature-fontes, [32msynced[0m]
+|   | + infra-integracao-contratos-asn1-totalizacao [feature-fontes, [32msynced[0m]
+|   | + infra-integracao-localizacao [[33mdevelop[0m, [32msynced[0m]
+|   | + infra-integracao-mensageria [feature-fontes, [32msynced[0m]
+|   | + infra-jecmon [feature-fontes, [32msynced[0m]
+|   | + infra-localidade-eleitoral [[32mstable[0m, [32msynced[0m]
+|   | + infra-matematicamente-definido [[33mdevelop[0m, [32msynced[0m]
+|   | + infra-menu [feature-fontes, [32msynced[0m]
+|   | + infra-monitoramento-mensageria [feature-fontes, [32msynced[0m]
+|   | + infra-negocio [feature-fontes, [32msynced[0m]
+|   | + infra-negocio-modelo [feature-fontes, [32msynced[0m]
+|   | + infra-persistencia [feature-fontes, [32msynced[0m]
+|   | + infra-plsql-conversor [[33mdevelop[0m, [32msynced[0m]
+|   | + infra-relatorio-api [feature-fontes, [32msynced[0m]
+|   | + infra-relatorio-jasperreports [feature-fontes, [32msynced[0m]
+|   | + infra-release-notes [feature-fontes, [32msynced[0m]
+|   | + infra-rsync [feature-fontes, [32msynced[0m]
+|   | + infra-seguranca [feature-fontes, [32msynced[0m]
+|   | + infra-serializacao-api [feature-fontes, [32msynced[0m]
+|   | + infra-serializacao-asn1 [feature-fontes, [32msynced[0m]
+|   | + infra-sincronizacao [feature-fontes, [32msynced[0m]
+|   | + infra-struct-oracle [feature-fontes, [32msynced[0m]
+|   | + infra-struct-oracle-bu [feature-fontes, [32msynced[0m]
+|   | + infra-struct-oracle-transportador [feature-fontes, [32msynced[0m]
+|   | + infra-swagger-configuration [[33mdevelop[0m, [32msynced[0m]
+|   | + infra-tot-comum [feature-fontes, [31mbehind -2[0m]
+|   | + infra-transferencia-remota [feature-fontes, [32msynced[0m]
+|   | + infra-transmissor-http [feature-fontes, [32msynced[0m]
+|   | + infra-util [feature-fontes, [32msynced[0m]
+|   | + java2x
+|   | | + contratos-asn1-java2x [[33mdevelop[0m, [32msynced[0m]
+|   | | + infra-autoconfig-jna-java2x [[33mdevelop[0m, [32msynced[0m]
+|   | | + infra-integracao-contratos-asn1-bom-java2x [[33mdevelop[0m, [32msynced[0m]
+|   | | + infra-integracao-contratos-asn1-cadastro-java2x [[33mdevelop[0m, [32msynced[0m]
+|   | | + infra-integracao-contratos-asn1-candidatura-java2x [[33mdevelop[0m, [32msynced[0m]
+|   | | + infra-integracao-contratos-asn1-comum-java2x [[33mdevelop[0m, [32msynced[0m]
+|   | | + infra-integracao-contratos-asn1-csele-java2x [[33mdevelop[0m, [32msynced[0m]
+|   | | + infra-integracao-contratos-asn1-ecourna-java2x [[33mdevelop[0m, [32msynced[0m]
+|   | | + infra-integracao-contratos-asn1-integracao-java2x [[33mdevelop[0m, [32msynced[0m]
+|   | | + infra-integracao-contratos-asn1-seguranca-assinatura-java2x [[33mdevelop[0m, [32msynced[0m]
+|   | | + infra-integracao-contratos-asn1-totalizacao-java2x [[33mdevelop[0m, [32msynced[0m]
+|   | | + infra-io-java2x [[33mdevelop[0m, [32msynced[0m]
+|   | | + infra-seguranca-cepesc-java2x [[33mdevelop[0m, [32msynced[0m]
+|   | | + maven-plugin-versaotse-java2x [[33mdevelop[0m, [32msynced[0m]
+|   | | + tse-jee-java2x [[33mdevelop[0m, [32msynced[0m]
+|   | + leitor-mr [[33mdevelop[0m, [32msynced[0m]
+|   | + maven-plugin-asn1-2-java [[33mdevelop[0m, [32msynced[0m]
+|   | + setot-base [feature-fontes, [32msynced[0m]
+|   | + tot-base [feature-fontes, [32msynced[0m]
+|   | + totalizacao-comum-wicket7 [feature-fontes, [32msynced[0m]
+|   | + totalizacao-negocio [feature-fontes, [32msynced[0m]
+|   | + transportador-negocio [feature-fontes, [32msynced[0m]
+|   | + transportadorjni [feature-fontes, [32msynced[0m]
+|   | + usbdrivedetector [feature-fontes, [32msynced[0m]
+|   | + validador-tuplas-java [feature-fontes, [32msynced[0m]
+|   | + validador-tuplas-nativo [[35mmaster[0m, [32msynced[0m]
+|   | + verificador-integridade-plsql [[33mdevelop[0m, [32msynced[0m]
+|   | + web-raiz [feature-fontes, [32msynced[0m]
+|   | + websocketse [feature-fontes, [32msynced[0m]
+|   | + WebSocketService [[33mdevelop[0m, [32msynced[0m]
+|   + mini-cursos
+|   | + sample-git [[36mmain[0m, [35mempty[0m]
+|   + paje-deletion_scheduled-4814 [[36mmain[0m, [35mempty[0m]
+|   + programinha [[35mmaster[0m, [35mempty[0m]
+|   + SCDE
+|   | + pendencia-bu-agrupado [[33mdevelop[0m, [35mempty[0m]
+|   | + SCDE-colaborativo [[33mdevelop[0m, [35mempty[0m]
+|   | + scde-servico-archetype-springboot2 [[33mdevelop[0m, [35mempty[0m]
+|   | + scde-servico-teste-inicial [[33mdevelop[0m, [35mempty[0m]
+|   | + scde-suporte [[33mdevelop[0m, [35mempty[0m]
+|   | + servicos-acompanhamento [[33mdevelop[0m, [35mempty[0m]
+|   | + servicos-dados-basicos [[33mdevelop[0m, [35mempty[0m]
+|   | + servicos-pos-totalizacao [[33mdevelop[0m, [35mempty[0m]
+|   | + servicos-pre-totalizacao [[33mdevelop[0m, [35mempty[0m]
+|   | + servicos-resultado [[33mdevelop[0m, [35mempty[0m]
+|   | + servicos-totalizacao-apoio [[33mdevelop[0m, [35mempty[0m]
+|   | + servicos-totalizacao-bucorresp [[33mdevelop[0m, [35mempty[0m]
+|   | + servicos-totalizacao-votacao [[33mdevelop[0m, [35mempty[0m]
+|   | + teste-scde [[33mdevelop[0m, [35mempty[0m]
+|   + sistemas
+|   | + info-arquivos-urna [desenvolvimento, [32msynced[0m]
+|   | + mct [[33mdevelop[0m, [32msynced[0m]
+|   | + merge_request_templates [[36mmain[0m, [32msynced[0m]
+|   | + monitor-totalizacao [[33mdevelop[0m, [32msynced[0m]
+|   | + rec-arquivos-urna [desenvolvimento, [32msynced[0m]
+|   | + recbu [desenvolvimento, [32msynced[0m]
+|   | + servicos-setot [desenvolvimento, [32msynced[0m]
+|   | + servidor-propriedades [[33mdevelop[0m, [31mbehind -6[0m]
+|   | + simulador-eleicao
+|   | | + se-frontend [[33mdevelop[0m, [31mbehind -3[0m]
+|   | | + se-integracao [[33mdevelop[0m, [32msynced[0m]
+|   | | + se-urna [[33mdevelop[0m, [31mbehind -4[0m]
+|   | + simulador-eleicao-web [desenvolvimento, [32msynced[0m]
+|   | + sistema-divulgacao [desenvolvimento, [31mbehind -12[0m]
+|   | + sistema-divulgacao-admin [[36mmain[0m, [32msynced[0m]
+|   | + sistot
+|   | | + sistema-totalizacao [desenvolvimento, [31mbehind -3[0m]
+|   | | + sistot-candidato [[33mdevelop[0m, [31mbehind -3[0m]
+|   | | + sistot-comum [[33mdevelop[0m, [32msynced[0m]
+|   | | + sistot-correspondencia [[33mdevelop[0m, [32msynced[0m]
+|   | | + sistot-ct [desenvolvimento, [32msynced[0m]
+|   | | + sistot-frontend [desenvolvimento, [31mbehind -8[0m]
+|   | | + sistot-relatorio [[33mdevelop[0m, [31mbehind -15[0m]
+|   | | + sistot-secao [[33mdevelop[0m, [32msynced[0m]
+|   | | + sistot-totalizacao [[33mdevelop[0m, [32msynced[0m]
+|   | + tot-comunitarias [desenvolvimento, [32msynced[0m]
+|   | + transportador-desktop [[33mdevelop[0m, [31mbehind -3[0m]
+|   | + transportadorje
+|   | | + transportadorje-backend [feature-fontes, [31mbehind -3[0m]
+|   | | + transportadorje-cloud [[33mdevelop[0m, [31mbehind -6[0m]
+|   | | + transportadorje-coletor [[33mdevelop[0m, [31mbehind -6[0m]
+|   | | + transportadorje-frontend [[33mdevelop[0m, [31mbehind -11[0m]
+|   | + web-arquivos-urna [desenvolvimento, [32msynced[0m]
+|   + sistot-testes-automatizados [[33mdevelop[0m, [35mempty[0m]
+|   + templates [[36mmain[0m, [35mempty[0m]
++ PAJE [[36mmain[0m, [31muncommitted[0m]
++ smarter-jira [[36mmain[0m, [31muncommitted[0m]
+cli.summary.header
+Repositórios identificados:  155
+Públicos                     0
+Arquivados                   0
+cli.summary.synced           103
+cli.summary.behind           15
+cli.summary.ahead            0
+cli.summary.remote           0
+cli.summary.empty            37
+cli.summary.local            0
+cli.summary.uncommitted      2
+[33mSincronização[0m | Total: [36m111[0m | Paralelismo: [36m10[0m |  [35mDRY-RUN[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-certificado-digital
+[--------------------] [37m1/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-certificado-digital [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-carimbo-tempo
+[--------------------] [37m2/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-carimbo-tempo [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-calcula-hash-t0
+[#-------------------] [37m3/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-calcula-hash-t0 [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/gestor-arquivos
+[#-------------------] [37m4/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/gestor-arquivos [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/info-arquivos-negocio
+[#-------------------] [37m5/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/info-arquivos-negocio [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-aplicacao
+[#-------------------] [37m6/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-aplicacao [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-arquivo-urna
+[#-------------------] [37m7/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-arquivo-urna [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/aes-gcm
+[#-------------------] [37m8/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/aes-gcm [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-chaves-privadas
+[##------------------] [37m9/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-chaves-privadas [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/dozer
+[##------------------] [37m10/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/dozer [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-chaves-publicas
+[##------------------] [37m11/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-chaves-publicas [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-cofre
+[##------------------] [37m12/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-cofre [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-datasource
+[##------------------] [37m13/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-datasource [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-contexto
+[###-----------------] [37m14/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-contexto [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-comunicador-desafio
+[###-----------------] [37m15/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-comunicador-desafio [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-e521-jna
+[###-----------------] [37m16/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-e521-jna [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-eleicao
+[###-----------------] [37m17/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-eleicao [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-exec
+[###-----------------] [37m18/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-exec [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-devsec-java
+[###-----------------] [37m19/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-devsec-java [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-fabrica-arquivo-urna
+[####----------------] [37m20/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-fabrica-arquivo-urna [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-fabrica-pacotes-integracao
+[####----------------] [37m21/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-fabrica-pacotes-integracao [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-filtro-seguranca
+[####----------------] [37m22/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-filtro-seguranca [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-gerador-arquivo-simulado
+[####----------------] [37m23/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-gerador-arquivo-simulado [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-integracao-contratos-asn1-totalizacao
+[####----------------] [37m24/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-integracao-contratos-asn1-totalizacao [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-integracao-localizacao
+[#####---------------] [37m25/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-integracao-localizacao [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-integracao-mensageria
+[#####---------------] [37m26/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-integracao-mensageria [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-jecmon
+[#####---------------] [37m27/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-jecmon [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-localidade-eleitoral
+[#####---------------] [37m28/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-localidade-eleitoral [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-menu
+[#####---------------] [37m29/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-menu [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-matematicamente-definido
+[#####---------------] [37m30/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-matematicamente-definido [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-monitoramento-mensageria
+[######--------------] [37m31/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-monitoramento-mensageria [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-negocio-modelo
+[######--------------] [37m32/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-negocio-modelo [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-persistencia
+[######--------------] [37m33/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-persistencia [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-negocio
+[######--------------] [37m34/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-negocio [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-plsql-conversor
+[######--------------] [37m35/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-plsql-conversor [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-relatorio-api
+[######--------------] [37m36/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-relatorio-api [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-relatorio-jasperreports
+[#######-------------] [37m37/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-relatorio-jasperreports [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-release-notes
+[#######-------------] [37m38/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-release-notes [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-rsync
+[#######-------------] [37m39/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-rsync [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-serializacao-api
+[#######-------------] [37m40/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-serializacao-api [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-seguranca
+[#######-------------] [37m41/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-seguranca [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-serializacao-asn1
+[########------------] [37m42/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-serializacao-asn1 [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-struct-oracle-bu
+[########------------] [37m43/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-struct-oracle-bu [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-struct-oracle
+[########------------] [37m44/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-struct-oracle [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-sincronizacao
+[########------------] [37m45/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-sincronizacao [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-struct-oracle-transportador
+[########------------] [37m46/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-struct-oracle-transportador [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-swagger-configuration
+[########------------] [37m47/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-swagger-configuration [33mSEM AÇÃO[0m
+[33mIniciando[0m PULL eleitoral/setot/infra/infra-tot-comum
+[#########-----------] [37m48/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-tot-comum [36mPULLED[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-transferencia-remota
+[#########-----------] [37m49/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-transferencia-remota [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-transmissor-http
+[#########-----------] [37m50/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-transmissor-http [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/infra-util
+[#########-----------] [37m51/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/infra-util [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/java2x/contratos-asn1-java2x
+[#########-----------] [37m52/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/java2x/contratos-asn1-java2x [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-cadastro-java2x
+[##########----------] [37m53/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-cadastro-java2x [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/java2x/infra-autoconfig-jna-java2x
+[##########----------] [37m54/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/java2x/infra-autoconfig-jna-java2x [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-bom-java2x
+[##########----------] [37m55/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-bom-java2x [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-candidatura-java2x
+[##########----------] [37m56/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-candidatura-java2x [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-comum-java2x
+[##########----------] [37m57/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-comum-java2x [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-csele-java2x
+[##########----------] [37m58/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-csele-java2x [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-ecourna-java2x
+[###########---------] [37m59/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-ecourna-java2x [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-integracao-java2x
+[###########---------] [37m60/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-integracao-java2x [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-seguranca-assinatura-java2x
+[###########---------] [37m61/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-seguranca-assinatura-java2x [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-totalizacao-java2x
+[###########---------] [37m62/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-totalizacao-java2x [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/java2x/infra-seguranca-cepesc-java2x
+[###########---------] [37m63/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/java2x/infra-seguranca-cepesc-java2x [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/java2x/infra-io-java2x
+[############--------] [37m64/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/java2x/infra-io-java2x [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/java2x/tse-jee-java2x
+[############--------] [37m65/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/java2x/tse-jee-java2x [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/java2x/maven-plugin-versaotse-java2x
+[############--------] [37m66/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/java2x/maven-plugin-versaotse-java2x [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/leitor-mr
+[############--------] [37m67/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/leitor-mr [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/maven-plugin-asn1-2-java
+[############--------] [37m68/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/maven-plugin-asn1-2-java [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/setot-base
+[############--------] [37m69/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/setot-base [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/totalizacao-negocio
+[#############-------] [37m70/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/totalizacao-negocio [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/tot-base
+[#############-------] [37m71/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/tot-base [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/totalizacao-comum-wicket7
+[#############-------] [37m72/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/totalizacao-comum-wicket7 [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/transportador-negocio
+[#############-------] [37m73/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/transportador-negocio [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/transportadorjni
+[#############-------] [37m74/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/transportadorjni [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/usbdrivedetector
+[##############------] [37m75/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/usbdrivedetector [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/validador-tuplas-java
+[##############------] [37m76/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/validador-tuplas-java [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/validador-tuplas-nativo
+[##############------] [37m77/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/validador-tuplas-nativo [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/verificador-integridade-plsql
+[##############------] [37m78/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/verificador-integridade-plsql [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/web-raiz
+[##############------] [37m79/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/web-raiz [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/WebSocketService
+[##############------] [37m80/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/WebSocketService [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/infra/websocketse
+[###############-----] [37m81/111[0m [35mDRY-RUN[0m eleitoral/setot/infra/websocketse [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/sistemas/info-arquivos-urna
+[###############-----] [37m82/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/info-arquivos-urna [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/sistemas/mct
+[###############-----] [37m83/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/mct [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/sistemas/monitor-totalizacao
+[###############-----] [37m84/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/monitor-totalizacao [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/sistemas/merge_request_templates
+[###############-----] [37m85/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/merge_request_templates [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/sistemas/servicos-setot
+[###############-----] [37m86/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/servicos-setot [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/sistemas/recbu
+[################----] [37m87/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/recbu [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/sistemas/rec-arquivos-urna
+[################----] [37m88/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/rec-arquivos-urna [33mSEM AÇÃO[0m
+[33mIniciando[0m PULL eleitoral/setot/sistemas/servidor-propriedades
+[################----] [37m89/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/servidor-propriedades [36mPULLED[0m
+[33mIniciando[0m PULL eleitoral/setot/sistemas/simulador-eleicao/se-frontend
+[################----] [37m90/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/simulador-eleicao/se-frontend [36mPULLED[0m
+[33mIniciando[0m verificação eleitoral/setot/sistemas/simulador-eleicao-web
+[################----] [37m91/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/simulador-eleicao-web [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/sistemas/simulador-eleicao/se-integracao
+[#################---] [37m92/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/simulador-eleicao/se-integracao [33mSEM AÇÃO[0m
+[33mIniciando[0m PULL eleitoral/setot/sistemas/simulador-eleicao/se-urna
+[#################---] [37m93/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/simulador-eleicao/se-urna [36mPULLED[0m
+[33mIniciando[0m verificação eleitoral/setot/sistemas/sistema-divulgacao-admin
+[#################---] [37m94/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/sistema-divulgacao-admin [33mSEM AÇÃO[0m
+[33mIniciando[0m PULL eleitoral/setot/sistemas/sistema-divulgacao
+[#################---] [37m95/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/sistema-divulgacao [36mPULLED[0m
+[33mIniciando[0m PULL eleitoral/setot/sistemas/sistot/sistot-candidato
+[#################---] [37m96/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/sistot/sistot-candidato [36mPULLED[0m
+[33mIniciando[0m verificação eleitoral/setot/sistemas/sistot/sistot-comum
+[#################---] [37m97/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/sistot/sistot-comum [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/sistemas/sistot/sistot-correspondencia
+[##################--] [37m98/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/sistot/sistot-correspondencia [33mSEM AÇÃO[0m
+[33mIniciando[0m PULL eleitoral/setot/sistemas/sistot/sistema-totalizacao
+[##################--] [37m99/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/sistot/sistema-totalizacao [36mPULLED[0m
+[33mIniciando[0m PULL eleitoral/setot/sistemas/sistot/sistot-relatorio
+[##################--] [37m100/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/sistot/sistot-relatorio [36mPULLED[0m
+[33mIniciando[0m PULL eleitoral/setot/sistemas/sistot/sistot-frontend
+[##################--] [37m101/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/sistot/sistot-frontend [36mPULLED[0m
+[33mIniciando[0m verificação eleitoral/setot/sistemas/sistot/sistot-ct
+[##################--] [37m102/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/sistot/sistot-ct [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/sistemas/sistot/sistot-secao
+[###################-] [37m103/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/sistot/sistot-secao [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/sistemas/sistot/sistot-totalizacao
+[###################-] [37m104/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/sistot/sistot-totalizacao [33mSEM AÇÃO[0m
+[33mIniciando[0m verificação eleitoral/setot/sistemas/tot-comunitarias
+[###################-] [37m105/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/tot-comunitarias [33mSEM AÇÃO[0m
+[33mIniciando[0m PULL eleitoral/setot/sistemas/transportadorje/transportadorje-cloud
+[###################-] [37m106/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/transportadorje/transportadorje-cloud [36mPULLED[0m
+[33mIniciando[0m PULL eleitoral/setot/sistemas/transportador-desktop
+[###################-] [37m107/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/transportador-desktop [36mPULLED[0m
+[33mIniciando[0m PULL eleitoral/setot/sistemas/transportadorje/transportadorje-coletor
+[###################-] [37m108/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/transportadorje/transportadorje-coletor [36mPULLED[0m
+[33mIniciando[0m PULL eleitoral/setot/sistemas/transportadorje/transportadorje-backend
+[####################] [37m109/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/transportadorje/transportadorje-backend [36mPULLED[0m
+[33mIniciando[0m verificação eleitoral/setot/sistemas/web-arquivos-urna
+[####################] [37m110/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/web-arquivos-urna [33mSEM AÇÃO[0m
+[33mIniciando[0m PULL eleitoral/setot/sistemas/transportadorje/transportadorje-frontend
+[####################] [37m111/111[0m [35mDRY-RUN[0m eleitoral/setot/sistemas/transportadorje/transportadorje-frontend [36mPULLED[0m
+[33mDuração[0m [36m3.19s[0m
+[33mResumo[0m
+  [37mTotal[0m [36m111[0m  [32mClonados[0m [32m0[0m  [36mAtualizados[0m [36m14[0m  [34mEnviados[0m [34m0[0m  [33mIgnorados[0m [33m97[0m  [31mFalhas[0m [31m0[0m
+
+[33mResumo por repositório[0m
+  [37m#[0m  [37mRepositório                                                     [0m  [37mStatus  [0m  [37mObjetos       [0m  [37mVolume       [0m  [37mVelocidade[0m
+[35mDRY-RUN[0m  1  eleitoral/setot/infra/aes-gcm                                     SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m  2  eleitoral/setot/infra/dozer                                       SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m  3  eleitoral/setot/infra/gestor-arquivos                             SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m  4  eleitoral/setot/infra/info-arquivos-negocio                       SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m  5  eleitoral/setot/infra/infra-aplicacao                             SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m  6  eleitoral/setot/infra/infra-arquivo-urna                          SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m  7  eleitoral/setot/infra/infra-calcula-hash-t0                       SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m  8  eleitoral/setot/infra/infra-carimbo-tempo                         SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m  9  eleitoral/setot/infra/infra-certificado-digital                   SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 10  eleitoral/setot/infra/infra-chaves-privadas                       SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 11  eleitoral/setot/infra/infra-chaves-publicas                       SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 12  eleitoral/setot/infra/infra-cofre                                 SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 13  eleitoral/setot/infra/infra-comunicador-desafio                   SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 14  eleitoral/setot/infra/infra-contexto                              SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 15  eleitoral/setot/infra/infra-datasource                            SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 16  eleitoral/setot/infra/infra-devsec-java                           SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 17  eleitoral/setot/infra/infra-e521-jna                              SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 18  eleitoral/setot/infra/infra-eleicao                               SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 19  eleitoral/setot/infra/infra-exec                                  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 20  eleitoral/setot/infra/infra-fabrica-arquivo-urna                  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 21  eleitoral/setot/infra/infra-fabrica-pacotes-integracao            SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 22  eleitoral/setot/infra/infra-filtro-seguranca                      SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 23  eleitoral/setot/infra/infra-gerador-arquivo-simulado              SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 24  eleitoral/setot/infra/infra-integracao-contratos-asn1-totalizac…  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 25  eleitoral/setot/infra/infra-integracao-localizacao                SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 26  eleitoral/setot/infra/infra-integracao-mensageria                 SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 27  eleitoral/setot/infra/infra-jecmon                                SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 28  eleitoral/setot/infra/infra-localidade-eleitoral                  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 29  eleitoral/setot/infra/infra-matematicamente-definido              SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 30  eleitoral/setot/infra/infra-menu                                  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 31  eleitoral/setot/infra/infra-monitoramento-mensageria              SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 32  eleitoral/setot/infra/infra-negocio-modelo                        SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 33  eleitoral/setot/infra/infra-negocio                               SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 34  eleitoral/setot/infra/infra-persistencia                          SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 35  eleitoral/setot/infra/infra-plsql-conversor                       SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 36  eleitoral/setot/infra/infra-relatorio-api                         SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 37  eleitoral/setot/infra/infra-relatorio-jasperreports               SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 38  eleitoral/setot/infra/infra-release-notes                         SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 39  eleitoral/setot/infra/infra-rsync                                 SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 40  eleitoral/setot/infra/infra-seguranca                             SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 41  eleitoral/setot/infra/infra-serializacao-api                      SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 42  eleitoral/setot/infra/infra-serializacao-asn1                     SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 43  eleitoral/setot/infra/infra-sincronizacao                         SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 44  eleitoral/setot/infra/infra-struct-oracle-bu                      SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 45  eleitoral/setot/infra/infra-struct-oracle-transportador           SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 46  eleitoral/setot/infra/infra-struct-oracle                         SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 47  eleitoral/setot/infra/infra-swagger-configuration                 SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 48  eleitoral/setot/infra/infra-tot-comum                             PULLED    --              --             --
+[35mDRY-RUN[0m 49  eleitoral/setot/infra/infra-transferencia-remota                  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 50  eleitoral/setot/infra/infra-transmissor-http                      SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 51  eleitoral/setot/infra/infra-util                                  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 52  eleitoral/setot/infra/java2x/contratos-asn1-java2x                SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 53  eleitoral/setot/infra/java2x/infra-autoconfig-jna-java2x          SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 54  eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-bo…  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 55  eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-ca…  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 56  eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-ca…  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 57  eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-co…  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 58  eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-cs…  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 59  eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-ec…  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 60  eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-in…  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 61  eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-se…  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 62  eleitoral/setot/infra/java2x/infra-integracao-contratos-asn1-to…  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 63  eleitoral/setot/infra/java2x/infra-io-java2x                      SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 64  eleitoral/setot/infra/java2x/infra-seguranca-cepesc-java2x        SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 65  eleitoral/setot/infra/java2x/maven-plugin-versaotse-java2x        SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 66  eleitoral/setot/infra/java2x/tse-jee-java2x                       SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 67  eleitoral/setot/infra/leitor-mr                                   SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 68  eleitoral/setot/infra/maven-plugin-asn1-2-java                    SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 69  eleitoral/setot/infra/setot-base                                  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 70  eleitoral/setot/infra/tot-base                                    SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 71  eleitoral/setot/infra/totalizacao-comum-wicket7                   SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 72  eleitoral/setot/infra/totalizacao-negocio                         SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 73  eleitoral/setot/infra/transportador-negocio                       SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 74  eleitoral/setot/infra/transportadorjni                            SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 75  eleitoral/setot/infra/usbdrivedetector                            SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 76  eleitoral/setot/infra/validador-tuplas-java                       SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 77  eleitoral/setot/infra/validador-tuplas-nativo                     SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 78  eleitoral/setot/infra/verificador-integridade-plsql               SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 79  eleitoral/setot/infra/web-raiz                                    SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 80  eleitoral/setot/infra/websocketse                                 SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 81  eleitoral/setot/infra/WebSocketService                            SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 82  eleitoral/setot/sistemas/info-arquivos-urna                       SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 83  eleitoral/setot/sistemas/mct                                      SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 84  eleitoral/setot/sistemas/merge_request_templates                  SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 85  eleitoral/setot/sistemas/monitor-totalizacao                      SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 86  eleitoral/setot/sistemas/rec-arquivos-urna                        SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 87  eleitoral/setot/sistemas/recbu                                    SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 88  eleitoral/setot/sistemas/servicos-setot                           SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 89  eleitoral/setot/sistemas/servidor-propriedades                    PULLED    --              --             --
+[35mDRY-RUN[0m 90  eleitoral/setot/sistemas/simulador-eleicao-web                    SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 91  eleitoral/setot/sistemas/simulador-eleicao/se-frontend            PULLED    --              --             --
+[35mDRY-RUN[0m 92  eleitoral/setot/sistemas/simulador-eleicao/se-integracao          SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 93  eleitoral/setot/sistemas/simulador-eleicao/se-urna                PULLED    --              --             --
+[35mDRY-RUN[0m 94  eleitoral/setot/sistemas/sistema-divulgacao-admin                 SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 95  eleitoral/setot/sistemas/sistema-divulgacao                       PULLED    --              --             --
+[35mDRY-RUN[0m 96  eleitoral/setot/sistemas/sistot/sistema-totalizacao               PULLED    --              --             --
+[35mDRY-RUN[0m 97  eleitoral/setot/sistemas/sistot/sistot-candidato                  PULLED    --              --             --
+[35mDRY-RUN[0m 98  eleitoral/setot/sistemas/sistot/sistot-comum                      SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 99  eleitoral/setot/sistemas/sistot/sistot-correspondencia            SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 100  eleitoral/setot/sistemas/sistot/sistot-ct                         SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 101  eleitoral/setot/sistemas/sistot/sistot-frontend                   PULLED    --              --             --
+[35mDRY-RUN[0m 102  eleitoral/setot/sistemas/sistot/sistot-relatorio                  PULLED    --              --             --
+[35mDRY-RUN[0m 103  eleitoral/setot/sistemas/sistot/sistot-secao                      SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 104  eleitoral/setot/sistemas/sistot/sistot-totalizacao                SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 105  eleitoral/setot/sistemas/tot-comunitarias                         SEM AÇÃO  --              --             --
+[35mDRY-RUN[0m 106  eleitoral/setot/sistemas/transportador-desktop                    PULLED    --              --             --
+[35mDRY-RUN[0m 107  eleitoral/setot/sistemas/transportadorje/transportadorje-backend  PULLED    --              --             --
+[35mDRY-RUN[0m 108  eleitoral/setot/sistemas/transportadorje/transportadorje-cloud    PULLED    --              --             --
+[35mDRY-RUN[0m 109  eleitoral/setot/sistemas/transportadorje/transportadorje-coletor  PULLED    --              --             --
+[35mDRY-RUN[0m 110  eleitoral/setot/sistemas/transportadorje/transportadorje-fronte…  PULLED    --              --             --
+[35mDRY-RUN[0m 111  eleitoral/setot/sistemas/web-arquivos-urna                        SEM AÇÃO  --              --             --

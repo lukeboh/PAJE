@@ -46,6 +46,7 @@ const enUS = {
   tui: {
     tree: {
       empty: "(No repositories found)",
+      loading: "Loading",
       orientationDefault:
         "Use ↑/↓ and PgUp/PgDn to navigate | Space to select | Enter to sync | Esc to cancel | C to filter selected | W to expand workspace | L to expand log",
       orientationConfirm:

@@ -102,6 +102,7 @@ const main = async (): Promise<void> => {
         configureGitSyncCommand(program, session);
         configureSshKeyStoreCommand(program, session);
         await program.parseAsync(["node", "cli.ts", selection.command]);
+        session?.destroy();
         justReturnedFromCommand = true;
         suppressInitialEscapeMs = 300;
         debugLogger.info("[TUI][CLI] command finished -> return to menu");

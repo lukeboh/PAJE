@@ -46,6 +46,7 @@ const ptBR = {
   tui: {
     tree: {
       empty: "(Nenhum repositório encontrado)",
+      loading: "Carregando",
       orientationDefault:
         "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para sincronizar | Esc para cancelar | C para filtrar selecionados | W para ampliar área de trabalho | L para ampliar log",
       orientationConfirm:
