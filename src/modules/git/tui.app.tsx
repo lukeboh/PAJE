@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Text, render, useInput, useStdout } from "ink";
+import { PajeLogger } from "./logger.js";
 import type { Key } from "ink";
 import type { CommandParameters } from "./core/parameters.js";
 import { Layout } from "./tui/layout.js";
@@ -236,6 +237,7 @@ export const renderRepositoryTree = async (
       const terminalHeight = stdout?.rows ?? 24;
       const parametersSnapshot = options?.parameters ?? [];
       const modalState = useModalStateController();
+      const debugLogger = useMemo(() => new PajeLogger(), []);
       const [logMaximized, setLogMaximized] = useState(false);
       const [orientation, setOrientation] = useState(
         options?.footer ?? t("tui.tree.orientationDefault")
@@ -270,6 +272,13 @@ export const renderRepositoryTree = async (
         }
       }, [items.length, visibleCount, selectedIndex, scrollOffset]);
 
+      useEffect(() => {
+        debugLogger.info("[TUI][TREE] mount");
+        return () => {
+          debugLogger.info("[TUI][TREE] unmount");
+        };
+      }, [debugLogger]);
+
       const ensureVisible = useCallback(
         (nextIndex: number) => {
           if (nextIndex < scrollOffset) {
@@ -285,16 +294,18 @@ export const renderRepositoryTree = async (
 
       const commitResolve = useCallback(
         (confirmed: boolean) => {
+          debugLogger.info(`[TUI][TREE] commitResolve confirmed=${confirmed} resolved=${resolvedRef.current}`);
           if (resolvedRef.current) {
             return;
           }
           resolvedRef.current = true;
-          resolve({ confirmed, nodes });
           if (unmountRef.current) {
-            setTimeout(() => unmountRef.current?.(), 0);
+            debugLogger.info("[TUI][TREE] unmount called");
+            unmountRef.current();
           }
+          resolve({ confirmed, nodes });
         },
-        [nodes]
+        [nodes, debugLogger]
       );
 
       const toggleSelected = useCallback(() => {
@@ -404,7 +415,10 @@ export const renderRepositoryTree = async (
           orientation={orientation}
           parameters={parametersSnapshot}
           modalState={modalState}
-          onEscape={() => commitResolve(false)}
+          onEscape={() => {
+            debugLogger.info("[TUI][TREE] onEscape -> commitResolve(false)");
+            commitResolve(false);
+          }}
         >
           <TreeList
             items={items}

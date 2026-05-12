@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Box, Text, render, useInput } from "ink";
 import type { CommandParameters } from "../core/parameters.js";
 import { Layout } from "./layout.js";
 import { useModalStateController } from "./layoutContext.js";
 import { appendLogEntry } from "./logStore.js";
 import { t } from "../../../i18n/index.js";
+import { PajeLogger } from "../logger.js";
 
 export type MenuItem = {
   label: string;
@@ -63,16 +64,22 @@ export const renderMenu = async (
     const resolveRef = { current: resolve };
     const resolvedRef = { current: false };
     const unmountRef: { current?: () => void } = {};
+    const loggerRef: { current?: PajeLogger } = {};
+    const instanceRef = { current: "menu-unknown" };
 
     const finalize = (result: MenuItem | null): void => {
       if (resolvedRef.current) {
         return;
       }
       resolvedRef.current = true;
-      resolveRef.current(result);
+      const command = result?.command ?? "null";
+      loggerRef.current?.info(
+        `[TUI][MENU] finalize instance=${instanceRef.current} result=${command} resolved=${resolvedRef.current}`
+      );
       if (unmountRef.current) {
-        setTimeout(() => unmountRef.current?.(), 0);
+        unmountRef.current();
       }
+      resolveRef.current(result);
     };
 
     const App: React.FC = () => {
@@ -80,22 +87,44 @@ export const renderMenu = async (
       const modalState = useModalStateController();
       const parametersSnapshot = parameters;
       const suppressInitialEscapeMs = options?.suppressInitialEscapeMs ?? 0;
-      const ignoreNextEscapeRef = React.useRef(suppressInitialEscapeMs > 0);
+      const [escapeEnabled, setEscapeEnabled] = useState(suppressInitialEscapeMs === 0);
+      const debugLogger = useMemo(() => new PajeLogger(), []);
+      const instanceId = useMemo(() => `menu-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`, []);
 
       const appendLog = (message: string): void => {
         appendLogEntry(message, "info");
       };
 
       useEffect(() => {
+        loggerRef.current = debugLogger;
+        instanceRef.current = instanceId;
         appendLog(t("menu.log.selectFeature"));
-        if (!suppressInitialEscapeMs) {
+        debugLogger.info(
+          `[TUI][MENU] mount instance=${instanceId} suppressInitialEscapeMs=${suppressInitialEscapeMs} escapeEnabled=${escapeEnabled}`
+        );
+        return () => {
+          debugLogger.info(`[TUI][MENU] unmount instance=${instanceId}`);
+        };
+      }, [suppressInitialEscapeMs, debugLogger, instanceId, escapeEnabled]);
+
+      useEffect(() => {
+        if (suppressInitialEscapeMs <= 0) {
           return;
         }
-        const timer = setTimeout(() => {
-          ignoreNextEscapeRef.current = false;
+        debugLogger.info(
+          `[TUI][MENU] escapeEnabled=false (timeout armed ${suppressInitialEscapeMs}ms) instance=${instanceId}`
+        );
+        const timeoutId = setTimeout(() => {
+          setEscapeEnabled(true);
+          debugLogger.info(
+            `[TUI][MENU] escapeEnabled=true (timeout ${suppressInitialEscapeMs}ms) instance=${instanceId}`
+          );
         }, suppressInitialEscapeMs);
-        return () => clearTimeout(timer);
-      }, [suppressInitialEscapeMs]);
+        return () => {
+          clearTimeout(timeoutId);
+          debugLogger.info(`[TUI][MENU] timeout cleared instance=${instanceId}`);
+        };
+      }, [suppressInitialEscapeMs, debugLogger, instanceId]);
 
       const clampIndex = (nextIndex: number): number => {
         if (items.length === 0) {
@@ -107,6 +136,25 @@ export const renderMenu = async (
       useInput(
         (input, key) => {
           const normalizedInput = input.toLowerCase();
+          if (key.escape || key.return || key.leftArrow || key.rightArrow || key.upArrow || key.downArrow || key.tab) {
+            debugLogger.info(
+              `[TUI][MENU] key input=${JSON.stringify(input)} escape=${Boolean(key.escape)} return=${Boolean(
+                key.return
+              )} arrows=${[key.leftArrow, key.rightArrow, key.upArrow, key.downArrow].some(Boolean)} tab=${Boolean(
+                key.tab
+              )} escapeEnabled=${escapeEnabled} instance=${instanceId}`
+            );
+          }
+          if (!escapeEnabled) {
+            if (key.escape) {
+              debugLogger.info(`[TUI][MENU] ignoring ESC while escapeEnabled=false instance=${instanceId}`);
+              return;
+            }
+            if (input) {
+              setEscapeEnabled(true);
+              debugLogger.info(`[TUI][MENU] escapeEnabled=true (input) instance=${instanceId}`);
+            }
+          }
           if (normalizedInput === "p") {
             return;
           }
@@ -174,8 +222,9 @@ export const renderMenu = async (
           orientation={t("menu.orientation")}
           parameters={parametersSnapshot}
           modalState={modalState}
-          escapeEnabled={!ignoreNextEscapeRef.current}
+          escapeEnabled={escapeEnabled}
           onEscape={() => {
+            debugLogger.info(`[TUI][MENU] onEscape -> finalize(null) instance=${instanceId}`);
             finalize(null);
           }}
         >

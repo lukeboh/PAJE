@@ -3,6 +3,7 @@ import { buildInitialParameters, configureGitSyncCommand, configureSshKeyStoreCo
 import { renderMenu, type MenuItem } from "./modules/git/tui/menu.app";
 import { createSessionForCommand } from "./cliSession";
 import { setLocale, t } from "./i18n/index.js";
+import { PajeLogger } from "./modules/git/logger";
 
 const buildMenuItems = (): MenuItem[] => [
   {
@@ -46,6 +47,16 @@ const runMenu = async (locale?: string, suppressInitialEscapeMs?: number) => {
 
 const main = async (): Promise<void> => {
   const args = process.argv.slice(2);
+  const debugLogger = new PajeLogger();
+  process.on("beforeExit", (code) => {
+    debugLogger.info(`[TUI][CLI] beforeExit code=${code}`);
+  });
+  process.on("exit", (code) => {
+    debugLogger.info(`[TUI][CLI] exit code=${code}`);
+  });
+  process.on("SIGINT", () => {
+    debugLogger.info("[TUI][CLI] SIGINT received");
+  });
   setLocale(resolveLocaleArg(args));
 
   const baseProgram = new Command();
@@ -63,27 +74,41 @@ const main = async (): Promise<void> => {
     let suppressInitialEscapeMs = 0;
     let justReturnedFromCommand = false;
     while (true) {
-      const { selection } = await runMenu(resolveLocaleArg(args), suppressInitialEscapeMs);
-      if (!selection) {
-        if (justReturnedFromCommand) {
-          justReturnedFromCommand = false;
-          suppressInitialEscapeMs = 0;
-          continue;
+      debugLogger.info(
+        `[TUI][CLI] runMenu start suppressInitialEscapeMs=${suppressInitialEscapeMs} justReturnedFromCommand=${justReturnedFromCommand}`
+      );
+      try {
+        const { selection } = await runMenu(resolveLocaleArg(args), suppressInitialEscapeMs);
+        debugLogger.info(
+          `[TUI][CLI] runMenu result selection=${selection?.command ?? "null"} suppressInitialEscapeMs=${suppressInitialEscapeMs}`
+        );
+        if (!selection) {
+          if (justReturnedFromCommand) {
+            debugLogger.info("[TUI][CLI] selection null after command -> reloop");
+            justReturnedFromCommand = false;
+            suppressInitialEscapeMs = 0;
+            continue;
+          }
+          debugLogger.info("[TUI][CLI] selection null -> exit");
+          return;
         }
-        return;
+        const program = new Command();
+        program
+          .name("paje")
+          .description(t("app.description"))
+          .version("0.1.0")
+          .option("--locale <locale>", t("cli.command.gitSync.options.locale"));
+        const session = createSessionForCommand(selection.command);
+        configureGitSyncCommand(program, session);
+        configureSshKeyStoreCommand(program, session);
+        await program.parseAsync(["node", "cli.ts", selection.command]);
+        justReturnedFromCommand = true;
+        suppressInitialEscapeMs = 300;
+        debugLogger.info("[TUI][CLI] command finished -> return to menu");
+      } catch (error) {
+        debugLogger.info(`[TUI][CLI] runMenu error=${String(error)}`);
+        throw error;
       }
-      const program = new Command();
-      program
-        .name("paje")
-        .description(t("app.description"))
-        .version("0.1.0")
-        .option("--locale <locale>", t("cli.command.gitSync.options.locale"));
-      const session = createSessionForCommand(selection.command);
-      configureGitSyncCommand(program, session);
-      configureSshKeyStoreCommand(program, session);
-      await program.parseAsync(["node", "cli.ts", selection.command]);
-      justReturnedFromCommand = true;
-      suppressInitialEscapeMs = 300;
     }
   }
 

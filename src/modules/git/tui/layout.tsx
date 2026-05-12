@@ -11,6 +11,7 @@ import { Workspace } from "./components/Workspace.js";
 import { PanelFrame } from "./components/PanelFrame.js";
 import { ParametersModal } from "./components/ParametersModal.js";
 import { t } from "../../../i18n/index.js";
+import { PajeLogger } from "../logger.js";
 
 export type LayoutProps = {
   title: string;
@@ -54,6 +55,7 @@ export const Layout: React.FC<LayoutProps> = ({
     logMaximized: initialLogMaximized,
     workspaceMaximized: initialWorkspaceMaximized,
   });
+  const debugLogger = useMemo(() => new PajeLogger(), []);
   const modalState = modalStateOverride ?? useModalStateController();
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -166,17 +168,24 @@ export const Layout: React.FC<LayoutProps> = ({
     const metaKey = (key as { meta?: boolean }).meta ?? false;
     const isPlainLetter = input.length === 1 && !key.ctrl && !metaKey;
     if (key.escape) {
+      debugLogger.info(
+        `[TUI][ESC] layout escapeEnabled=${escapeEnabled} modalOpen=${modalState.modalOpen} logMax=${panelState.logMaximized} workspaceMax=${panelState.workspaceMaximized}`
+      );
       if (!escapeEnabled) {
+        debugLogger.info("[TUI][ESC] layout ignored (escapeEnabled=false)");
         return;
       }
       if (modalState.modalOpen) {
+        debugLogger.info("[TUI][ESC] layout closing modal");
         modalState.closeModal();
         return;
       }
       if (panelState.logMaximized || panelState.workspaceMaximized) {
+        debugLogger.info("[TUI][ESC] layout resetting panels");
         panelState.resetPanels();
         return;
       }
+      debugLogger.info("[TUI][ESC] layout delegating onEscape");
       onEscape?.();
       return;
     }
