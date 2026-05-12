@@ -4,7 +4,7 @@ import { renderMenu, type MenuItem } from "./modules/git/tui/menu.app";
 import { createSessionForCommand } from "./cliSession";
 import { setLocale, t } from "./i18n/index.js";
 
-const menuItems: MenuItem[] = [
+const buildMenuItems = (): MenuItem[] => [
   {
     label: t("menu.items.gitSync.label"),
     command: "git-sync",
@@ -40,11 +40,14 @@ const hasCommandArg = (args: string[]): boolean => args.some((arg) => !arg.start
 
 const runMenu = async (locale?: string) => {
   const parameters = buildInitialParameters(locale);
-  const selection = await renderMenu(menuItems, parameters);
+  const selection = await renderMenu(buildMenuItems(), parameters);
   return { selection };
 };
 
 const main = async (): Promise<void> => {
+  const args = process.argv.slice(2);
+  setLocale(resolveLocaleArg(args));
+
   const baseProgram = new Command();
 
   baseProgram
@@ -55,9 +58,6 @@ const main = async (): Promise<void> => {
 
   configureGitSyncCommand(baseProgram);
   configureSshKeyStoreCommand(baseProgram);
-
-  const args = process.argv.slice(2);
-  setLocale(resolveLocaleArg(args));
   if (!hasCommandArg(args)) {
     baseProgram.parseOptions(process.argv);
     const { selection } = await runMenu(resolveLocaleArg(args));

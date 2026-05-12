@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { t } from "../../../i18n/index.js";
 import { GitLabApi } from "../gitlabApi.js";
 import { parallelSync, runGit, type ProgressEvent } from "../parallelSync.js";
 import { splitFilterPatterns } from "../patternFilter.js";
@@ -100,7 +101,7 @@ const buildServersHeader = (servers: GitServerEntry[]): string => {
   if (servers.length === 1) {
     return buildServerPrefix(servers[0]);
   }
-  return `GitLab (${servers.length} servidores)`;
+  return t("cli.sync.serverCount", { count: servers.length });
 };
 
 const mergeServer = (
@@ -570,7 +571,7 @@ export const createGitSyncCore = (): GitSyncCore => {
           });
 
           if (!api.hasAuth()) {
-            logger.warn(`Não há autenticação configurada para ${server.name}. Configure token ou auth básica.`);
+            logger.warn(t("cli.sync.noAuthConfigured", { server: server.name }));
             return null;
           }
 
@@ -579,11 +580,11 @@ export const createGitSyncCore = (): GitSyncCore => {
           }
 
           const [groups, userProjects, publicProjects] = await Promise.all([
-            wrapRequest(server, "listar grupos", () => api.listGroups()),
-            wrapRequest(server, "listar projetos do usuário", () => api.listUserProjects()),
+            wrapRequest(server, t("cli.http.listGroups"), () => api.listGroups()),
+            wrapRequest(server, t("cli.http.listUserProjects"), () => api.listUserProjects()),
             config.noPublicRepos
               ? Promise.resolve([])
-              : wrapRequest(server, "listar projetos públicos", () => api.listPublicProjects()),
+              : wrapRequest(server, t("cli.http.listPublicProjects"), () => api.listPublicProjects()),
           ]);
           const projects = [...userProjects, ...publicProjects].filter((project, index, all) => {
             return all.findIndex((item) => item.id === project.id) === index;
@@ -599,7 +600,7 @@ export const createGitSyncCore = (): GitSyncCore => {
       );
 
       if (validServerResults.length === 0) {
-        logger.warn("Nenhum servidor com autenticação válida encontrado.");
+        logger.warn(t("cli.sync.noValidServer"));
         return { header: "GitLab", tree: [], statusMap: {} };
       }
 
@@ -613,7 +614,7 @@ export const createGitSyncCore = (): GitSyncCore => {
       const activeServers = validServerResults.map((result) => result.server);
       const header = buildServersHeader(activeServers);
       const listDurationMs = Date.now() - listStartAt;
-      logger.info(`TEMPO - Listagem de repositórios: ${(listDurationMs / 1000).toFixed(2)}s`);
+      logger.info(t("cli.sync.listDuration", { seconds: (listDurationMs / 1000).toFixed(2) }));
 
       const filteredProjects = filterProjects(projects, config);
       const summary = buildSummary();
@@ -664,7 +665,7 @@ export const createGitSyncCore = (): GitSyncCore => {
     syncSelected: async ({ config, logger, tree, handlers }) => {
       const selected = collectSelectedProjects(tree);
       if (selected.length === 0) {
-        logger.warn("Nenhum repositório selecionado");
+        logger.warn(t("cli.sync.noneSelected"));
         return { summary: buildSummary() };
       }
 
@@ -682,7 +683,7 @@ export const createGitSyncCore = (): GitSyncCore => {
         : prepareTargets(selected, config.baseDir, resolvedUserName, resolvedUserEmail);
 
       if (syncTargets.length === 0) {
-        logger.warn("Nenhum repositório corresponde ao sync-repos informado.");
+        logger.warn(t("cli.sync.noSyncMatches"));
         return { summary: buildSummary() };
       }
 

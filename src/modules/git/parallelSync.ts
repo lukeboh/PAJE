@@ -2,6 +2,7 @@ import os from "node:os";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
+import { t } from "../../i18n/index.js";
 import { GitRepositoryTarget, ParallelSyncOptions } from "./types.js";
 
 const execFileAsync = promisify(execFile);
@@ -114,17 +115,17 @@ const runGitWithProgress = async (options: {
     child.stdout.on("data", handleChunk);
     child.stderr.on("data", handleChunk);
     child.on("error", (error) => {
-      onLog?.(`Erro ao executar: ${error.message}`);
+      onLog?.(t("cli.parallel.errorExecute", { message: error.message }));
       reject(error);
     });
     child.on("close", (code) => {
       if (code === 0) {
-        onLog?.(`Comando finalizado: ${commandLabel}`);
+        onLog?.(t("cli.parallel.commandDone", { command: commandLabel }));
         resolve();
         return;
       }
-      const error = new Error(`Git falhou (code ${code ?? "?"}).`);
-      onLog?.(`Erro ao executar: ${error.message}`);
+      const error = new Error(t("cli.parallel.gitFailed", { code: code ?? "?" }));
+      onLog?.(t("cli.parallel.errorExecute", { message: error.message }));
       reject(error);
     });
   });
@@ -239,7 +240,7 @@ export const syncRepository = async (
       objectsTotal: undefined,
       raw: "start",
     });
-    log?.(`Destino: ${target.localPath}`);
+    log?.(t("cli.parallel.targetPath", { path: target.localPath }));
 
     if (!snapshot.hasRepo) {
       const args = ["clone", target.sshUrl, target.localPath];
@@ -261,7 +262,7 @@ export const syncRepository = async (
         });
         await applyGitLocalConfig(target);
       } else {
-        log?.("Dry-run: clone ignorado.");
+        log?.(t("cli.parallel.dryRunClone"));
       }
       return { target, status: "cloned" };
     }
@@ -270,8 +271,8 @@ export const syncRepository = async (
       if (!dryRun) {
         await applyGitLocalConfig(target);
       }
-      log?.("Repositório local sem remoto configurado.");
-      return { target, status: "skipped", message: "Repositório local sem remoto configurado." };
+      log?.(t("cli.parallel.noRemote"));
+      return { target, status: "skipped", message: t("cli.parallel.noRemote") };
     }
 
     if (snapshot.behind > 0 && snapshot.ahead === 0) {
@@ -287,7 +288,7 @@ export const syncRepository = async (
         });
         await applyGitLocalConfig(target);
       } else {
-        log?.("Dry-run: pull ignorado.");
+        log?.(t("cli.parallel.dryRunPull"));
       }
       return { target, status: "pulled" };
     }
@@ -305,7 +306,7 @@ export const syncRepository = async (
         });
         await applyGitLocalConfig(target);
       } else {
-        log?.("Dry-run: push ignorado.");
+        log?.(t("cli.parallel.dryRunPush"));
       }
       return { target, status: "pushed" };
     }
@@ -313,11 +314,11 @@ export const syncRepository = async (
     if (!dryRun) {
       await applyGitLocalConfig(target);
     }
-    log?.("Nenhuma ação necessária.");
+    log?.(t("cli.parallel.noAction"));
     return { target, status: "skipped" };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Erro desconhecido";
-    log?.(`Falha: ${message}`);
+    const message = error instanceof Error ? error.message : t("cli.errors.unknown");
+    log?.(t("cli.parallel.failed", { message }));
     return {
       target,
       status: "failed",

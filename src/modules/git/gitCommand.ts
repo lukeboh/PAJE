@@ -79,7 +79,7 @@ type GitServerEntry = {
 };
 
 const buildServerPrefix = (server: GitServerEntry): string => {
-  const normalizedName = server.name?.trim() || "Servidor";
+  const normalizedName = server.name?.trim() || t("cli.sync.defaultServerLabel");
   return `[${normalizedName}]`;
 };
 
@@ -98,8 +98,8 @@ const buildServersHeader = (servers: GitServerEntry[]): string => {
   const details = servers
     .map((server) => `${server.name} (${server.baseUrl})`)
     .join(" | ");
-  const suffix = servers.length === 1 ? "servidor" : "servidores";
-  return `GitLab (${servers.length} ${suffix}): ${details}`;
+  const suffix = servers.length === 1 ? t("cli.sync.serverSingle") : t("cli.sync.serverPlural");
+  return t("cli.sync.serversHeader", { count: servers.length, suffix, details });
 };
 
 const mergeGroupsByPath = (
@@ -1227,7 +1227,7 @@ const storeSshKeyOnly = async (
 ): Promise<void> => {
   const logger = session
     ? (message: string) => {
-        session.showMessage({ title: "SSH", message });
+        session.showMessage({ title: t("cli.prompt.sshKey.title"), message });
       }
     : console.log;
   const serverHost = new URL(server.baseUrl).hostname;
@@ -1312,13 +1312,13 @@ const storeSshKeyOnly = async (
   if (!resolvedPassword) {
     if (session) {
       const form = await session.promptForm<{ password: string }>({
-        title: "GitLab",
+        title: t("cli.prompt.gitlab.title"),
         fields: [
           {
             name: "password",
-            label: "Senha do GitLab",
+            label: t("cli.prompt.basicAuth.passwordLabelDefault"),
             secret: true,
-            description: "Informe a senha para autenticação básica.",
+            description: t("cli.prompt.basicAuth.passwordDesc"),
           },
         ],
       });
@@ -2065,9 +2065,9 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       const header = buildServersHeader(activeServers);
       const listDurationMs = Date.now() - listStartAt;
       if (!session) {
-        const tempoLabel = colorize("TEMPO", "yellow");
+        const tempoLabel = colorize(t("cli.sync.durationTag"), "yellow");
         const tempoValor = colorize(`${(listDurationMs / 1000).toFixed(2)}s`, "cyan");
-        console.log(`${tempoLabel} ? Listagem de repositórios: ${tempoValor}`);
+        console.log(t("cli.sync.listDurationInline", { label: tempoLabel, value: tempoValor }));
       }
 
       const filterPatterns = compileAntPatterns(mergedOptions.filter);
@@ -2108,38 +2108,38 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         const resolvedUserName = mergedOptions.username?.trim() || undefined;
         const resolvedUserEmail = mergedOptions.userEmail?.trim() || undefined;
         const resolvedPaths = resolveLocalPathConflicts(filteredProjects);
-        await ensureLocalDirsIfNeeded(filteredProjects, defaultBaseDir, mergedOptions.prepareLocalDirs ?? false);
-         const statusEntries = await Promise.all(
-           filteredProjects.map(async (project) => {
-             const targetPath = path.join(defaultBaseDir, resolvedPaths.get(project.id) ?? resolveProjectLocalPath(project));
-             const status = await resolveRepoStatus({
-               targetPath,
-               defaultBranch: project.default_branch,
-               knownRemote: true,
-             });
-             return [project.id, status] as const;
-           })
-         );
-         const statusMap = Object.fromEntries(statusEntries) as Record<number, RepoSyncStatus>;
-         const knownPaths = new Set(
-           filteredProjects.map((project) =>
-             path.join(defaultBaseDir, resolvedPaths.get(project.id) ?? resolveProjectLocalPath(project))
-           )
-         );
+       await ensureLocalDirsIfNeeded(filteredProjects, defaultBaseDir, mergedOptions.prepareLocalDirs ?? false);
+       const statusEntries = await Promise.all(
+         filteredProjects.map(async (project) => {
+           const targetPath = path.join(defaultBaseDir, resolvedPaths.get(project.id) ?? resolveProjectLocalPath(project));
+           const status = await resolveRepoStatus({
+             targetPath,
+             defaultBranch: project.default_branch,
+             knownRemote: true,
+           });
+           return [project.id, status] as const;
+         })
+       );
+       const statusMap = Object.fromEntries(statusEntries) as Record<number, RepoSyncStatus>;
+       const knownPaths = new Set(
+         filteredProjects.map((project) =>
+           path.join(defaultBaseDir, resolvedPaths.get(project.id) ?? resolveProjectLocalPath(project))
+         )
+       );
        const localScan = await buildLocalStatusMap(defaultBaseDir, knownPaths);
        const treeNodes = buildHierarchyTree(filteredProjects, statusMap, localScan.localPaths, localScan.statusMap);
        renderTreeLines(header, treeNodes).forEach((line) => console.log(line));
-        Object.values(statusMap).forEach((status) => {
-          summary.byStatus[status.state] += 1;
-        });
-        if (!mergedOptions.noSummary) {
-          Object.values(localScan.statusMap).forEach((status) => {
-            summary.byStatus[status.state] += 1;
-          });
-        }
-        if (!mergedOptions.noSummary) {
-          renderSummaryLines(summary).forEach((line) => console.log(line));
-        }
+       Object.values(statusMap).forEach((status) => {
+         summary.byStatus[status.state] += 1;
+       });
+       if (!mergedOptions.noSummary) {
+         Object.values(localScan.statusMap).forEach((status) => {
+           summary.byStatus[status.state] += 1;
+         });
+       }
+       if (!mergedOptions.noSummary) {
+         renderSummaryLines(summary).forEach((line) => console.log(line));
+       }
 
         const syncSpecs = resolveSyncReposSpecs(mergedOptions.syncRepos);
         if (syncSpecs.length > 0) {
@@ -2290,8 +2290,11 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             return `[${"#".repeat(filled)}${"-".repeat(empty)}]`;
           };
           const buildWorkerPlaceholder = (workerId: number): string => {
-            const workerLabel = colorize(`Worker ${workerId.toString().padStart(2, "0")}`, "white");
-            return `${workerLabel} aguardando...`;
+            const workerLabel = colorize(
+              t("cli.sync.workerLabel", { index: workerId.toString().padStart(2, "0") }),
+              "white"
+            );
+            return `${workerLabel} ${t("cli.sync.workerWaiting")}`;
           };
           const formatTransferDetail = (options: {
             progress?: {
@@ -2304,23 +2307,23 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             message?: string;
           }): string => {
             if (options.status === "failed") {
-              return options.message ? ` (${options.message})` : " (Erro desconhecido)";
+              return options.message ? ` (${options.message})` : ` (${t("cli.errors.unknown")})`;
             }
             const parts: string[] = [];
             const received = options.progress?.objectsReceived;
             const total = options.progress?.objectsTotal;
             if (total || received) {
               if (total) {
-                parts.push(`${received ?? 0}/${total} objetos copiados`);
+                parts.push(t("cli.progress.objectsCopied", { received: received ?? 0, total }));
               } else {
-                parts.push(`${received ?? 0} objetos copiados`);
+                parts.push(t("cli.progress.objectsCopiedSingle", { received: received ?? 0 }));
               }
             }
             if (options.progress?.transferred) {
               parts.push(options.progress.transferred);
             }
             if (options.progress?.speed) {
-              parts.push(`a ${options.progress.speed}`);
+              parts.push(t("cli.progress.speed", { speed: options.progress.speed }));
             }
             if (parts.length === 0) {
               return "";
@@ -2363,7 +2366,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             if (value.length <= width) {
               return value.padEnd(width, " ");
             }
-            return `${value.slice(0, Math.max(0, width - 1))}?`;
+            return `${value.slice(0, Math.max(0, width - 1))}…`;
           };
           const syncStartAt = Date.now();
           const syncResults = await parallelSync(
