@@ -51,29 +51,6 @@ Aberto.
 
 ---
 
-## BUG-003 — Painel de log reseta ao trocar de tela
-
-**Descrição:**
-O Painel de log na TUI é recriado a cada tela (menu, prompts e árvore), fazendo com que o histórico seja perdido.
-
-**Impacto:**
-O usuário perde contexto sobre ações anteriores na mesma sessão, dificultando auditoria e diagnóstico.
-
-**Como reproduzir:**
-1. Executar `paje` e entrar em qualquer fluxo TUI.
-2. Alternar entre menu e prompts ou avançar para a seleção de árvore.
-3. Observar que o painel de log é resetado.
-
-**Status:**
-Em correção.
-
-**Solução planejada:**
-- Centralizar logs em um store global de sessão.
-- Integrar `LoggerBroker` via transport para o painel.
-- Remover estados locais de log nas telas.
-
----
-
 ## BUG-003 — Mensagens e Logs da funcionalidade de sincronização não estão dentro do padrão
 
 **Descrição:**
@@ -92,7 +69,7 @@ Falta de coerência quanto aos feedbacks que o sistema dá ao usuário para acom
 3. Observar as mensagens na área de trabalho e painel de log.
 
 **Status:**
-Em correção.
+Aberto.
 
 **Solução planejada:**
 - Apresentar um spinner centralizado na área de trabalho durante a execução.
