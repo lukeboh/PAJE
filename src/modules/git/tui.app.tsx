@@ -8,6 +8,7 @@ import { createLogEntry, type LogEntry } from "./tui/logger.js";
 import type { GitLabTreeNode, RepoSyncStatus, RepoSyncState } from "./types.js";
 import type { TuiSession } from "./tuiSession.js";
 import { filterTreeBySelection } from "./treeBuilder.js";
+import { t } from "../../i18n/index.js";
 
 export type TuiSelectionResult = {
   confirmed: boolean;
@@ -180,7 +181,7 @@ const TreeListComponent: React.FC<{
   }, [items, scrollOffset, visibleCount]);
 
   if (items.length === 0) {
-    return <Text>(Nenhum repositório encontrado)</Text>;
+    return <Text>{t("tui.tree.empty")}</Text>;
   }
 
   return (
@@ -236,8 +237,7 @@ export const renderRepositoryTree = async (
       const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
       const [logMaximized, setLogMaximized] = useState(false);
       const [orientation, setOrientation] = useState(
-        options?.footer ??
-          "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para sincronizar | Esc para cancelar | C para filtrar selecionados | W para ampliar área de trabalho | L para ampliar log"
+        options?.footer ?? t("tui.tree.orientationDefault")
       );
       const [version, setVersion] = useState(0);
       const progressMapRef = useRef<Map<string, ProgressSnapshot>>(new Map());
@@ -309,9 +309,7 @@ export const renderRepositoryTree = async (
         setVersion((value: number) => value + 1);
         setLogEntries((current: LogEntry[]) => [
           ...current,
-          createLogEntry(
-            showOnlySelected ? "Exibindo todos os repositórios." : "Exibindo apenas repositórios marcados."
-          ),
+          createLogEntry(showOnlySelected ? t("tui.tree.filterAll") : t("tui.tree.filterSelected")),
         ]);
       }, [showOnlySelected]);
 
@@ -400,7 +398,7 @@ export const renderRepositoryTree = async (
         });
       }, [options, nodes]);
 
-      const headerTitle = options?.header ?? options?.title ?? "PAJÉ - Sincronização Git";
+      const headerTitle = options?.header ?? options?.title ?? t("app.gitSyncTitle");
 
       return (
         <Layout

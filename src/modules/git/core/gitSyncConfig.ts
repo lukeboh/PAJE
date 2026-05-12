@@ -14,6 +14,7 @@ import {
   type EnvResolution,
 } from "./envResolver.js";
 import { buildParameter, type CommandParameters, type ParameterSource } from "./parameters.js";
+import { t } from "../../../i18n/index.js";
 
 export type GitSyncConfigInput = {
   baseDir?: string;
@@ -28,6 +29,7 @@ export type GitSyncConfigInput = {
   passphrase?: string;
   publicKeyPath?: string;
   envFile?: string;
+  locale?: string;
   prepareLocalDirs?: boolean;
   noSummary?: boolean;
   noPublicRepos?: boolean;
@@ -108,6 +110,7 @@ export const resolveGitSyncConfig = (
   const keyLabelResolution = resolveEnvOrCliString(cliOptions.keyLabel, "keyLabel", "key-label");
   const passphraseResolution = resolveEnvOrCliString(cliOptions.passphrase, "passphrase", "passphrase");
   const publicKeyPathResolution = resolveEnvOrCliString(cliOptions.publicKeyPath, "publicKeyPath", "public-key-path");
+  const localeResolution = resolveEnvOrCliString(cliOptions.locale, "locale", "locale");
   const verboseResolution = resolveEnvOrCliBoolean(cliOptions.verbose, "verbose", "verbose", cliVerbose, false);
   const prepareLocalDirsResolution = resolveEnvOrCliBoolean(
     cliOptions.prepareLocalDirs,
@@ -150,6 +153,7 @@ export const resolveGitSyncConfig = (
     keyLabel: (keyLabelResolution.value as string | undefined) ?? "",
     passphrase: (passphraseResolution.value as string | undefined) ?? "",
     publicKeyPath: (publicKeyPathResolution.value as string | undefined) ?? "",
+    locale: (localeResolution.value as string | undefined) ?? "",
     verbose: (verboseResolution.value as boolean | undefined) ?? false,
     prepareLocalDirs: (prepareLocalDirsResolution.value as boolean | undefined) ?? false,
     noSummary: (noSummaryResolution.value as boolean | undefined) ?? false,
@@ -164,125 +168,131 @@ export const resolveGitSyncConfig = (
 
   const parameters: CommandParameters = {
     command: "git-sync",
-    label: "Sincronizar repositórios GitLab",
+    label: t("parameters.gitSync.label"),
     parameters: [
       buildParameter({
         name: "baseDir",
-        description: "Diretório base para clonagem",
+        description: t("parameters.gitSync.baseDir"),
         value: config.baseDir,
         source: buildSource(resolvedBaseDir),
       }),
       buildParameter({
+        name: "locale",
+        description: t("cli.command.gitSync.options.locale"),
+        value: config.locale,
+        source: buildSource(localeResolution),
+      }),
+      buildParameter({
         name: "serverName",
-        description: "Nome do servidor GitLab",
+        description: t("parameters.gitSync.serverName"),
         value: config.serverName,
         source: buildSource(serverNameResolution),
       }),
       buildParameter({
         name: "baseUrl",
-        description: "URL base do GitLab",
+        description: t("parameters.gitSync.baseUrl"),
         value: config.baseUrl,
         source: buildSource(baseUrlResolution),
       }),
       buildParameter({
         name: "useBasicAuth",
-        description: "Usar autenticação básica",
+        description: t("parameters.gitSync.useBasicAuth"),
         value: config.useBasicAuth,
         source: buildSource(useBasicAuthResolution),
       }),
       buildParameter({
         name: "username",
-        description: "Usuário do GitLab para autenticação básica",
+        description: t("parameters.gitSync.username"),
         value: config.username,
         source: buildSource(usernameResolution),
       }),
       buildParameter({
         name: "userEmail",
-        description: "Email do Git para configurar nos repositórios",
+        description: t("parameters.gitSync.userEmail"),
         value: config.userEmail,
         source: buildSource(userEmailResolution),
       }),
       buildParameter({
         name: "password",
-        description: "Senha do GitLab para autenticação básica",
+        description: t("parameters.gitSync.password"),
         value: config.password ? "********" : "",
         source: buildSource(passwordResolution),
       }),
       buildParameter({
         name: "keyLabel",
-        description: "Nome da chave SSH a ser gerada",
+        description: t("parameters.gitSync.keyLabel"),
         value: config.keyLabel,
         source: buildSource(keyLabelResolution),
       }),
       buildParameter({
         name: "passphrase",
-        description: "Passphrase da chave SSH",
+        description: t("parameters.gitSync.passphrase"),
         value: config.passphrase ? "********" : "",
         source: buildSource(passphraseResolution),
       }),
       buildParameter({
         name: "publicKeyPath",
-        description: "Caminho para chave pública existente",
+        description: t("parameters.gitSync.publicKeyPath"),
         value: config.publicKeyPath,
         source: buildSource(publicKeyPathResolution),
       }),
       buildParameter({
         name: "verbose",
-        description: "Exibe detalhes das operações executadas",
+        description: t("parameters.gitSync.verbose"),
         value: config.verbose,
         source: buildSource(verboseResolution),
       }),
       buildParameter({
         name: "prepareLocalDirs",
-        description: "Cria hierarquia de diretórios sem clonar repositórios",
+        description: t("parameters.gitSync.prepareLocalDirs"),
         value: config.prepareLocalDirs,
         source: buildSource(prepareLocalDirsResolution),
       }),
       buildParameter({
         name: "noSummary",
-        description: "Oculta o resumo final",
+        description: t("parameters.gitSync.noSummary"),
         value: config.noSummary,
         source: buildSource(noSummaryResolution),
       }),
       buildParameter({
         name: "noPublicRepos",
-        description: "Oculta repositórios públicos",
+        description: t("parameters.gitSync.noPublicRepos"),
         value: config.noPublicRepos,
         source: buildSource(noPublicReposResolution),
       }),
       buildParameter({
         name: "noArchivedRepos",
-        description: "Oculta repositórios arquivados",
+        description: t("parameters.gitSync.noArchivedRepos"),
         value: config.noArchivedRepos,
         source: buildSource(noArchivedReposResolution),
       }),
       buildParameter({
         name: "filter",
-        description: "Filtro Ant/Glob para path_with_namespace",
+        description: t("parameters.gitSync.filter"),
         value: config.filter,
         source: buildSource(filterResolution),
       }),
       buildParameter({
         name: "syncRepos",
-        description: "Repos/branchs para sincronizar",
+        description: t("parameters.gitSync.syncRepos"),
         value: config.syncRepos,
         source: buildSource(syncReposResolution),
       }),
       buildParameter({
         name: "dryRun",
-        description: "Simula operações sem persistir",
+        description: t("parameters.gitSync.dryRun"),
         value: config.dryRun,
         source: buildSource(dryRunResolution),
       }),
       buildParameter({
         name: "parallels",
-        description: "Número de processos/threads para sincronização",
+        description: t("parameters.gitSync.parallels"),
         value: config.parallels,
         source: buildSource(parallelsResolution),
       }),
       buildParameter({
         name: "envFile",
-        description: "Caminho do arquivo de ambiente",
+        description: t("parameters.gitSync.envFile"),
         value: resolvedEnvFile ?? "",
         source: envFileResolution.source === "cli" ? "resolved" : "default",
       }),

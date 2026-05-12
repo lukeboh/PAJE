@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import type { CommandParameters, ParameterDescriptor, ParameterSource } from "../../core/parameters.js";
+import { t } from "../../../../i18n/index.js";
 
 export type ParametersModalProps = {
   isOpen: boolean;
@@ -19,16 +20,16 @@ type ModalLine = {
 const resolveSourceBadge = (source: ParameterSource): SourceBadge => {
   switch (source) {
     case "env":
-      return { label: "envFile", color: "green" };
+      return { label: t("parametersModal.source.env"), color: "green" };
     case "resolved":
-      return { label: "Linha de Comando", color: "red" };
+      return { label: t("parametersModal.source.resolved"), color: "red" };
     case "default":
-      return { label: "Default", color: "blue" };
+      return { label: t("parametersModal.source.default"), color: "blue" };
     case "cli":
-      return { label: "CLI" };
+      return { label: t("parametersModal.source.cli") };
     case "prompt":
     default:
-      return { label: "PROMPT" };
+      return { label: t("parametersModal.source.prompt") };
   }
 };
 
@@ -60,14 +61,17 @@ const formatParameterLine = (param: ParameterDescriptor): React.ReactNode => {
 
 const buildLines = (groups: CommandParameters[]): ModalLine[] => {
   if (groups.length === 0) {
-    return [{ key: "empty", content: <Text>Nenhum parâmetro carregado nesta execução.</Text> }];
+    return [{ key: "empty", content: <Text>{t("parametersModal.empty")}</Text> }];
   }
   const lines: ModalLine[] = [];
   groups.forEach((group) => {
     const title = `${group.label} (${group.command})`;
     lines.push({ key: `title-${group.command}`, content: <Text>{`• ${title}`}</Text> });
     if (group.parameters.length === 0) {
-      lines.push({ key: `empty-${group.command}`, content: <Text dimColor>  (Sem parâmetros declarados)</Text> });
+      lines.push({
+        key: `empty-${group.command}`,
+        content: <Text dimColor>{`  ${t("parametersModal.emptyGroup")}`}</Text>,
+      });
     }
     sortParameters(group.parameters).forEach((param, index) => {
       lines.push({ key: `${group.command}-${param.name}-${index}`, content: formatParameterLine(param) });
@@ -132,10 +136,10 @@ export const ParametersModal: React.FC<ParametersModalProps> = ({ isOpen, width,
     >
       <Box flexDirection="column">
         <Text color="cyan" backgroundColor={backgroundColor}>
-          Parâmetros carregados
+          {t("parametersModal.title")}
         </Text>
         <Text dimColor backgroundColor={backgroundColor}>
-          P/Esc para fechar | ↑/↓ PgUp/PgDn para rolar
+          {t("parametersModal.hint")}
         </Text>
       </Box>
       <Box flexDirection="column" marginTop={1} height={contentHeight}>

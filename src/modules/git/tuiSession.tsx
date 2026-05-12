@@ -4,6 +4,7 @@ import type { CommandParameters } from "./core/parameters.js";
 import { Layout } from "./tui/layout.js";
 import { useModalStateController } from "./tui/layoutContext.js";
 import { createLogEntry, type LogEntry } from "./tui/logger.js";
+import { t } from "../../i18n/index.js";
 
 export type ListChoice<T> = {
   label: string;
@@ -33,7 +34,7 @@ export const buildOrientation = (base: string, description?: string, error?: str
     parts.push(description.trim());
   }
   if (error) {
-    parts.push(`Erro: ${error}`);
+    parts.push(t("session.errorPrefix", { error }));
   }
   return parts.filter(Boolean).join(" | ");
 };
@@ -81,11 +82,8 @@ export const createTuiSession = (_title: string): TuiSession => {
 
       const App: React.FC = () => {
         const [value, setValue] = useState(options.defaultValue ?? "");
-        const logEntries = useMemo<LogEntry[]>(() => [createLogEntry("Informe o valor solicitado")], []);
-        const orientation = buildOrientation(
-          "Digite o valor e pressione Enter para confirmar | Esc para cancelar",
-          options.description
-        );
+        const logEntries = useMemo<LogEntry[]>(() => [createLogEntry(t("session.log.input"))], []);
+        const orientation = buildOrientation(t("session.orientation.input"), options.description);
         const parametersSnapshot = getParameters();
         const modalState = useModalStateController();
 
@@ -142,11 +140,8 @@ export const createTuiSession = (_title: string): TuiSession => {
 
       const App: React.FC = () => {
         const [value, setValue] = useState("");
-        const logEntries = useMemo<LogEntry[]>(() => [createLogEntry("Informe a senha solicitada")], []);
-        const orientation = buildOrientation(
-          "Digite o valor (oculto) e pressione Enter para confirmar | Esc para cancelar",
-          options.description
-        );
+        const logEntries = useMemo<LogEntry[]>(() => [createLogEntry(t("session.log.password"))], []);
+        const orientation = buildOrientation(t("session.orientation.password"), options.description);
         const masked = "*".repeat(value.length);
         const parametersSnapshot = getParameters();
         const modalState = useModalStateController();
@@ -208,12 +203,9 @@ export const createTuiSession = (_title: string): TuiSession => {
 
       const App: React.FC = () => {
         const [selectedIndex, setSelectedIndex] = useState(0);
-        const logEntries = useMemo<LogEntry[]>(() => [createLogEntry("Selecione uma opção")], []);
+        const logEntries = useMemo<LogEntry[]>(() => [createLogEntry(t("session.log.list"))], []);
         const currentChoice = options.choices[selectedIndex];
-        const orientation = buildOrientation(
-          "Use ↑/↓ para navegar e Enter para confirmar | Esc para cancelar",
-          currentChoice?.description
-        );
+        const orientation = buildOrientation(t("session.orientation.list"), currentChoice?.description);
         const parametersSnapshot = getParameters();
         const modalState = useModalStateController();
 
@@ -283,14 +275,10 @@ export const createTuiSession = (_title: string): TuiSession => {
             return acc;
           }, {} as T)
         );
-        const logEntries = useMemo<LogEntry[]>(() => [createLogEntry("Preencha os campos solicitados")], []);
+        const logEntries = useMemo<LogEntry[]>(() => [createLogEntry(t("session.log.form"))], []);
         const focusedField = options.fields[focusedIndex];
         const description = focusedField?.description;
-        const orientation = buildOrientation(
-          "Tab para navegar entre campos | Enter para avançar/confirmar | Esc para cancelar",
-          description,
-          inlineError
-        );
+        const orientation = buildOrientation(t("session.orientation.form"), description, inlineError);
         const parametersSnapshot = getParameters();
         const modalState = useModalStateController();
 
@@ -382,8 +370,8 @@ export const createTuiSession = (_title: string): TuiSession => {
       title: options.title,
       message: options.message,
       choices: [
-        { label: "Sim", value: true },
-        { label: "Não", value: false },
+        { label: t("session.confirm.yes"), value: true },
+        { label: t("session.confirm.no"), value: false },
       ],
     }).then((value) => (value === null ? defaultValue : value));
   };
@@ -393,7 +381,7 @@ export const createTuiSession = (_title: string): TuiSession => {
       const resolver = createPromptResolver<void>(resolve);
 
       const App: React.FC = () => {
-        const logEntries = useMemo<LogEntry[]>(() => [createLogEntry("Mensagem informativa")], []);
+        const logEntries = useMemo<LogEntry[]>(() => [createLogEntry(t("session.log.message"))], []);
         const parametersSnapshot = getParameters();
         const modalState = useModalStateController();
 
@@ -412,7 +400,7 @@ export const createTuiSession = (_title: string): TuiSession => {
         return (
           <Layout
             title={options.title}
-            orientation="Pressione Enter para continuar | Esc para cancelar"
+            orientation={t("session.orientation.message")}
             logEntries={logEntries}
             parameters={parametersSnapshot}
             modalState={modalState}

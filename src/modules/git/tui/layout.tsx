@@ -9,6 +9,7 @@ import { TitleBar } from "./components/TitleBar.js";
 import { Workspace } from "./components/Workspace.js";
 import { PanelFrame } from "./components/PanelFrame.js";
 import { ParametersModal } from "./components/ParametersModal.js";
+import { t } from "../../../i18n/index.js";
 
 export type LayoutProps = {
   title: string;
@@ -198,13 +199,13 @@ export const Layout: React.FC<LayoutProps> = ({
           }}
         >
           <Box flexDirection="column" width="100%" height={terminalHeight}>
-            <TitleBar left={headerLeft} right="PAJÉ" />
+            <TitleBar left={headerLeft} right={t("layout.rightTitle")} />
             <Box flexDirection="column" width="100%" height={layoutMetrics.containerHeight}>
               <PanelFrame title={workspaceLegend} height={layoutMetrics.workspaceFrameHeight}>
                 <Workspace height={layoutMetrics.workspaceContentHeight}>{children}</Workspace>
               </PanelFrame>
               <OrientationBar message={orientation} />
-              <PanelFrame title="Log" height={layoutMetrics.logFrameHeight}>
+              <PanelFrame title={t("layout.logTitle")} height={layoutMetrics.logFrameHeight}>
                 <LoggerPanel entries={logEntries} height={layoutMetrics.logContentHeight} />
               </PanelFrame>
             </Box>

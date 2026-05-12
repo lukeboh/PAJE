@@ -4,6 +4,7 @@ import type { CommandParameters } from "../core/parameters.js";
 import { Layout } from "./layout.js";
 import { useModalStateController } from "./layoutContext.js";
 import { createLogEntry, type LogEntry } from "./logger.js";
+import { t } from "../../../i18n/index.js";
 
 export type MenuItem = {
   label: string;
@@ -20,7 +21,7 @@ type MenuDashboardProps = {
 export const MenuDashboard: React.FC<MenuDashboardProps> = ({ items, selectedIndex }) => {
   const selectedItem = items[selectedIndex];
   const description = selectedItem?.description ?? "";
-  const commandHint = selectedItem ? `Comando: paje ${selectedItem.command}` : "";
+  const commandHint = selectedItem ? t("menu.commandHint", { command: selectedItem.command }) : "";
 
   return (
     <Box flexDirection="column" width="100%" height="100%">
@@ -43,7 +44,7 @@ export const MenuDashboard: React.FC<MenuDashboardProps> = ({ items, selectedInd
         })}
       </Box>
       <Box flexDirection="column" marginTop={1}>
-        <Text color="yellow">Descrição</Text>
+        <Text color="yellow">{t("menu.descriptionLabel")}</Text>
         <Text>{description}</Text>
         {commandHint && <Text dimColor>{commandHint}</Text>}
       </Box>
@@ -51,8 +52,7 @@ export const MenuDashboard: React.FC<MenuDashboardProps> = ({ items, selectedInd
   );
 };
 
-export const MENU_ORIENTATION_MESSAGE =
-  "S/G para selecionar | Setas para navegar | Enter para confirmar | Esc para sair | W para ampliar área de trabalho | L para ampliar log";
+export const MENU_ORIENTATION_MESSAGE = t("menu.orientation");
 
 export const renderMenu = async (items: MenuItem[], parameters: CommandParameters[] = []): Promise<MenuItem | null> => {
   return new Promise((resolve) => {
@@ -73,7 +73,7 @@ export const renderMenu = async (items: MenuItem[], parameters: CommandParameter
 
     const App: React.FC = () => {
       const [selectedIndex, setSelectedIndex] = useState(0);
-      const [logEntries, setLogEntries] = useState<LogEntry[]>(() => [createLogEntry("Selecione uma funcionalidade")]);
+      const [logEntries, setLogEntries] = useState<LogEntry[]>(() => [createLogEntry(t("menu.log.selectFeature"))]);
       const modalState = useModalStateController();
       const parametersSnapshot = parameters;
 
@@ -97,7 +97,7 @@ export const renderMenu = async (items: MenuItem[], parameters: CommandParameter
           if (normalizedInput === "s") {
             const selected = items[0];
             if (selected) {
-              appendLog(`Selecionado: ${selected.label}`);
+              appendLog(t("menu.log.selected", { label: selected.label }));
               finalize(selected);
             }
             return;
@@ -105,7 +105,7 @@ export const renderMenu = async (items: MenuItem[], parameters: CommandParameter
           if (normalizedInput === "g") {
             const selected = items[clampIndex(1)];
             if (selected) {
-              appendLog(`Selecionado: ${selected.label}`);
+              appendLog(t("menu.log.selected", { label: selected.label }));
               finalize(selected);
             }
             return;
@@ -115,7 +115,7 @@ export const renderMenu = async (items: MenuItem[], parameters: CommandParameter
               const nextIndex = clampIndex(value - 1);
               const selected = items[nextIndex];
               if (selected) {
-                appendLog(`Selecionado: ${selected.label}`);
+                appendLog(t("menu.log.selected", { label: selected.label }));
               }
               return nextIndex;
             });
@@ -125,7 +125,7 @@ export const renderMenu = async (items: MenuItem[], parameters: CommandParameter
               const nextIndex = clampIndex(value + 1);
               const selected = items[nextIndex];
               if (selected) {
-                appendLog(`Selecionado: ${selected.label}`);
+                appendLog(t("menu.log.selected", { label: selected.label }));
               }
               return nextIndex;
             });
@@ -140,14 +140,14 @@ export const renderMenu = async (items: MenuItem[], parameters: CommandParameter
             setSelectedIndex(0);
             const selected = items[0];
             if (selected) {
-              appendLog(`Selecionado: ${selected.label}`);
+              appendLog(t("menu.log.selected", { label: selected.label }));
             }
           }
           if (normalizedInput === "2") {
             setSelectedIndex(clampIndex(1));
             const selected = items[clampIndex(1)];
             if (selected) {
-              appendLog(`Selecionado: ${selected.label}`);
+              appendLog(t("menu.log.selected", { label: selected.label }));
             }
           }
         },
@@ -156,9 +156,9 @@ export const renderMenu = async (items: MenuItem[], parameters: CommandParameter
 
       return (
         <Layout
-          title="PAJÉ - Menu de Funcionalidades"
-          workspaceLabel="Menu de Funcionalidades"
-          orientation={MENU_ORIENTATION_MESSAGE}
+          title={t("app.menuTitle")}
+          workspaceLabel={t("menu.workspaceLabel")}
+          orientation={t("menu.orientation")}
           logEntries={logEntries}
           parameters={parametersSnapshot}
           modalState={modalState}
