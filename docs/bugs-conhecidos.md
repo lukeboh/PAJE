@@ -43,7 +43,7 @@ Prejudica a usabilidade da aplicação.
 E em qualquer situação que está descrita na descrição.
 
 **Status:**
-Aberto.
+Corrigido.
 
 **Solução planejada:**
 - Centralizar o tratamento do Esc no layout para priorizar: fechar modal -> restaurar painel maximizado -> voltar tela anterior -> sair no menu principal.
