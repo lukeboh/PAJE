@@ -12,8 +12,8 @@ const ptBR = {
     orientation:
       "S/G para selecionar | Setas para navegar | Enter para confirmar | Esc para sair | W para ampliar área de trabalho | L para ampliar log",
     log: {
-      selectFeature: "Selecione uma funcionalidade",
-      selected: "Selecionado: {{label}}",
+      selectFeature: "[DEBUG] Selecione uma funcionalidade",
+      selected: "[DEBUG] Selecionado: {{label}}",
     },
     items: {
       gitSync: {

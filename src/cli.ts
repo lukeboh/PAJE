@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { buildInitialParameters, configureGitSyncCommand, configureSshKeyStoreCommand } from "./modules/git/gitCommand";
 import { renderMenu, type MenuItem } from "./modules/git/tui/menu.app";
+import { appendLogEntry, setLogLevel } from "./modules/git/tui/logStore.js";
 import { createSessionForCommand } from "./cliSession";
 import { setLocale, t } from "./i18n/index.js";
 import { PajeLogger } from "./modules/git/logger";
@@ -39,9 +40,9 @@ const resolveLocaleArg = (args: string[]): string | undefined => {
 
 const hasCommandArg = (args: string[]): boolean => args.some((arg) => !arg.startsWith("-"));
 
-const runMenu = async (locale?: string, suppressInitialEscapeMs?: number) => {
+const runMenu = async (locale?: string, suppressInitialEscapeMs?: number, appendLog?: (message: string) => void) => {
   const parameters = buildInitialParameters(locale);
-  const selection = await renderMenu(buildMenuItems(), parameters, { suppressInitialEscapeMs });
+  const selection = await renderMenu(buildMenuItems(), parameters, { suppressInitialEscapeMs, appendLog });
   return { selection };
 };
 
@@ -65,20 +66,28 @@ const main = async (): Promise<void> => {
     .name("paje")
     .description(t("app.description"))
     .version("0.1.0")
-    .option("--locale <locale>", t("cli.command.gitSync.options.locale"));
+    .option("--locale <locale>", t("cli.command.gitSync.options.locale"))
+    .option("-v, --verbose", t("cli.command.gitSync.options.verbose"), false);
 
   configureGitSyncCommand(baseProgram);
   configureSshKeyStoreCommand(baseProgram);
   if (!hasCommandArg(args)) {
     baseProgram.parseOptions(process.argv);
+    const options = baseProgram.opts<{ verbose?: boolean }>();
+    setLogLevel(options.verbose ? "debug" : "info");
     let suppressInitialEscapeMs = 0;
     let justReturnedFromCommand = false;
+    const appendMenuLog = options.verbose
+      ? (message: string): void => {
+          appendLogEntry(message, "debug");
+        }
+      : undefined;
     while (true) {
       debugLogger.info(
         `[TUI][CLI] runMenu start suppressInitialEscapeMs=${suppressInitialEscapeMs} justReturnedFromCommand=${justReturnedFromCommand}`
       );
       try {
-        const { selection } = await runMenu(resolveLocaleArg(args), suppressInitialEscapeMs);
+        const { selection } = await runMenu(resolveLocaleArg(args), suppressInitialEscapeMs, appendMenuLog);
         debugLogger.info(
           `[TUI][CLI] runMenu result selection=${selection?.command ?? "null"} suppressInitialEscapeMs=${suppressInitialEscapeMs}`
         );

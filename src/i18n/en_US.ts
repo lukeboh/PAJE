@@ -12,8 +12,8 @@ const enUS = {
     orientation:
       "S/G to select | Arrows to navigate | Enter to confirm | Esc to exit | W to expand workspace | L to expand log",
     log: {
-      selectFeature: "Select a feature",
-      selected: "Selected: {{label}}",
+      selectFeature: "[DEBUG] Select a feature",
+      selected: "[DEBUG] Selected: {{label}}",
     },
     items: {
       gitSync: {

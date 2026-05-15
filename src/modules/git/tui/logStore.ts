@@ -4,15 +4,26 @@ import { t } from "../../../i18n/index.js";
 
 export type LogListener = (entries: LogEntry[]) => void;
 
+const LEVEL_ORDER: Record<LogLevel, number> = {
+  debug: 10,
+  info: 20,
+  warn: 30,
+  error: 40,
+};
+
 class LogStore {
   private entries: LogEntry[] = [];
   private listeners = new Set<LogListener>();
+  private minLevel: LogLevel = "info";
 
   append(message: string, level: LogLevel = "info"): void {
     this.appendEntry(createLogEntry(message, level));
   }
 
   appendEntry(entry: LogEntry): void {
+    if (LEVEL_ORDER[entry.level] < LEVEL_ORDER[this.minLevel]) {
+      return;
+    }
     this.entries = [...this.entries, entry];
     this.notify();
   }
@@ -20,6 +31,19 @@ class LogStore {
   replace(entries: LogEntry[]): void {
     this.entries = [...entries];
     this.notify();
+  }
+
+  clear(): void {
+    this.entries = [];
+    this.notify();
+  }
+
+  setMinLevel(level: LogLevel): void {
+    this.minLevel = level;
+  }
+
+  getMinLevel(): LogLevel {
+    return this.minLevel;
   }
 
   getEntries(): LogEntry[] {
@@ -46,6 +70,16 @@ export const appendLogEntry = (message: string, level: LogLevel = "info"): void 
 export const appendLogRecord = (entry: LogEntry): void => {
   logStore.appendEntry(entry);
 };
+
+export const clearLogEntries = (): void => {
+  logStore.clear();
+};
+
+export const setLogLevel = (level: LogLevel): void => {
+  logStore.setMinLevel(level);
+};
+
+export const getLogLevel = (): LogLevel => logStore.getMinLevel();
 
 export const getLogEntries = (): LogEntry[] => logStore.getEntries();
 

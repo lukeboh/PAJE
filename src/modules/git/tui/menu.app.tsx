@@ -58,7 +58,7 @@ export const MENU_ORIENTATION_MESSAGE = t("menu.orientation");
 export const renderMenu = async (
   items: MenuItem[],
   parameters: CommandParameters[] = [],
-  options?: { suppressInitialEscapeMs?: number }
+  options?: { suppressInitialEscapeMs?: number; appendLog?: (message: string) => void }
 ): Promise<MenuItem | null> => {
   return new Promise((resolve) => {
     const resolveRef = { current: resolve };
@@ -91,9 +91,9 @@ export const renderMenu = async (
       const debugLogger = useMemo(() => new PajeLogger(), []);
       const instanceId = useMemo(() => `menu-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`, []);
 
-      const appendLog = (message: string): void => {
-        appendLogEntry(message, "info");
-      };
+      const appendLog = options?.appendLog ?? ((message: string): void => {
+        appendLogEntry(message, "debug");
+      });
 
       useEffect(() => {
         loggerRef.current = debugLogger;
