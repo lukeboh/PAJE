@@ -21,8 +21,14 @@ const consoleTransport = createConsoleTransport("console", "info");
 consoleTransport.log(infoEntry);
 consoleTransport.log(errorEntry);
 
-assert.ok(logged[0]?.includes("[2026-05-10 20:21:00] linha info"), "Deve escrever info no console.log");
-assert.ok(errored[0]?.includes("[2026-05-10 20:21:01] linha erro"), "Deve escrever erro no console.error");
+assert.ok(
+  logged[0]?.includes("[2026-05-10 20:21:00] [INFO] linha info"),
+  "Deve escrever info no console.log"
+);
+assert.ok(
+  errored[0]?.includes("[2026-05-10 20:21:01] [ERROR] linha erro"),
+  "Deve escrever erro no console.error"
+);
 
 console.log = originalConsoleLog;
 console.error = originalConsoleError;

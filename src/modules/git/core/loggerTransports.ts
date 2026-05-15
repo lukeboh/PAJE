@@ -7,7 +7,7 @@ export const createConsoleTransport = (name: string, minLevel: LogLevel): LogTra
     name,
     minLevel,
     log: (entry: LogEntry) => {
-      const line = `[${entry.timestamp}] ${entry.message}`;
+      const line = `[${entry.timestamp}] [${entry.level.toUpperCase()}] ${entry.message}`;
       if (entry.level === "error") {
         console.error(line);
         return;
@@ -40,7 +40,8 @@ export const createFileTransport = (name: string, minLevel: LogLevel): LogTransp
   };
 };
 
-export type PanelLogAppend = (message: string, level?: "info" | "warn" | "error") => void;
+export type PanelLogLevel = "debug" | "info" | "warn" | "error";
+export type PanelLogAppend = (message: string, level?: PanelLogLevel) => void;
 
 export const createPanelTransport = (
   name: string,
@@ -51,8 +52,7 @@ export const createPanelTransport = (
     name,
     minLevel,
     log: (entry: LogEntry) => {
-      const level = entry.level === "debug" ? "info" : entry.level;
-      append(`[${entry.timestamp}] ${entry.message}`, level);
+      append(`[${entry.timestamp}] [${entry.level.toUpperCase()}] ${entry.message}`, entry.level);
     },
   };
 };
@@ -64,8 +64,8 @@ export const createGlobalPanelTransport = (name: string, minLevel: LogLevel): Lo
     log: (entry: LogEntry) => {
       appendLogRecord({
         id: `${entry.timestamp}-${Math.random().toString(16).slice(2)}`,
-        message: entry.message,
-        level: entry.level === "debug" ? "info" : entry.level,
+        message: `[${entry.level.toUpperCase()}] ${entry.message}`,
+        level: entry.level,
         timestamp: entry.timestamp,
       });
     },

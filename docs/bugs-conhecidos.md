@@ -55,12 +55,12 @@ Corrigido.
 ## BUG-003 — Mensagens e Logs da funcionalidade de sincronização não estão dentro do padrão
 
 **Descrição:**
-Ao selecionar S para sincronizar na primeira tela no menu de funcionalidades, uma mensagem genérica "yyyy-mm-dd hh:mm:ss] Mensagem informativa" é apresentada no painel de log e o texto abaixo é apresentado na área de trabalho:
+Ao selecionar S para sincronizar na primeira tela no menu de funcionalidades, uma mensagem genérica "yyyy-mm-dd hh:mm:ss] Mensagem informativa" era apresentada no painel de log e o texto abaixo era apresentado na área de trabalho:
 
 > GitLab
 > Acessando servidores e carregando repositórios - requisições: 2
 
-A mensagem informativa na verdade não informa nada e o "Acessando servidores e carregando repositórios - requisições: 2" está estático e não dá ideia do progresso no acesso ao servidor.
+A mensagem informativa não era útil e o "Acessando servidores e carregando repositórios - requisições: 2" estava estático e não dava ideia do progresso no acesso ao servidor. A TUI também não espelhava as mesmas mensagens do CLI.
 
 **Impacto:**
 Falta de coerência quanto aos feedbacks que o sistema dá ao usuário para acompanhar a operação do sistema.
@@ -70,27 +70,16 @@ Falta de coerência quanto aos feedbacks que o sistema dá ao usuário para acom
 3. Observar as mensagens na área de trabalho e painel de log.
 
 **Status:**
-Aberto.
+Corrigido.
 
-**Solução planejada:**
-- Apresentar um spinner centralizado na área de trabalho durante a execução.
-- Garantir que o painel de log está usando o mesmo modulo e operação para fazer a sincronização pela TUI e, desta forma, ter certeza que as mesmas mensagens que saiam console quando a sincronização é feita por CLI saiam no painel de acompanhamento quando executada pela TUI. Por exemplo, quando executo "./paje.sh git-sync --locale=en-US --dry-run --verbose" quero que a saída abaixo seja registrada em ambos os casos como logs e, portanto que saiam no painel de acompanhamento da seguinte forma:
+**Solução aplicada:**
+- Direcionado o log de carregamento/HTTP e progresso do sync para o painel TUI com o mesmo texto e ordem do CLI.
+- Removidas mensagens genéricas que não existem no CLI.
+- Logs verbose da API passam a ser exibidos no painel TUI.
+- A duração de listagem de repositórios é registrada no painel sem formatação ANSI para manter equivalência com o CLI.
 
-HTTP GET https://git.tse.jus.br/api/v4/groups?all_available=true&per_page=100&page=1
-Headers: {"Content-Type":"application/json","PRIVATE-TOKEN":"<REDACTED>"}
-HTTP GET https://git.tse.jus.br/api/v4/projects?membership=true&per_page=100&page=1
-Headers: {"Content-Type":"application/json","PRIVATE-TOKEN":"<REDACTED>"}
-HTTP 200 https://git.tse.jus.br/api/v4/groups?all_available=true&per_page=100&page=1
-HTTP 200 https://git.tse.jus.br/api/v4/projects?membership=true&per_page=100&page=1
-HTTP GET https://git.tse.jus.br/api/v4/projects?membership=true&per_page=100&page=2
-Headers: {"Content-Type":"application/json","PRIVATE-TOKEN":"<REDACTED>"}
-HTTP 200 https://git.tse.jus.br/api/v4/projects?membership=true&per_page=100&page=2
-HTTP GET https://git.tse.jus.br/api/v4/projects?membership=true&per_page=100&page=3
-Headers: {"Content-Type":"application/json","PRIVATE-TOKEN":"<REDACTED>"}
-HTTP 200 https://git.tse.jus.br/api/v4/projects?membership=true&per_page=100&page=3
-Tempo 4.69s
-
-- Reforçar regras de log, principalmente que todas as saídas para o usuário sejam por meio de log, de forma a garantir que tudo que saia na console saia no painel de acompanhamento e saia no arquivo de log.
+**Validação sugerida:**
+- Executar `./paje.sh git-sync --locale=en-US --dry-run --verbose` e comparar a saída do CLI com o painel TUI usando os mesmos parâmetros.
 
 ---
 

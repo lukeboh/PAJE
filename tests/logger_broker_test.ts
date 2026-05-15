@@ -32,7 +32,7 @@ broker.setTransportLevel("collector", "debug");
 broker.debug("mensagem debug 2");
 assert.strictEqual(collected.at(-1)?.level, "debug", "Deve permitir ajustar nível do transport");
 
-const panelMessages: Array<{ message: string; level: "info" | "warn" | "error" }> = [];
+const panelMessages: Array<{ message: string; level: "debug" | "info" | "warn" | "error" }> = [];
 const panelTransport = createPanelTransport("panel", "debug", (message, level = "info") => {
   panelMessages.push({ message, level });
 });
@@ -45,6 +45,6 @@ panelTransport.log({
 
 assert.strictEqual(panelMessages.length, 1, "Deve encaminhar mensagens para o painel");
 assert.ok(panelMessages[0]?.message.includes("debug no painel"), "Deve incluir mensagem no painel");
-assert.strictEqual(panelMessages[0]?.level, "info", "Deve normalizar debug para info no painel");
+assert.strictEqual(panelMessages[0]?.level, "debug", "Deve preservar debug no painel");
 
 console.log("logger_broker_test: OK");

@@ -41,9 +41,12 @@ import {
   RepoSyncState,
 } from "./types.js";
 import { parallelSync, runGit, type ProgressEvent, resolveConcurrency } from "./parallelSync.js";
-import { PajeLogger } from "./logger.js";
 import { LoggerBroker } from "./core/loggerBroker.js";
-import { createGlobalPanelTransport } from "./core/loggerTransports.js";
+import {
+  createConsoleTransport,
+  createFileTransport,
+  createGlobalPanelTransport,
+} from "./core/loggerTransports.js";
 import { antPatternToRegex, compileAntPatterns, matchesAntPatterns, splitFilterPatterns } from "./patternFilter.js";
 import {
   addHostToKnownHosts,
@@ -1849,14 +1852,33 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
     .option("--dry-run", t("cli.command.gitSync.options.dryRun"), false)
     .action(async function (this: Command, options: GitSyncCliOptions) {
       setLocale(options.locale);
-      const logger = new PajeLogger();
-      logger.info(t("cli.command.gitSync.description"));
-      const tuiBroker = new LoggerBroker();
-      tuiBroker.addTransport(createGlobalPanelTransport("tui-panel", "debug"));
-      tuiBroker.info(t("cli.command.gitSync.description"));
+      const logBroker = new LoggerBroker();
+      if (!session) {
+        logBroker.addTransport(createConsoleTransport("cli-console", "info"));
+      }
+      logBroker.addTransport(createFileTransport("file", "info"));
+      if (session) {
+        logBroker.addTransport(createGlobalPanelTransport("tui-panel", "debug"));
+      }
+      logBroker.info(t("cli.command.gitSync.description"));
 
       const logToTui = (message: string, level: "info" | "warn" | "error" = "info"): void => {
-        tuiBroker.log(level, message);
+        if (!session) {
+          return;
+        }
+        logBroker.log(level, message);
+      };
+
+      const logDebug = (message: string): void => {
+        logBroker.debug(message);
+      };
+
+      const logInfo = (message: string): void => {
+        logBroker.info(message);
+      };
+
+      const logToTuiPlain = (message: string): void => {
+        logToTui(message, "info");
       };
 
       const cliOptions = options;
@@ -1888,6 +1910,11 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         hasCliArg,
         resolveCliBoolean
       );
+      if (mergedOptions.verbose) {
+        logBroker.setTransportLevel("cli-console", "debug");
+        logBroker.setTransportLevel("file", "debug");
+        logBroker.setTransportLevel("tui-panel", "debug");
+      }
       const parametersSummary: CommandParameters[] = [gitSyncParameters];
       if (session) {
         session.setParameters(parametersSummary);
@@ -1951,10 +1978,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         }
         const frame = spinnerFrames[spinnerFrameIndex % spinnerFrames.length];
         spinnerFrameIndex += 1;
-        session.showMessage({
-          title: t("cli.prompt.gitlab.title"),
-          message: t("cli.http.accessServers", { frame, count: listRequestCount }),
-        });
+        logToTui(t("cli.http.accessServers", { frame, count: listRequestCount }));
       };
       const wrapRequest = async <T,>(server: GitServerEntry, label: string, fn: () => Promise<T>): Promise<T> => {
         listRequestCount += 1;
@@ -1998,9 +2022,9 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             basicAuth,
             token: server.token,
             verbose: mergedOptions.verbose ?? false,
-            logger: session
+            logger: mergedOptions.verbose
               ? (message) => {
-                  session.showMessage({ title: t("layout.logTitle"), message });
+                  logDebug(message);
                 }
               : undefined,
           });
@@ -2059,11 +2083,9 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
       const activeServers = validServerResults.map((result) => result.server);
       const header = buildServersHeader(activeServers);
       const listDurationMs = Date.now() - listStartAt;
-      if (!session) {
-        const tempoLabel = colorize(t("cli.sync.durationTag"), "yellow");
-        const tempoValor = colorize(`${(listDurationMs / 1000).toFixed(2)}s`, "cyan");
-        console.log(t("cli.sync.listDurationInline", { label: tempoLabel, value: tempoValor }));
-      }
+      const tempoLabel = t("cli.sync.durationTag");
+      const tempoValor = `${(listDurationMs / 1000).toFixed(2)}s`;
+      logInfo(t("cli.sync.listDurationInline", { label: tempoLabel, value: tempoValor }));
 
       const filterPatterns = compileAntPatterns(mergedOptions.filter);
       const filteredProjects = projects.filter((project) => {
@@ -2133,7 +2155,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
          });
        }
        if (!mergedOptions.noSummary) {
-         renderSummaryLines(summary).forEach((line) => console.log(line));
+         renderSummaryLines(summary).forEach((line) => logInfo(line));
        }
 
         const syncSpecs = resolveSyncReposSpecs(mergedOptions.syncRepos);
@@ -2370,6 +2392,7 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
               concurrency,
               shallow: false,
               dryRun: mergedOptions.dryRun ?? false,
+              logger: logToTuiPlain,
             },
             (result) => {
               completedCount += 1;
@@ -2620,12 +2643,25 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
             defaultBranch: project.default_branch,
             knownRemote: true,
           });
-          const displayPath = project.pajeOriginalPathWithNamespace ?? project.path_with_namespace;
-          logToTui(t("cli.log.preselection", { displayPath, targetPath, state: status.state }));
           return [project.id, status] as const;
         })
       );
       const statusMap = Object.fromEntries(statusEntries) as Record<number, RepoSyncStatus>;
+      const knownPaths = new Set(
+        filteredProjects.map((project) => path.join(defaultBaseDir, resolveProjectLocalPath(project)))
+      );
+      const localScan = mergedOptions.noSummary
+        ? { localPaths: [], statusMap: {} as Record<string, RepoSyncStatus> }
+        : await buildLocalStatusMap(defaultBaseDir, knownPaths);
+      Object.values(statusMap).forEach((status) => {
+        summary.byStatus[status.state] += 1;
+      });
+      if (!mergedOptions.noSummary) {
+        Object.values(localScan.statusMap).forEach((status) => {
+          summary.byStatus[status.state] += 1;
+        });
+        renderSummaryLines(summary).forEach((line) => logInfo(line));
+      }
       const applyStatusToTree = (node: GitLabTreeNode): void => {
         if (node.type === "project" && node.project) {
           node.status = statusMap[node.project.id];
@@ -2643,30 +2679,25 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         parameters: session?.getParameters() ?? parametersSummary,
         onReady: (handlers) => {
           treeProgress = handlers.progress;
-          handlers.log.append(t("tui.tree.orientationDefault"));
           handlers.render();
         },
       });
       if (!tuiResult.confirmed) {
-        logger.warn(t("tui.tree.filterAll"));
+        logBroker.warn(t("tui.tree.filterAll"));
         return;
       }
 
       const selected = collectSelectedProjects(tree);
       if (selected.length === 0) {
-        logger.warn(t("tui.tree.empty"));
+        logBroker.warn(t("tui.tree.empty"));
         return;
       }
 
       if (!session) {
-        logger.warn(t("session.errorPrefix", { error: t("cli.log.tuiUnavailable") }));
+        logBroker.warn(t("session.errorPrefix", { error: t("cli.log.tuiUnavailable") }));
         return;
       }
 
-      await session.showMessage({
-        title: t("cli.prompt.gitlab.title"),
-        message: t("session.log.message"),
-      });
       return;
     });
 };

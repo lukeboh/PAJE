@@ -72,6 +72,7 @@ A TUI é iniciada ao executar `paje` sem parâmetros e selecionar **Sincronizar 
 - `--parallels` aceita `AUTO`, `0` ou número ≥ 1.
 - `--dry-run` evita alterações reais, apenas reporta ações.
 - Logs são centralizados no LoggerBroker, com níveis configuráveis por transport (console/painel/arquivo).
+- O painel de logs da TUI deve espelhar o mesmo texto e ordem das mensagens da CLI, incluindo logs HTTP em modo `--verbose`.
 
 ## Saídas
 
