@@ -50,8 +50,8 @@ const ptBR = {
         "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para sincronizar | Esc para cancelar | C para filtrar selecionados | W para ampliar área de trabalho | L para ampliar log",
       orientationConfirm:
         "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para confirmar seleção | Esc para cancelar | C para filtrar selecionados | W para ampliar área de trabalho | L para ampliar log",
-      filterAll: "Exibindo todos os repositórios.",
-      filterSelected: "Exibindo apenas repositórios marcados.",
+      filterAll: "[DEBUG] Exibindo todos os repositórios.",
+      filterSelected: "[DEBUG] Exibindo apenas repositórios marcados.",
     },
     loading: {
       repositories: "Carregando repositórios...",

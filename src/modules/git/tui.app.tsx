@@ -349,7 +349,7 @@ export const renderRepositoryTree = async (
         setSelectedIndex(0);
         setScrollOffset(0);
         setVersion((value: number) => value + 1);
-        appendLogEntry(showOnlySelected ? t("tui.tree.filterAll") : t("tui.tree.filterSelected"));
+        appendLogEntry(showOnlySelected ? t("tui.tree.filterAll") : t("tui.tree.filterSelected"), "debug");
       }, [showOnlySelected]);
 
       useInput(

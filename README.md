@@ -100,7 +100,7 @@ Sincroniza repositórios em paralelo, agregando todos os servidores configurados
 - Os filtros suportam padrões Ant/Glob: `?`, `*`, `**` e múltiplos padrões separados por `;`.
 - O log é centralizado no LoggerBroker, com transports para console, painel TUI e arquivo em `~/.paje/logs`.
 - Níveis padrão: console `info`, painel `warn`, arquivo `debug`.
-- Mensagens de seleção do menu TUI são `[DEBUG]` e só aparecem com `--verbose`.
+- Mensagens de seleção do menu TUI e filtros de árvore são `[DEBUG]` e só aparecem com `--verbose`.
 
 ### 2) `git-server-store` — registrar SSH e token no GitLab
 

@@ -50,8 +50,8 @@ const enUS = {
         "Use ↑/↓ and PgUp/PgDn to navigate | Space to select | Enter to sync | Esc to cancel | C to filter selected | W to expand workspace | L to expand log",
       orientationConfirm:
         "Use ↑/↓ and PgUp/PgDn to navigate | Space to select | Enter to confirm selection | Esc to cancel | C to filter selected | W to expand workspace | L to expand log",
-      filterAll: "Showing all repositories.",
-      filterSelected: "Showing only selected repositories.",
+      filterAll: "[DEBUG] Showing all repositories.",
+      filterSelected: "[DEBUG] Showing only selected repositories.",
     },
     loading: {
       repositories: "Loading repositories...",
