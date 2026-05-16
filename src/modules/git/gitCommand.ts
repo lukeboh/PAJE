@@ -22,7 +22,7 @@ import {
   recomputeTreeSelection,
   toggleTreeNode,
 } from "./treeBuilder.js";
-import { renderRepositoryTree, type TuiTreeProgress } from "./tui.js";
+import { renderLoadingScreen, renderRepositoryTree, type TuiTreeProgress } from "./tui.js";
 import {
   getAheadBehind,
   getStatusPorcelain,
@@ -1995,6 +1995,16 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
         }
       };
 
+      const loadingHandle = session
+        ? renderLoadingScreen({
+            title: t("app.gitSyncTitle"),
+            message: t("tui.loading.repositories"),
+            orientation: t("tui.loading.orientation"),
+            parameters: session.getParameters(),
+            spinnerFrames,
+          })
+        : null;
+
       const serverResults = await Promise.all(
         servers.map(async (server) => {
           const serverHost = new URL(server.baseUrl).hostname;
@@ -2056,7 +2066,9 @@ export const configureGitSyncCommand = (program: Command, session?: TuiSession):
 
           return { server, groups, projects };
         })
-      );
+      ).finally(() => {
+        loadingHandle?.stop();
+      });
 
       const validServerResults = serverResults.filter(
         (result): result is { server: GitServerEntry; groups: GitLabGroup[]; projects: GitLabProject[] } =>

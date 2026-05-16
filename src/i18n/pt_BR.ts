@@ -53,6 +53,10 @@ const ptBR = {
       filterAll: "Exibindo todos os repositórios.",
       filterSelected: "Exibindo apenas repositórios marcados.",
     },
+    loading: {
+      repositories: "Carregando repositórios...",
+      orientation: "Aguarde enquanto consultamos os servidores | Esc para cancelar",
+    },
   },
   session: {
     orientation: {

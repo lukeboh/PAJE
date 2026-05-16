@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Box, Text, render, useInput } from "ink";
+import { Box, Text, render, useInput, type RenderOptions } from "ink";
 import { PajeLogger } from "./logger.js";
 import type { Key } from "ink";
 import type { CommandParameters } from "./core/parameters.js";
@@ -28,6 +28,20 @@ type FlatTreeItem = {
 
 type ProgressSnapshot = {
   text?: string;
+};
+
+export type LoadingScreenOptions = {
+  title?: string;
+  message: string;
+  orientation?: string;
+  parameters?: CommandParameters[];
+  spinnerFrames?: string[];
+  intervalMs?: number;
+  renderOptions?: RenderOptions;
+};
+
+export type LoadingScreenHandle = {
+  stop: () => void;
 };
 
 const STATUS_COLOR: Record<RepoSyncState, string> = {
@@ -446,4 +460,54 @@ export const renderRepositoryTree = async (
     const { unmount } = render(<App />);
     unmountRef.current = unmount;
   });
+};
+
+export const renderLoadingScreen = (options: LoadingScreenOptions): LoadingScreenHandle => {
+  const spinnerFrames = options.spinnerFrames ?? ["/", "-", "\\", "|"];
+  const intervalMs = options.intervalMs ?? 120;
+  const unmountRef: { current?: () => void } = {};
+
+  const App: React.FC = () => {
+    const modalState = useModalStateController();
+    const { workspaceHeight } = useLayoutMetrics();
+    const [frameIndex, setFrameIndex] = useState(0);
+    const frame = spinnerFrames[frameIndex % spinnerFrames.length] ?? "";
+
+    useEffect(() => {
+      const intervalId = setInterval(() => {
+        setFrameIndex((value) => value + 1);
+      }, intervalMs);
+      return () => clearInterval(intervalId);
+    }, [intervalMs]);
+
+    return (
+      <Layout
+        title={options.title ?? t("app.gitSyncTitle")}
+        orientation={options.orientation ?? t("tui.loading.orientation")}
+        parameters={options.parameters ?? []}
+        modalState={modalState}
+      >
+        <Box
+          flexDirection="column"
+          width="100%"
+          height={workspaceHeight}
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Text color="cyan">{`${frame} ${options.message}`}</Text>
+        </Box>
+      </Layout>
+    );
+  };
+
+  const { unmount } = render(<App />, options.renderOptions);
+  unmountRef.current = unmount;
+
+  return {
+    stop: () => {
+      if (unmountRef.current) {
+        unmountRef.current();
+      }
+    },
+  };
 };

@@ -13,6 +13,7 @@ await import("./ssh_key_overwrite_test.js");
 await import("./logger_transports_test.js");
 await import("./log_store_level_test.js");
 await import("./tui_render_test.js");
+await import("./tui_loading_screen_test.js");
 await import("./tui_stack_overflow_test.js");
 await import("./tui_menu_dashboard_test.js");
 await import("./gitlab_web_key_test.js");

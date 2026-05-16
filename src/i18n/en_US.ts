@@ -53,6 +53,10 @@ const enUS = {
       filterAll: "Showing all repositories.",
       filterSelected: "Showing only selected repositories.",
     },
+    loading: {
+      repositories: "Loading repositories...",
+      orientation: "Please wait while we query the servers | Esc to cancel",
+    },
   },
   session: {
     orientation: {
