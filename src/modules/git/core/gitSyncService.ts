@@ -650,6 +650,10 @@ export const createGitSyncCore = (): GitSyncCore => {
       const applyStatusToTree = (node: GitLabTreeNode): void => {
         if (node.type === "project" && node.project) {
           node.status = statusMap[node.project.id];
+          node.localPath = path.join(
+            config.baseDir,
+            resolvedPaths.get(node.project.id) ?? resolveProjectLocalPath(node.project)
+          );
           return;
         }
         node.children?.forEach((child) => applyStatusToTree(child));

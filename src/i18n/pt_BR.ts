@@ -47,9 +47,9 @@ const ptBR = {
     tree: {
       empty: "(Nenhum repositório encontrado)",
       orientationDefault:
-        "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para sincronizar | Esc para cancelar | C para filtrar selecionados | W para ampliar área de trabalho | L para ampliar log",
+        "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para sincronizar | Esc para cancelar | C para filtrar selecionados | B para branch | W para ampliar área de trabalho | L para ampliar log",
       orientationConfirm:
-        "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para confirmar seleção | Esc para cancelar | C para filtrar selecionados | W para ampliar área de trabalho | L para ampliar log",
+        "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para confirmar seleção | Esc para cancelar | C para filtrar selecionados | B para branch | W para ampliar área de trabalho | L para ampliar log",
       filterAll: "[DEBUG] Exibindo todos os repositórios.",
       filterSelected: "[DEBUG] Exibindo apenas repositórios marcados.",
     },
@@ -57,6 +57,19 @@ const ptBR = {
       repositories: "Carregando repositórios...",
       orientation: "Aguarde enquanto consultamos os servidores | Esc para cancelar",
     },
+  },
+  branchModal: {
+    title: "Selecionar branch",
+    hint: "Use ↑/↓ PgUp/PgDn para navegar | Enter para confirmar | Esc para cancelar",
+    hintCreate: "Digite o nome da branch e Enter para criar | Esc para cancelar",
+    empty: "Nenhuma branch local encontrada.",
+    createOption: "+ Criar nova branch",
+    newBranchLabel: "Nome da nova branch",
+    current: "{{branch}} (atual)",
+    listError: "Falha ao listar branches: {{error}}",
+    updateError: "Falha ao atualizar branch: {{error}}",
+    checkoutCommand: "[DEBUG] Checkout executado: {{command}}",
+    noLocalPath: "Repositório local não encontrado para seleção de branch.",
   },
   session: {
     orientation: {

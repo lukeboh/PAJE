@@ -51,6 +51,7 @@ export const buildGitLabTree = (
       label: resolvePathLabel(displayLabel),
       type: "project",
       project,
+      localPath: project.pajeOriginalPathWithNamespace ?? project.path_with_namespace,
       selected: false,
       partiallySelected: false,
     };

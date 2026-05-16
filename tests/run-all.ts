@@ -3,6 +3,7 @@ const globalBucket = globalThis as { __pajeTests?: Promise<void>[] };
 globalBucket.__pajeTests = [];
 await import("./git_tree_selection_test.js");
 await import("./git_parallel_sync_test.js");
+await import("./git_branch_service_test.js");
 await import("./git_command_helpers_test.js");
 await import("./git_command_select_server_test.js");
 await import("./ssh_config_test.js");

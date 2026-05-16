@@ -10,6 +10,7 @@ import type { GitLabTreeNode, RepoSyncStatus, RepoSyncState } from "./types.js";
 import type { TuiSession } from "./tuiSession.js";
 import { filterTreeBySelection } from "./treeBuilder.js";
 import { t } from "../../i18n/index.js";
+import { checkoutBranch, createBranchAndPush, listLocalBranches, resolveRepoStatus } from "./core/gitBranchService.js";
 
 export type TuiSelectionResult = {
   confirmed: boolean;
@@ -277,6 +278,11 @@ export const renderRepositoryTree = async (
       const [scrollOffset, setScrollOffset] = useState(0);
       const [showOnlySelected, setShowOnlySelected] = useState(false);
       const [visibleCount, setVisibleCount] = useState(1);
+      const [branchModalBranches, setBranchModalBranches] = useState<string[]>([]);
+      const [branchModalCurrent, setBranchModalCurrent] = useState<string | undefined>(undefined);
+      const [branchModalNodeId, setBranchModalNodeId] = useState<string | null>(null);
+      const [branchModalTargetPath, setBranchModalTargetPath] = useState<string | null>(null);
+      const [branchModalDefaultBranch, setBranchModalDefaultBranch] = useState<string | undefined>(undefined);
       const resolvedRef = useRef(false);
 
       const items = useMemo(() => {
@@ -344,6 +350,43 @@ export const renderRepositoryTree = async (
         setVersion((value: number) => value + 1);
       }, [items, selectedIndex, onToggle]);
 
+      const openBranchModal = useCallback(async () => {
+        const item = items[selectedIndex];
+        if (!item) {
+          return;
+        }
+        const resolveNode = (nodeList: GitLabTreeNode[]): GitLabTreeNode | undefined => {
+          for (const node of nodeList) {
+            if (node.id === item.id) {
+              return node;
+            }
+            const found = node.children ? resolveNode(node.children) : undefined;
+            if (found) {
+              return found;
+            }
+          }
+          return undefined;
+        };
+        const node = resolveNode(nodes);
+        if (!node || node.type !== "project" || !node.project) {
+          return;
+        }
+        if (!node.localPath) {
+          appendLogEntry(t("branchModal.noLocalPath"), "warn");
+          return;
+        }
+        const branches = await listLocalBranches(node.localPath).catch((error) => {
+          appendLogEntry(t("branchModal.listError", { error: error.message }), "error");
+          return [] as string[];
+        });
+        setBranchModalBranches(branches);
+        setBranchModalCurrent(node.status?.branch ?? node.project.default_branch);
+        setBranchModalNodeId(node.id);
+        setBranchModalTargetPath(node.localPath);
+        setBranchModalDefaultBranch(node.project.default_branch);
+        modalState.openModal("branch");
+      }, [items, selectedIndex, nodes, modalState]);
+
       const toggleSelectionFilter = useCallback(() => {
         setShowOnlySelected((value) => !value);
         setSelectedIndex(0);
@@ -357,6 +400,10 @@ export const renderRepositoryTree = async (
           const navigationKey = key as Key & { home?: boolean; end?: boolean };
           const lower = input.toLowerCase();
           if (lower === "p") {
+            return;
+          }
+          if (lower === "b") {
+            openBranchModal();
             return;
           }
           if (key.upArrow) {
@@ -442,6 +489,45 @@ export const renderRepositoryTree = async (
           orientation={orientation}
           parameters={parametersSnapshot}
           modalState={modalState}
+          branchModal={{
+            branches: branchModalBranches,
+            currentBranch: branchModalCurrent,
+            onConfirm: async (choice) => {
+              if (!branchModalTargetPath || !branchModalNodeId) {
+                return;
+              }
+              try {
+                if (choice.isNew) {
+                  await createBranchAndPush(branchModalTargetPath, choice.name);
+                } else {
+                  const checkoutCommand = await checkoutBranch(branchModalTargetPath, choice.name);
+                  appendLogEntry(t("branchModal.checkoutCommand", { command: checkoutCommand }), "debug");
+                }
+                const status = await resolveRepoStatus({
+                  targetPath: branchModalTargetPath,
+                  defaultBranch: branchModalDefaultBranch,
+                  fetch: true,
+                });
+                const visit = (node: GitLabTreeNode): boolean => {
+                  if (node.id === branchModalNodeId) {
+                    node.status = status;
+                    return true;
+                  }
+                  return (node.children ?? []).some((child) => visit(child));
+                };
+                nodes.some((node) => visit(node));
+                setVersion((value: number) => value + 1);
+              } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                appendLogEntry(t("branchModal.updateError", { error: message }), "error");
+              } finally {
+                modalState.closeModal();
+              }
+            },
+            onCancel: () => {
+              modalState.closeModal();
+            },
+          }}
           onEscape={() => {
             debugLogger.info("[TUI][TREE] onEscape -> commitResolve(false)");
             commitResolve(false);

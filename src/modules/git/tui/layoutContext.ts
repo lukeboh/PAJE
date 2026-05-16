@@ -13,30 +13,50 @@ export type PanelState = {
   resetPanels: () => void;
 };
 
+export type ModalType = "parameters" | "branch";
+
 export type ModalState = {
   modalOpen: boolean;
+  modalType?: ModalType;
   toggleModal: () => void;
+  openModal: (type: ModalType) => void;
   closeModal: () => void;
 };
 
 export const useModalStateController = (): ModalState => {
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<ModalType | undefined>(undefined);
 
   const toggleModal = (): void => {
-    setModalOpen((current) => !current);
+    setModalOpen((current) => {
+      if (current && modalType === "parameters") {
+        setModalType(undefined);
+        return false;
+      }
+      setModalType("parameters");
+      return true;
+    });
+  };
+
+  const openModal = (type: ModalType): void => {
+    setModalType(type);
+    setModalOpen(true);
   };
 
   const closeModal = (): void => {
+    setModalType(undefined);
     setModalOpen(false);
   };
 
   return useMemo(
     () => ({
       modalOpen,
+      modalType,
       toggleModal,
+      openModal,
       closeModal,
     }),
-    [modalOpen]
+    [modalOpen, modalType]
   );
 };
 
@@ -55,7 +75,9 @@ const PanelStateContext = createContext<PanelState>({
 
 const ModalStateContext = createContext<ModalState>({
   modalOpen: false,
+  modalType: undefined,
   toggleModal: () => undefined,
+  openModal: () => undefined,
   closeModal: () => undefined,
 });
 

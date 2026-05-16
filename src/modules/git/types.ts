@@ -38,6 +38,7 @@ export type GitLabTreeNode = {
   type: GitLabTreeNodeType;
   groupId?: number;
   project?: GitLabProject;
+  localPath?: string;
   children?: GitLabTreeNode[];
   selected?: boolean;
   partiallySelected?: boolean;

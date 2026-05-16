@@ -10,6 +10,7 @@ import { TitleBar } from "./components/TitleBar.js";
 import { Workspace } from "./components/Workspace.js";
 import { PanelFrame } from "./components/PanelFrame.js";
 import { ParametersModal } from "./components/ParametersModal.js";
+import { BranchModal, type BranchChoice } from "./components/BranchModal.js";
 import { t } from "../../../i18n/index.js";
 import { PajeLogger } from "../logger.js";
 
@@ -26,6 +27,12 @@ export type LayoutProps = {
   onEscape?: () => void;
   onCtrlC?: () => void;
   escapeEnabled?: boolean;
+  branchModal?: {
+    branches: string[];
+    currentBranch?: string;
+    onConfirm: (choice: BranchChoice) => void;
+    onCancel: () => void;
+  };
   children: React.ReactNode;
 };
 
@@ -49,6 +56,7 @@ export const Layout: React.FC<LayoutProps> = ({
   onEscape,
   onCtrlC,
   escapeEnabled = true,
+  branchModal,
   children,
 }) => {
   const panelState = usePanelStateController({
@@ -242,12 +250,24 @@ export const Layout: React.FC<LayoutProps> = ({
                   </Box>
                 </Box>
                 <Box position="absolute" marginLeft={modalLeft} marginTop={modalTop}>
-                  <ParametersModal
-                    isOpen={modalState.modalOpen}
-                    width={modalWidth}
-                    height={modalHeight}
-                    parameters={resolvedParameters}
-                  />
+                  {modalState.modalType === "branch" && branchModal ? (
+                    <BranchModal
+                      isOpen={modalState.modalOpen}
+                      width={modalWidth}
+                      height={modalHeight}
+                      branches={branchModal.branches}
+                      currentBranch={branchModal.currentBranch}
+                      onConfirm={branchModal.onConfirm}
+                      onCancel={branchModal.onCancel}
+                    />
+                  ) : (
+                    <ParametersModal
+                      isOpen={modalState.modalOpen}
+                      width={modalWidth}
+                      height={modalHeight}
+                      parameters={resolvedParameters}
+                    />
+                  )}
                 </Box>
               </>
             ) : null}

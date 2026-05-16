@@ -47,9 +47,9 @@ const enUS = {
     tree: {
       empty: "(No repositories found)",
       orientationDefault:
-        "Use ↑/↓ and PgUp/PgDn to navigate | Space to select | Enter to sync | Esc to cancel | C to filter selected | W to expand workspace | L to expand log",
+        "Use ↑/↓ and PgUp/PgDn to navigate | Space to select | Enter to sync | Esc to cancel | C to filter selected | B to branch | W to expand workspace | L to expand log",
       orientationConfirm:
-        "Use ↑/↓ and PgUp/PgDn to navigate | Space to select | Enter to confirm selection | Esc to cancel | C to filter selected | W to expand workspace | L to expand log",
+        "Use ↑/↓ and PgUp/PgDn to navigate | Space to select | Enter to confirm selection | Esc to cancel | C to filter selected | B to branch | W to expand workspace | L to expand log",
       filterAll: "[DEBUG] Showing all repositories.",
       filterSelected: "[DEBUG] Showing only selected repositories.",
     },
@@ -57,6 +57,19 @@ const enUS = {
       repositories: "Loading repositories...",
       orientation: "Please wait while we query the servers | Esc to cancel",
     },
+  },
+  branchModal: {
+    title: "Select branch",
+    hint: "Use ↑/↓ PgUp/PgDn to navigate | Enter to confirm | Esc to cancel",
+    hintCreate: "Type the branch name and Enter to create | Esc to cancel",
+    empty: "No local branches found.",
+    createOption: "+ Create new branch",
+    newBranchLabel: "New branch name",
+    current: "{{branch}} (current)",
+    listError: "Failed to list branches: {{error}}",
+    updateError: "Failed to update branch: {{error}}",
+    checkoutCommand: "[DEBUG] Checkout executed: {{command}}",
+    noLocalPath: "Local repository not found for branch selection.",
   },
   session: {
     orientation: {
