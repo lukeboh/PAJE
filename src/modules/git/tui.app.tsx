@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Box, Text, render, useInput, useStdout } from "ink";
+import { Box, Text, render, useInput } from "ink";
 import { PajeLogger } from "./logger.js";
 import type { Key } from "ink";
 import type { CommandParameters } from "./core/parameters.js";
 import { Layout } from "./tui/layout.js";
-import { useModalStateController } from "./tui/layoutContext.js";
+import { useLayoutMetrics, useModalStateController } from "./tui/layoutContext.js";
 import { appendLogEntry } from "./tui/logStore.js";
 import type { GitLabTreeNode, RepoSyncStatus, RepoSyncState } from "./types.js";
 import type { TuiSession } from "./tuiSession.js";
@@ -104,11 +104,6 @@ const flattenTree = (items: GitLabTreeNode[], progressMap: Map<string, ProgressS
   return output;
 };
 
-const computeMetrics = (terminalHeight: number, logMaximized: boolean): { workspaceHeight: number } => {
-  const logHeight = logMaximized ? Math.max(3, terminalHeight - 2) : Math.max(3, Math.floor(terminalHeight * 0.15));
-  const workspaceHeight = logMaximized ? 0 : Math.max(4, terminalHeight - 2 - logHeight);
-  return { workspaceHeight };
-};
 
 const TreeRowComponent: React.FC<{ item: FlatTreeItem; selected: boolean }> = (
   { item, selected }: { item: FlatTreeItem; selected: boolean }
@@ -204,6 +199,31 @@ const TreeList = React.memo(
     prev.workspaceHeight === next.workspaceHeight
 );
 
+const TreeListContainerComponent: React.FC<{
+  items: FlatTreeItem[];
+  selectedIndex: number;
+  scrollOffset: number;
+  onVisibleCountChange: (value: number) => void;
+}> = ({ items, selectedIndex, scrollOffset, onVisibleCountChange }) => {
+  const { workspaceHeight } = useLayoutMetrics();
+  const visibleCount = Math.max(1, workspaceHeight);
+
+  useEffect(() => {
+    onVisibleCountChange(visibleCount);
+  }, [visibleCount, onVisibleCountChange]);
+
+  return <TreeList items={items} selectedIndex={selectedIndex} scrollOffset={scrollOffset} workspaceHeight={workspaceHeight} />;
+};
+
+const TreeListContainer = React.memo(
+  TreeListContainerComponent,
+  (prev, next) =>
+    prev.items === next.items &&
+    prev.selectedIndex === next.selectedIndex &&
+    prev.scrollOffset === next.scrollOffset &&
+    prev.onVisibleCountChange === next.onVisibleCountChange
+);
+
 export type TuiTreeProgress = {
   updateProgress: (nodeId: string, text: string) => void;
   updateStatus: (nodeId: string, status: RepoSyncStatus) => void;
@@ -233,24 +253,17 @@ export const renderRepositoryTree = async (
     const unmountRef: { current?: () => void } = {};
 
     const App: React.FC = () => {
-      const { stdout } = useStdout();
-      const terminalHeight = stdout?.rows ?? 24;
       const parametersSnapshot = options?.parameters ?? [];
       const modalState = useModalStateController();
       const debugLogger = useMemo(() => new PajeLogger(), []);
-      const [logMaximized, setLogMaximized] = useState(false);
-      const [orientation, setOrientation] = useState(
-        options?.footer ?? t("tui.tree.orientationDefault")
-      );
+      const [orientation, setOrientation] = useState(options?.footer ?? t("tui.tree.orientationDefault"));
       const [version, setVersion] = useState(0);
       const progressMapRef = useRef<Map<string, ProgressSnapshot>>(new Map());
       const [selectedIndex, setSelectedIndex] = useState(0);
       const [scrollOffset, setScrollOffset] = useState(0);
       const [showOnlySelected, setShowOnlySelected] = useState(false);
+      const [visibleCount, setVisibleCount] = useState(1);
       const resolvedRef = useRef(false);
-
-      const { workspaceHeight } = computeMetrics(terminalHeight, logMaximized);
-      const visibleCount = Math.max(1, workspaceHeight);
 
       const items = useMemo(() => {
         const visibleNodes = showOnlySelected ? filterTreeBySelection(nodes) : nodes;
@@ -420,11 +433,11 @@ export const renderRepositoryTree = async (
             commitResolve(false);
           }}
         >
-          <TreeList
+          <TreeListContainer
             items={items}
             selectedIndex={selectedIndex}
             scrollOffset={scrollOffset}
-            workspaceHeight={workspaceHeight}
+            onVisibleCountChange={setVisibleCount}
           />
         </Layout>
       );
