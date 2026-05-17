@@ -10,7 +10,7 @@ const ptBR = {
     descriptionLabel: "Descrição",
     commandHint: "Comando: paje {{command}}",
     orientation:
-      "S/G para selecionar | Setas para navegar | Enter para confirmar | Esc para sair | W para ampliar área de trabalho | L para ampliar log",
+      "S/G para selecionar | Setas para navegar | Enter para confirmar | Esc para sair | W para ampliar área de trabalho | L para ampliar log | H para ajuda",
     log: {
       selectFeature: "[DEBUG] Selecione uma funcionalidade",
       selected: "[DEBUG] Selecionado: {{label}}",
@@ -43,19 +43,59 @@ const ptBR = {
       prompt: "PROMPT",
     },
   },
+  helpModal: {
+    title: "Ajuda do sistema",
+    hint: "Digite uma tecla para executar | Esc para fechar",
+    groups: {
+      global: "Atalhos globais",
+      menu: "Menu principal",
+      tree: "Árvore de repositórios",
+    },
+    state: {
+      default: "padrão",
+      maximized: "maximizado",
+    },
+    shortcuts: {
+      help: "abrir ajuda",
+      parameters: "abrir parâmetros carregados",
+      workspace: "alternar área de trabalho ({{state}})",
+      log: "alternar painel de log ({{state}})",
+      escape: "voltar/fechar modal",
+      ctrlC: "encerrar aplicação",
+      menu: {
+        gitSync: "selecionar git-sync",
+        gitServerStore: "selecionar git-server-store",
+        navHorizontal: "navegar entre cartões",
+        navVertical: "navegar entre cartões",
+        tab: "alternar seleção",
+        confirm: "confirmar seleção",
+        slot1: "selecionar 1º cartão",
+        slot2: "selecionar 2º cartão",
+      },
+      tree: {
+        navVertical: "navegar na lista",
+        navPage: "rolar página",
+        navEdge: "ir ao início/fim",
+        toggle: "marcar/desmarcar repositório",
+        confirm: "sincronizar seleção",
+        filter: "filtrar selecionados",
+        branch: "selecionar branch",
+      },
+    },
+  },
   tui: {
     tree: {
       empty: "(Nenhum repositório encontrado)",
       orientationDefault:
-        "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para sincronizar | Esc para cancelar | C para filtrar selecionados | B para branch | W para ampliar área de trabalho | L para ampliar log",
+        "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para sincronizar | Esc para cancelar | C para filtrar selecionados | B para branch | W para ampliar área de trabalho | L para ampliar log | H para ajuda",
       orientationConfirm:
-        "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para confirmar seleção | Esc para cancelar | C para filtrar selecionados | B para branch | W para ampliar área de trabalho | L para ampliar log",
+        "Use ↑/↓ e PgUp/PgDn para navegar | Espaço para selecionar | Enter para confirmar seleção | Esc para cancelar | C para filtrar selecionados | B para branch | W para ampliar área de trabalho | L para ampliar log | H para ajuda",
       filterAll: "[DEBUG] Exibindo todos os repositórios.",
       filterSelected: "[DEBUG] Exibindo apenas repositórios marcados.",
     },
     loading: {
       repositories: "Carregando repositórios...",
-      orientation: "Aguarde enquanto consultamos os servidores | Esc para cancelar",
+      orientation: "Aguarde enquanto consultamos os servidores | Esc para cancelar | H para ajuda",
     },
   },
   branchModal: {

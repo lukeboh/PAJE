@@ -118,6 +118,8 @@ await waitNextTick();
 
 pressKey("p");
 await waitForOutput((value) => value.includes("Parâmetros carregados") || value.includes("Loaded parameters"));
+pressKey("h");
+await waitForOutput((value) => value.includes("Ajuda do sistema") || value.includes("System help"));
 
 pressKey("w");
 await waitNextTick();

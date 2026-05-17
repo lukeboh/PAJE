@@ -25,7 +25,8 @@ Padronizar a experiência de navegação e mensagens da TUI em um layout de 4 pa
 
 ## Atalhos globais
 
-- **Esc**: fecha a modal de parâmetros quando aberta; se algum painel estiver maximizado, restaura o layout; caso contrário, volta para a tela anterior (sem confirmação adicional) e, no menu principal, encerra a aplicação.
+- **Esc**: fecha a modal de parâmetros/ajuda quando aberta; se algum painel estiver maximizado, restaura o layout; caso contrário, volta para a tela anterior (sem confirmação adicional) e, no menu principal, encerra a aplicação.
+- **H**: abre/fecha a modal de ajuda (shortcuts).
 - **P**: abre/fecha a modal de parâmetros carregados na execução atual.
 - **Ctrl+C**: encerra a TUI imediatamente.
 - **C**: alterna filtro para exibir apenas itens marcados na árvore (quando aplicável).
@@ -43,7 +44,7 @@ Padronizar a experiência de navegação e mensagens da TUI em um layout de 4 pa
 - O layout deve manter o título e a linha de orientação visíveis ao maximizar o log via F12.
 - A área de trabalho pode ser ocultada quando o log estiver maximizado.
 - O log pode ser ocultado quando a área de trabalho estiver maximizada via W.
-- A modal de parâmetros deve ser sobreposta ao layout, centralizada e bloquear atalhos globais enquanto estiver aberta.
+- A modal de parâmetros e a modal de ajuda devem ser sobrepostas ao layout, centralizadas e bloquear atalhos globais enquanto estiverem abertas.
 - Componentes reutilizáveis devem ser usados para título, orientação, workspace e log.
 
 ## Componentes atuais
@@ -54,3 +55,4 @@ Padronizar a experiência de navegação e mensagens da TUI em um layout de 4 pa
 - [`Workspace`](../src/modules/git/tui/components/Workspace.tsx:1)
 - [`LoggerPanel`](../src/modules/git/tui/components/LoggerPanel.tsx:1)
 - [`ParametersModal`](../src/modules/git/tui/components/ParametersModal.tsx:1)
+- [`HelpModal`](../src/modules/git/tui/components/HelpModal.tsx:1)

@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { useLogEntries } from "./logStore.js";
-import { Box, Text, useApp, useInput, useStdout } from "ink";
+import { Box, Text, useApp, useInput, useStdout, type Key } from "ink";
 import type { CommandParameters } from "../core/parameters.js";
 import type { LogEntry } from "./logger.js";
 import { LayoutMetricsProvider, ModalStateProvider, PanelStateProvider, useModalStateController, usePanelStateController } from "./layoutContext.js";
@@ -11,6 +11,7 @@ import { Workspace } from "./components/Workspace.js";
 import { PanelFrame } from "./components/PanelFrame.js";
 import { ParametersModal } from "./components/ParametersModal.js";
 import { BranchModal, type BranchChoice } from "./components/BranchModal.js";
+import { HelpModal, type HelpContext } from "./components/HelpModal.js";
 import { t } from "../../../i18n/index.js";
 import { PajeLogger } from "../logger.js";
 
@@ -33,6 +34,8 @@ export type LayoutProps = {
     onConfirm: (choice: BranchChoice) => void;
     onCancel: () => void;
   };
+  helpContext?: HelpContext;
+  onHelpShortcut?: (input: string, key: Key) => void;
   children: React.ReactNode;
 };
 
@@ -57,6 +60,8 @@ export const Layout: React.FC<LayoutProps> = ({
   onCtrlC,
   escapeEnabled = true,
   branchModal,
+  helpContext,
+  onHelpShortcut,
   children,
 }) => {
   const panelState = usePanelStateController({
@@ -197,6 +202,10 @@ export const Layout: React.FC<LayoutProps> = ({
       onEscape?.();
       return;
     }
+    if (isPlainLetter && lower === "h") {
+      modalState.openModal("help");
+      return;
+    }
     if (isPlainLetter && lower === "p") {
       modalState.toggleModal();
       return;
@@ -259,6 +268,17 @@ export const Layout: React.FC<LayoutProps> = ({
                       currentBranch={branchModal.currentBranch}
                       onConfirm={branchModal.onConfirm}
                       onCancel={branchModal.onCancel}
+                    />
+                  ) : modalState.modalType === "help" ? (
+                    <HelpModal
+                      isOpen={modalState.modalOpen}
+                      width={modalWidth}
+                      height={modalHeight}
+                      context={helpContext ?? "menu"}
+                      logMaximized={panelState.logMaximized}
+                      workspaceMaximized={panelState.workspaceMaximized}
+                      onClose={() => modalState.closeModal()}
+                      onShortcut={(input, key) => onHelpShortcut?.(input, key)}
                     />
                   ) : (
                     <ParametersModal

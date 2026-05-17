@@ -155,7 +155,7 @@ export const renderMenu = async (
               debugLogger.info(`[TUI][MENU] escapeEnabled=true (input) instance=${instanceId}`);
             }
           }
-          if (normalizedInput === "p") {
+          if (normalizedInput === "p" || normalizedInput === "h") {
             return;
           }
           if (normalizedInput === "s") {
@@ -223,6 +223,63 @@ export const renderMenu = async (
           parameters={parametersSnapshot}
           modalState={modalState}
           escapeEnabled={escapeEnabled}
+          helpContext="menu"
+          onHelpShortcut={(input, key) => {
+            const normalizedInput = input.toLowerCase();
+            if (normalizedInput === "s") {
+              const selected = items[0];
+              if (selected) {
+                appendLog(t("menu.log.selected", { label: selected.label }));
+                finalize(selected);
+              }
+              return;
+            }
+            if (normalizedInput === "g") {
+              const selected = items[clampIndex(1)];
+              if (selected) {
+                appendLog(t("menu.log.selected", { label: selected.label }));
+                finalize(selected);
+              }
+              return;
+            }
+            if (key.leftArrow || key.upArrow) {
+              setSelectedIndex((value: number) => {
+                const nextIndex = clampIndex(value - 1);
+                const selected = items[nextIndex];
+                if (selected) {
+                  appendLog(t("menu.log.selected", { label: selected.label }));
+                }
+                return nextIndex;
+              });
+            }
+            if (key.rightArrow || key.downArrow || key.tab) {
+              setSelectedIndex((value: number) => {
+                const nextIndex = clampIndex(value + 1);
+                const selected = items[nextIndex];
+                if (selected) {
+                  appendLog(t("menu.log.selected", { label: selected.label }));
+                }
+                return nextIndex;
+              });
+            }
+            if (key.return) {
+              finalize(items[clampIndex(selectedIndex)] ?? null);
+            }
+            if (normalizedInput === "1") {
+              setSelectedIndex(0);
+              const selected = items[0];
+              if (selected) {
+                appendLog(t("menu.log.selected", { label: selected.label }));
+              }
+            }
+            if (normalizedInput === "2") {
+              setSelectedIndex(clampIndex(1));
+              const selected = items[clampIndex(1)];
+              if (selected) {
+                appendLog(t("menu.log.selected", { label: selected.label }));
+              }
+            }
+          }}
           onEscape={() => {
             debugLogger.info(`[TUI][MENU] onEscape -> finalize(null) instance=${instanceId}`);
             finalize(null);

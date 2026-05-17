@@ -10,7 +10,7 @@ const enUS = {
     descriptionLabel: "Description",
     commandHint: "Command: paje {{command}}",
     orientation:
-      "S/G to select | Arrows to navigate | Enter to confirm | Esc to exit | W to expand workspace | L to expand log",
+      "S/G to select | Arrows to navigate | Enter to confirm | Esc to exit | W to expand workspace | L to expand log | H for help",
     log: {
       selectFeature: "[DEBUG] Select a feature",
       selected: "[DEBUG] Selected: {{label}}",
@@ -43,19 +43,59 @@ const enUS = {
       prompt: "PROMPT",
     },
   },
+  helpModal: {
+    title: "System help",
+    hint: "Press a shortcut to execute | Esc to close",
+    groups: {
+      global: "Global shortcuts",
+      menu: "Main menu",
+      tree: "Repository tree",
+    },
+    state: {
+      default: "default",
+      maximized: "maximized",
+    },
+    shortcuts: {
+      help: "open help",
+      parameters: "open loaded parameters",
+      workspace: "toggle workspace ({{state}})",
+      log: "toggle log panel ({{state}})",
+      escape: "back/close modal",
+      ctrlC: "exit application",
+      menu: {
+        gitSync: "select git-sync",
+        gitServerStore: "select git-server-store",
+        navHorizontal: "navigate between cards",
+        navVertical: "navigate between cards",
+        tab: "toggle selection",
+        confirm: "confirm selection",
+        slot1: "select 1st card",
+        slot2: "select 2nd card",
+      },
+      tree: {
+        navVertical: "navigate list",
+        navPage: "page scroll",
+        navEdge: "go to start/end",
+        toggle: "select/deselect repository",
+        confirm: "sync selection",
+        filter: "filter selected",
+        branch: "select branch",
+      },
+    },
+  },
   tui: {
     tree: {
       empty: "(No repositories found)",
       orientationDefault:
-        "Use ↑/↓ and PgUp/PgDn to navigate | Space to select | Enter to sync | Esc to cancel | C to filter selected | B to branch | W to expand workspace | L to expand log",
+        "Use ↑/↓ and PgUp/PgDn to navigate | Space to select | Enter to sync | Esc to cancel | C to filter selected | B to branch | W to expand workspace | L to expand log | H for help",
       orientationConfirm:
-        "Use ↑/↓ and PgUp/PgDn to navigate | Space to select | Enter to confirm selection | Esc to cancel | C to filter selected | B to branch | W to expand workspace | L to expand log",
+        "Use ↑/↓ and PgUp/PgDn to navigate | Space to select | Enter to confirm selection | Esc to cancel | C to filter selected | B to branch | W to expand workspace | L to expand log | H for help",
       filterAll: "[DEBUG] Showing all repositories.",
       filterSelected: "[DEBUG] Showing only selected repositories.",
     },
     loading: {
       repositories: "Loading repositories...",
-      orientation: "Please wait while we query the servers | Esc to cancel",
+      orientation: "Please wait while we query the servers | Esc to cancel | H for help",
     },
   },
   branchModal: {

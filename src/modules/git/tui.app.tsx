@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Box, Text, render, useInput, type RenderOptions } from "ink";
+import { Box, Text, render, useInput, type RenderOptions, type Key } from "ink";
 import { PajeLogger } from "./logger.js";
-import type { Key } from "ink";
 import type { CommandParameters } from "./core/parameters.js";
 import { Layout } from "./tui/layout.js";
 import { useLayoutMetrics, useModalStateController } from "./tui/layoutContext.js";
@@ -489,6 +488,53 @@ export const renderRepositoryTree = async (
           orientation={orientation}
           parameters={parametersSnapshot}
           modalState={modalState}
+          helpContext="tree"
+          onHelpShortcut={(input, key) => {
+            const lower = input.toLowerCase();
+            if (lower === "b") {
+              openBranchModal();
+              return;
+            }
+            if (lower === "c") {
+              toggleSelectionFilter();
+              return;
+            }
+            if (key.upArrow) {
+              const nextIndex = Math.max(0, selectedIndex - 1);
+              setSelectedIndex(nextIndex);
+              ensureVisible(nextIndex);
+            }
+            if (key.downArrow) {
+              const nextIndex = Math.min(items.length - 1, selectedIndex + 1);
+              setSelectedIndex(nextIndex);
+              ensureVisible(nextIndex);
+            }
+            if (key.pageUp) {
+              const nextIndex = Math.max(0, selectedIndex - visibleCount);
+              setSelectedIndex(nextIndex);
+              ensureVisible(nextIndex);
+            }
+            if (key.pageDown) {
+              const nextIndex = Math.min(items.length - 1, selectedIndex + visibleCount);
+              setSelectedIndex(nextIndex);
+              ensureVisible(nextIndex);
+            }
+            if ((key as Key & { home?: boolean }).home) {
+              setSelectedIndex(0);
+              setScrollOffset(0);
+            }
+            if ((key as Key & { end?: boolean }).end) {
+              const lastIndex = Math.max(0, items.length - 1);
+              setSelectedIndex(lastIndex);
+              setScrollOffset(Math.max(0, lastIndex - visibleCount + 1));
+            }
+            if (input === " ") {
+              toggleSelected();
+            }
+            if (key.return) {
+              commitResolve(true);
+            }
+          }}
           branchModal={{
             branches: branchModalBranches,
             currentBranch: branchModalCurrent,
@@ -572,6 +618,8 @@ export const renderLoadingScreen = (options: LoadingScreenOptions): LoadingScree
         orientation={options.orientation ?? t("tui.loading.orientation")}
         parameters={options.parameters ?? []}
         modalState={modalState}
+        helpContext="loading"
+        onHelpShortcut={() => undefined}
       >
         <Box
           flexDirection="column"
